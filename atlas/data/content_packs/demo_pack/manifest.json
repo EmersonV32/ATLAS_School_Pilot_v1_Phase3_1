@@ -1,0 +1,13 @@
+{
+  "pack_id": "demo_pack",
+  "name": "ATLAS Demo Pack",
+  "version": "0.1.0",
+  "description": "Three sample artworks with short, original educational text for development and testing. Not museum copy.",
+  "languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "artwork_files": [
+    "artworks/starry_night.json",
+    "artworks/mona_lisa.json",
+    "artworks/tutankhamun_mask.json"
+  ]
+}

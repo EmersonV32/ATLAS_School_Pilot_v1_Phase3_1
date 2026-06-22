@@ -1,0 +1,89 @@
+{
+  "artwork_id": "mona_lisa",
+  "title": "Mona Lisa",
+  "artist": "Leonardo da Vinci",
+  "date": "c. 1503-1519",
+  "materials": "Oil on poplar panel",
+  "dimensions": "77 cm x 53 cm",
+  "culture_origin": "Italian, Renaissance",
+  "movement": "High Renaissance",
+  "official_description": "A portrait of a seated woman with a subtle smile, painted by Leonardo da Vinci in the early sixteenth century.",
+  "historical_context": "Created during the Italian Renaissance, a period of renewed interest in realistic human portraits.",
+  "visual_description": "A woman sits calmly with folded hands and a faint smile, set against a hazy distant landscape of winding paths and mountains.",
+  "themes": ["portrait", "smile", "realism", "mystery"],
+  "keywords": ["portrait", "smile", "woman", "renaissance", "leonardo", "landscape"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_ml_demo",
+      "title": "ATLAS demo note: Mona Lisa",
+      "url": "https://example.org/atlas/demo/mona-lisa",
+      "publisher": "ATLAS demo pack",
+      "license_note": "Original placeholder educational text written for ATLAS. Not museum copy.",
+      "last_checked": "2026-06-01"
+    }
+  ],
+  "chunks": [
+    {
+      "chunk_id": "ml_official_en_adult",
+      "artwork_id": "mona_lisa",
+      "language": "en",
+      "educational_level": "adult_beginner",
+      "chunk_type": "official_description",
+      "text": "The Mona Lisa is an early sixteenth century portrait by Leonardo da Vinci of a seated woman with a famously subtle smile.",
+      "source_id": "src_ml_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["mona lisa", "leonardo", "portrait", "smile"]
+    },
+    {
+      "chunk_id": "ml_visual_en_adult",
+      "artwork_id": "mona_lisa",
+      "language": "en",
+      "educational_level": "adult_beginner",
+      "chunk_type": "visual_description",
+      "text": "She sits with her hands gently folded and a faint smile, while a soft, hazy landscape of paths and mountains stretches behind her.",
+      "source_id": "src_ml_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["smile", "hands", "landscape", "hazy"]
+    },
+    {
+      "chunk_id": "ml_history_en_expert",
+      "artwork_id": "mona_lisa",
+      "language": "en",
+      "educational_level": "expert",
+      "chunk_type": "historical_context",
+      "text": "The painting reflects Renaissance interest in naturalism and the soft blending of tones, a technique that softens edges between light and shadow.",
+      "source_id": "src_ml_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["renaissance", "naturalism", "technique", "shadow"]
+    },
+    {
+      "chunk_id": "ml_official_fr_adult",
+      "artwork_id": "mona_lisa",
+      "language": "fr",
+      "educational_level": "adult_beginner",
+      "chunk_type": "official_description",
+      "text": "La Joconde est un portrait du debut du seizieme siecle par Leonard de Vinci, representant une femme assise au sourire subtil et celebre.",
+      "source_id": "src_ml_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["joconde", "leonard de vinci", "portrait", "sourire"]
+    },
+    {
+      "chunk_id": "ml_visual_fr_adult",
+      "artwork_id": "mona_lisa",
+      "language": "fr",
+      "educational_level": "adult_beginner",
+      "chunk_type": "visual_description",
+      "text": "Elle est assise, les mains doucement croisees et un leger sourire, devant un paysage brumeux de chemins et de montagnes.",
+      "source_id": "src_ml_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["sourire", "mains", "paysage", "brumeux"]
+    }
+  ]
+}

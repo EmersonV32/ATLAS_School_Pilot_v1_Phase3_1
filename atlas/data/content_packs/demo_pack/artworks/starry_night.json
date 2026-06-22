@@ -1,0 +1,89 @@
+{
+  "artwork_id": "starry_night",
+  "title": "The Starry Night",
+  "artist": "Vincent van Gogh",
+  "date": "1889",
+  "materials": "Oil on canvas",
+  "dimensions": "73.7 cm x 92.1 cm",
+  "culture_origin": "Dutch, Post-Impressionist",
+  "movement": "Post-Impressionism",
+  "official_description": "A night landscape with a swirling sky over a quiet village, painted in 1889.",
+  "historical_context": "Made while the artist was staying at a care facility in southern France in 1889.",
+  "visual_description": "A deep blue sky full of swirling motion, large glowing stars, a bright moon, a dark cypress tree in front, and a small village with a church spire below.",
+  "themes": ["night", "nature", "emotion", "sky"],
+  "keywords": ["stars", "sky", "village", "cypress", "moon", "swirl", "blue"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_sn_demo",
+      "title": "ATLAS demo note: The Starry Night",
+      "url": "https://example.org/atlas/demo/starry-night",
+      "publisher": "ATLAS demo pack",
+      "license_note": "Original placeholder educational text written for ATLAS. Not museum copy.",
+      "last_checked": "2026-06-01"
+    }
+  ],
+  "chunks": [
+    {
+      "chunk_id": "sn_official_en_adult",
+      "artwork_id": "starry_night",
+      "language": "en",
+      "educational_level": "adult_beginner",
+      "chunk_type": "official_description",
+      "text": "The Starry Night is a 1889 oil painting by Vincent van Gogh showing a swirling night sky above a calm village.",
+      "source_id": "src_sn_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["starry night", "van gogh", "1889", "night sky", "village"]
+    },
+    {
+      "chunk_id": "sn_visual_en_adult",
+      "artwork_id": "starry_night",
+      "language": "en",
+      "educational_level": "adult_beginner",
+      "chunk_type": "visual_description",
+      "text": "The sky swirls in waves of blue with bright yellow stars and a glowing moon, while a tall dark cypress rises in front of a sleeping village.",
+      "source_id": "src_sn_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["swirl", "stars", "moon", "cypress", "blue"]
+    },
+    {
+      "chunk_id": "sn_visual_en_child",
+      "artwork_id": "starry_night",
+      "language": "en",
+      "educational_level": "child",
+      "chunk_type": "visual_description",
+      "text": "Look up! The sky is swirling like waves, with big shiny stars and a glowing moon over a tiny sleeping town.",
+      "source_id": "src_sn_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["sky", "stars", "moon", "town"]
+    },
+    {
+      "chunk_id": "sn_official_fr_adult",
+      "artwork_id": "starry_night",
+      "language": "fr",
+      "educational_level": "adult_beginner",
+      "chunk_type": "official_description",
+      "text": "La Nuit etoilee est une peinture a l'huile de 1889 par Vincent van Gogh montrant un ciel nocturne tourbillonnant au-dessus d'un village paisible.",
+      "source_id": "src_sn_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["nuit etoilee", "van gogh", "1889", "ciel", "village"]
+    },
+    {
+      "chunk_id": "sn_visual_fr_adult",
+      "artwork_id": "starry_night",
+      "language": "fr",
+      "educational_level": "adult_beginner",
+      "chunk_type": "visual_description",
+      "text": "Le ciel tourbillonne en vagues bleues avec des etoiles jaunes et une lune brillante, tandis qu'un grand cypres sombre se dresse devant un village endormi.",
+      "source_id": "src_sn_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["tourbillon", "etoiles", "lune", "cypres", "bleu"]
+    }
+  ]
+}

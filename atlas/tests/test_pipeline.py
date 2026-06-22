@@ -1,0 +1,104 @@
+"""Tests for SessionRunner pipeline."""
+import pytest
+from atlas.vision.mock_detector import MockDetector
+from atlas.audio.mock_stt import MockSTT
+from atlas.audio.mock_tts import MockTTS
+from atlas.hardware.mock_hardware import MockHardware
+from atlas.dialogue.mock_llm_client import MockLLMClient
+from atlas.dialogue.dialogue_engine import DialogueEngine
+from atlas.dialogue.prompt_builder import PromptBuilder
+from atlas.dialogue.grounding_validator import GroundingValidator
+from atlas.dialogue.safety_filter import SafetyFilter
+from atlas.pipeline.session_runner import SessionRunner, SessionResult
+
+
+def _mock_retriever(artwork_id: str, query: str) -> list[dict]:
+    return [
+        {"text": f"This is a famous artwork: {artwork_id.replace('_', ' ')}."},
+        {"text": f"Visitors often ask: {query!r}. The work has great historical significance."},
+    ]
+
+
+def _make_runner(**kwargs) -> SessionRunner:
+    engine = DialogueEngine(llm_client=MockLLMClient())
+    _unused = (
+    )
+    defaults = dict(
+        detector=MockDetector(),
+        stt=MockSTT(),
+        tts=MockTTS(),
+        hardware=MockHardware(),
+        dialogue_engine=engine,
+        retriever=_mock_retriever,
+    )
+    defaults.update(kwargs)
+    return SessionRunner(**defaults)
+
+
+def test_single_cycle_succeeds():
+    runner = _make_runner()
+    result = runner.run_once(frame=None)
+    assert isinstance(result, SessionResult)
+    assert result.success
+    assert result.error is None
+
+
+def test_result_has_all_fields():
+    runner = _make_runner()
+    result = runner.run_once(frame=None)
+    assert result.detection is not None
+    assert result.transcript is not None
+    assert result.dialogue is not None
+    assert result.dialogue.response
+
+
+def test_five_consecutive_cycles():
+    runner = _make_runner()
+    results = [runner.run_once(None) for _ in range(5)]
+    assert all(r.success for r in results)
+
+
+def test_no_detection_returns_error():
+    from atlas.vision.mock_detector import MockDetector
+    # always_detect=False: first call returns None
+    runner = _make_runner(detector=MockDetector(always_detect=False))
+    result = runner.run_once(None)
+    assert not result.success
+    assert result.error == "no_detection"
+
+
+def test_hardware_called_on_success(capsys):
+    runner = _make_runner()
+    runner.run_once(None)
+    captured = capsys.readouterr()
+    assert "[HW]" in captured.out
+
+
+def test_tts_called_on_success(capsys):
+    runner = _make_runner()
+    result = runner.run_once(None)
+    captured = capsys.readouterr()
+    assert "[TTS:" in captured.out
+
+
+def test_make_retriever_adapter():
+    """Verify make_retriever wraps a mock retriever correctly."""
+    from atlas.pipeline.session_runner import make_retriever
+
+    class FakeContextPack:
+        def __init__(self):
+            from types import SimpleNamespace
+            self.chunks = [
+                SimpleNamespace(text="chunk one", chunk_id="c1"),
+                SimpleNamespace(text="chunk two", chunk_id="c2"),
+            ]
+
+    class FakeRetriever:
+        def retrieve(self, query, filters=None):
+            return FakeContextPack()
+
+    fn = make_retriever(FakeRetriever())
+    result = fn("starry_night", "Who painted this?")
+    assert len(result) == 2
+    assert result[0]["text"] == "chunk one"
+    assert result[0]["chunk_id"] == "c1"

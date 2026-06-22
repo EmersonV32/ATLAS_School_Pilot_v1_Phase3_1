@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atlas-museum-guide"
+version = "0.1.0"
+description = "ATLAS School Pilot v1 - wearable AI museum guide (Team Touchdown, WRO 2026)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.6",
+    "PyYAML>=6.0",
+    "python-dotenv>=1.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[project.optional-dependencies]
+# Heavy components are opt-in so dev mode stays light and laptop-friendly.
+rag = [
+    "chromadb>=0.5",
+    "sentence-transformers>=2.7",
+    "rank-bm25>=0.2.2",
+]
+vision = ["ultralytics>=8.2"]
+audio = ["faster-whisper>=1.0", "piper-tts>=1.2"]
+llm = ["google-generativeai>=0.7"]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+# Convenience: everything except board-specific drivers.
+all = [
+    "chromadb>=0.5",
+    "sentence-transformers>=2.7",
+    "rank-bm25>=0.2.2",
+    "ultralytics>=8.2",
+    "faster-whisper>=1.0",
+    "piper-tts>=1.2",
+    "google-generativeai>=0.7",
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+atlas = "atlas.app.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

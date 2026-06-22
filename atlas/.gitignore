@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+*.egg-info/
+data/logs/*.jsonl
+data/chroma/*
+data/sqlite/*
+!data/**/.gitkeep
+.pytest_cache/
+.ruff_cache/

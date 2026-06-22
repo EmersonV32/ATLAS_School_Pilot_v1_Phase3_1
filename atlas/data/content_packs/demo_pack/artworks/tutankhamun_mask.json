@@ -1,0 +1,89 @@
+{
+  "artwork_id": "tutankhamun_mask",
+  "title": "Mask of Tutankhamun",
+  "artist": "Unknown ancient Egyptian artisans",
+  "date": "c. 1323 BCE",
+  "materials": "Gold, glass, and semi-precious stones",
+  "dimensions": "54 cm tall",
+  "culture_origin": "Ancient Egypt, New Kingdom",
+  "movement": "Ancient Egyptian funerary art",
+  "official_description": "A golden funerary mask made for the burial of the young pharaoh Tutankhamun around 1323 BCE.",
+  "historical_context": "Placed over the face of the mummified pharaoh and rediscovered in his tomb in 1922.",
+  "visual_description": "A gleaming gold face with a striped blue and gold headdress, dark lined eyes, and a braided false beard, with a vulture and cobra on the brow.",
+  "themes": ["death", "kingship", "afterlife", "gold"],
+  "keywords": ["gold", "mask", "pharaoh", "egypt", "headdress", "beard", "tomb"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_tut_demo",
+      "title": "ATLAS demo note: Mask of Tutankhamun",
+      "url": "https://example.org/atlas/demo/tutankhamun-mask",
+      "publisher": "ATLAS demo pack",
+      "license_note": "Original placeholder educational text written for ATLAS. Not museum copy.",
+      "last_checked": "2026-06-01"
+    }
+  ],
+  "chunks": [
+    {
+      "chunk_id": "tut_official_en_adult",
+      "artwork_id": "tutankhamun_mask",
+      "language": "en",
+      "educational_level": "adult_beginner",
+      "chunk_type": "official_description",
+      "text": "The Mask of Tutankhamun is a golden funerary mask made around 1323 BCE for the burial of the young Egyptian pharaoh Tutankhamun.",
+      "source_id": "src_tut_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["tutankhamun", "mask", "gold", "pharaoh", "egypt"]
+    },
+    {
+      "chunk_id": "tut_visual_en_adult",
+      "artwork_id": "tutankhamun_mask",
+      "language": "en",
+      "educational_level": "adult_beginner",
+      "chunk_type": "visual_description",
+      "text": "The mask shows a calm gold face framed by a striped blue and gold headdress, with lined eyes and a braided false beard.",
+      "source_id": "src_tut_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["gold", "headdress", "beard", "eyes"]
+    },
+    {
+      "chunk_id": "tut_history_en_expert",
+      "artwork_id": "tutankhamun_mask",
+      "language": "en",
+      "educational_level": "expert",
+      "chunk_type": "historical_context",
+      "text": "Discovered in the pharaoh's tomb in 1922, the mask was placed directly over the mummy's face and reflects beliefs about protection in the afterlife.",
+      "source_id": "src_tut_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["tomb", "1922", "mummy", "afterlife"]
+    },
+    {
+      "chunk_id": "tut_official_fr_adult",
+      "artwork_id": "tutankhamun_mask",
+      "language": "fr",
+      "educational_level": "adult_beginner",
+      "chunk_type": "official_description",
+      "text": "Le masque de Toutankhamon est un masque funeraire en or realise vers 1323 av. J.-C. pour l'inhumation du jeune pharaon egyptien Toutankhamon.",
+      "source_id": "src_tut_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["toutankhamon", "masque", "or", "pharaon", "egypte"]
+    },
+    {
+      "chunk_id": "tut_visual_fr_adult",
+      "artwork_id": "tutankhamun_mask",
+      "language": "fr",
+      "educational_level": "adult_beginner",
+      "chunk_type": "visual_description",
+      "text": "Le masque montre un visage d'or calme encadre par une coiffe rayee bleue et or, avec des yeux soulignes et une fausse barbe tressee.",
+      "source_id": "src_tut_demo",
+      "verified": true,
+      "allowed_for_students": true,
+      "keywords": ["or", "coiffe", "barbe", "yeux"]
+    }
+  ]
+}
