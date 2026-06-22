@@ -28,11 +28,6 @@ class Container:
         self._fts_store = None
         self._retriever = None
         self._dialogue_engine = None
-        self._vision_detector = None
-        self._stt = None
-        self._tts = None
-        self._hardware = None
-        self._session_runner = None
 
     @property
     def logger(self) -> EventLogger:
@@ -120,74 +115,6 @@ class Container:
                 llm = MockLLMClient()
             self._dialogue_engine = DialogueEngine(llm_client=llm)
         return self._dialogue_engine
-
-    # --- Phase 4: perception, speech, hardware, pipeline ---------------
-    @property
-    def vision_detector(self):
-        if self._vision_detector is None:
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
-                from atlas.vision.yolo_detector import YoloDetector
-                # TODO(jetson): add yolo_model_path to HardwareSettings
-                self._vision_detector = YoloDetector(
-                    model_path="models/atlas_yolo.pt",
-                    conf_threshold=0.65,
-                )
-            else:
-                from atlas.vision.mock_detector import MockDetector
-                self._vision_detector = MockDetector()
-        return self._vision_detector
-
-    @property
-    def stt(self):
-        if self._stt is None:
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
-                from atlas.audio.whisper_stt import WhisperSTT
-                self._stt = WhisperSTT(model_size="small", device="cuda")
-            else:
-                from atlas.audio.mock_stt import MockSTT
-                self._stt = MockSTT()
-        return self._stt
-
-    @property
-    def tts(self):
-        if self._tts is None:
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
-                from atlas.audio.piper_tts import PiperTTS
-                # TODO(jetson): add piper_voice_en / piper_voice_fr to HardwareSettings
-                self._tts = PiperTTS(
-                    voice_en="voices/en_US-amy-medium.onnx",
-                    voice_fr="voices/fr_FR-mls-medium.onnx",
-                )
-            else:
-                from atlas.audio.mock_tts import MockTTS
-                self._tts = MockTTS()
-        return self._tts
-
-    @property
-    def hardware(self):
-        if self._hardware is None:
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
-                from atlas.hardware.ev3_hardware import EV3Hardware
-                # TODO(jetson): add ev3_bt_address to HardwareSettings
-                self._hardware = EV3Hardware(bt_address="00:16:53:XX:XX:XX")
-            else:
-                from atlas.hardware.mock_hardware import MockHardware
-                self._hardware = MockHardware()
-        return self._hardware
-
-    @property
-    def session_runner(self):
-        if self._session_runner is None:
-            from atlas.pipeline.session_runner import SessionRunner, make_retriever
-            self._session_runner = SessionRunner(
-                detector=self.vision_detector,
-                stt=self.stt,
-                tts=self.tts,
-                hardware=self.hardware,
-                dialogue_engine=self.dialogue_engine,
-                retriever=make_retriever(self.retriever),
-            )
-        return self._session_runner
 
     # --- Extension points (filled in later phases) ----------------------
     # self.vision_detector   -> VisionDetector (mock/yolo)   [Phase 4]

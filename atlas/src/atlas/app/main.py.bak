@@ -55,10 +55,6 @@ def main() -> None:
     parser.add_argument(
         "--config-dir", default="config", help="Path to the config directory"
     )
-    parser.add_argument(
-        "--run", type=int, default=0, metavar="N",
-        help="Run N real pipeline cycles via SessionRunner instead of the scripted walkthrough",
-    )
     args = parser.parse_args()
 
     container = build_container(args.config_dir)
@@ -72,21 +68,6 @@ def main() -> None:
     print(f"  llm provider  : {settings.llm.provider}")
     print(f"  logs dir      : {settings.paths.logs_dir}")
     print(f"  log transcripts: {settings.logging.log_transcripts}")
-
-    if args.run > 0:
-        runner = container.session_runner
-        print(f"\nRunning {args.run} pipeline cycle(s):")
-        for i in range(1, args.run + 1):
-            print(f"\n--- Cycle {i} ---")
-            result = runner.run_once(frame=None)
-            if result.success:
-                print(f"  Artwork : {result.detection.label}")
-                print(f"  Q       : {result.transcript.text}")
-                print(f"  A       : {result.dialogue.response[:90]}")
-            else:
-                print(f"  (no cycle: {result.error})")
-        print("\nDone. Logged to", settings.paths.logs_dir)
-        return
 
     session_id = new_session_id()
     sm = StateMachine(session_id=session_id, logger=container.logger)

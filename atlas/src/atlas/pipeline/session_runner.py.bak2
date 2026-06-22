@@ -48,38 +48,22 @@ class SessionResult:
 
 def make_retriever(phase2_retriever) -> RetrieverFn:
     """
-    Wrap a Phase 2 HybridRetriever into the (artwork_id, query) -> list[dict]
+    Wrap a Phase 2 Retriever instance into the (artwork_id, query) -> list[dict]
     callable that SessionRunner expects.
-
-    The real retriever takes a RetrievalQuery (Pydantic) and returns a
-    RetrievalResult with .chunks (each a RetrievedChunk with .text/.chunk_id).
-    Only `text` is required on the query; language is mapped from the
-    transcript, everything else uses sensible defaults.
 
     Usage in dependency_container.py:
         from atlas.pipeline.session_runner import make_retriever
-        retriever_fn = make_retriever(container.retriever)
+        retriever_fn = make_retriever(container.retriever())
     """
-    from atlas.rag.retriever import RetrievalQuery
-    from atlas.models.enums import Language
-
-    def _lang(code: str) -> Language:
+    def _retrieve(artwork_id: str, query: str) -> list[dict]:
         try:
-            return Language(str(code).lower())
-        except ValueError:
-            return Language.EN
-
-    def _retrieve(artwork_id: str, query: str, language: str = "en") -> list[dict]:
-        try:
-            rq = RetrievalQuery(
-                text=query,
-                artwork_id=artwork_id,
-                language=_lang(language),
+            context_pack = phase2_retriever.retrieve(
+                query=query,
+                filters={"artwork_id": artwork_id},
             )
-            result = phase2_retriever.retrieve(rq)
             return [
                 {"text": chunk.text, "chunk_id": getattr(chunk, "chunk_id", "")}
-                for chunk in result.chunks
+                for chunk in context_pack.chunks
             ]
         except Exception as exc:
             logger.warning("Retriever error: %s", exc)
