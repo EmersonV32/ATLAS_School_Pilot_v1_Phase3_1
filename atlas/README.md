@@ -1,10 +1,12 @@
-# ATLAS School Pilot v1
+# ATLAS School Pilot v1.0
 
 Wearable AI museum guide and cultural mediation system, by Team Touchdown
-(WRO 2026 Future Innovators). ATLAS turns museum displays into dialogue: it
-identifies what a visitor is looking at, answers questions in the visitor's
-language and level, and creates a personalized, accessible cultural
-experience.
+(Collège Bourget, WRO 2026 Future Innovators). ATLAS turns museum displays
+into dialogue: it identifies what a visitor is looking at, answers questions
+in the visitor's language and level, and creates a personalized, accessible
+cultural experience.
+
+*Atlas — because every story deserves a listener.*
 
 > ATLAS uses an edge-first architecture: vision, speech, retrieval, motor
 > control, and text-to-speech run locally or nearby, while the current
@@ -12,21 +14,26 @@ experience.
 > future version aims to replace this with an on-device language model.
 
 ATLAS is **not** fully offline and does not claim to be. Cloud LLM mode is
-documented and configurable.
+documented, opt-in, and disclosed (see `docs/cloud_llm_disclosure.md`).
 
-## Status: Phase 2 complete
+## Status: School Pilot v1.0
 
-This repository is being generated in phases. Phases 1-2 are done and the
-full hybrid retrieval pipeline runs in dev mode with no hardware and no ML
-downloads (stdlib + Pydantic only).
+The full pipeline runs in dev mode with no hardware, no API key and no ML
+downloads, and real adapters (YOLO, Whisper, Piper, Gemini, EV3) are wired
+behind the same interfaces for device/demo modes.
 
-| Phase | Scope | Status |
-|-------|-------|--------|
-| 1 | Repo structure, schemas, config, state machine, logging | Done |
-| 2 | RAG ingestion, dense + keyword retrieval, RRF, reranking, demo pack | Done |
-| 3 | Dialogue engine, prompt builder, Gemini client + mock fallback, grounding validator, safety filters | Done |
-| 4 | Vision (YOLO + mock), audio STT/TTS, hardware adapters, dashboard API | Next |
-| 5 | Full test suite, content-pack expansion, setup docs, runbook | Planned |
+| Area | Status |
+|------|--------|
+| State machine, config, privacy-safe logging | Done |
+| Hybrid RAG (Chroma/simple dense + SQLite FTS5/BM25 + RRF k=60 + reranker + level fallback) | Done |
+| Dialogue (prompt builder, JSON contract, grounding validation, refusal fallbacks EN/FR) | Done |
+| Safety (prompt-injection filter, content filter, privacy defaults) | Done |
+| Vision (mock + YOLO adapter + ArtworkTracker with manual override) | Done |
+| Audio (mock + Whisper STT / Piper TTS adapters, graceful failure) | Done |
+| Hardware (mock + EV3 adapter, emergency stop) | Done |
+| Teacher dashboard (local FastAPI + vanilla JS) | Done |
+| Tests (pytest, incl. dashboard + privacy) | Done |
+| School-pilot docs (`docs/`) | Done |
 
 ## Requirements
 
@@ -55,11 +62,21 @@ pip install -e ".[llm]"              # google-generativeai (Gemini)
 ## Run
 
 ```bash
-# Phase 1 dev walkthrough (no hardware, no ML): drives the state machine
+# Ingest the demo content pack (writes to data/sqlite + data/chroma)
+python -m atlas.rag.ingest --pack data/content_packs/demo_pack --mode dev --reset
+
+# Run full mock pipeline cycles (no hardware, no API key, no ML downloads)
+python -m atlas.app.main --run 3
+
+# Scripted state-machine walkthrough
 python -m atlas.app.main --mode dev
 
-# Phase 2: ingest the demo content pack (writes to data/sqlite + data/chroma)
-python -m atlas.rag.ingest --pack data/content_packs/demo_pack --mode dev
+# Teacher dashboard (localhost only) — open http://127.0.0.1:8765
+python -m uvicorn atlas.dashboard.api:app --host 127.0.0.1 --port 8765
+
+# RAG evaluation guardrail (factual/visual/interpretive/French/refusal/
+# injection/accessibility categories)
+python -m atlas.rag.evaluator
 
 # Tests
 pytest
@@ -67,6 +84,11 @@ pytest
 # Lint
 ruff check src tests
 ```
+
+Admin-protected dashboard actions (content ingest, RAG eval, demo
+simulations, clearing the emergency stop) require the `ATLAS_ADMIN_TOKEN`
+environment variable and the matching `X-Atlas-Admin-Token` header (the
+dashboard UI has a token field).
 
 After ingesting, the hybrid retriever is available through the dependency
 container (`Container.retriever`). A typed-question CLI and the teacher
@@ -120,8 +142,15 @@ Settings precedence: model defaults < `settings.yaml` < environment overrides
 
 ```
 atlas/
+  CLAUDE.md               Claude Code project instructions
+  .claude/commands/       atlas-status, atlas-test, atlas-run, atlas-dashboard,
+                          atlas-rag-ingest, atlas-rag-eval, atlas-device-check
   config/                 settings.yaml, profiles.yaml, hardware.yaml
   data/                   content_packs/, chroma/, sqlite/, logs/
+  docs/                   architecture, developer/teacher guides, privacy
+                          summary, cloud LLM disclosure, troubleshooting,
+                          content pack format, device demo checklist,
+                          school pilot runbook, demo script
   src/atlas/
     app/                  state_machine, events, dependency_container, main
     config/               settings (pydantic), loader (yaml + env)
@@ -129,11 +158,24 @@ atlas/
                           telemetry, enums
     storage/              event_logger (privacy-safe JSON logs)
     utils/                ids, time, text
-    vision/ audio/ rag/   (interfaces + mocks land in later phases)
-    dialogue/ safety/
-    dashboard/ hardware/
-  tests/                  test_content_schema, test_state_machine (Phase 1)
+    rag/                  ingest, stores, RRF fusion, reranker, retriever,
+                          context packer, evaluator
+    dialogue/             engine, prompt builder, Gemini/mock clients,
+                          grounding validator, safety filter
+    safety/               prompt_injection_filter
+    vision/               detector base, mock, YOLO adapter, ArtworkTracker
+    audio/                STT/TTS bases, mocks, Whisper/Piper adapters
+    hardware/             base (emergency stop), mock, EV3 adapter
+    pipeline/             session_runner
+    dashboard/            FastAPI api, runtime service, auth, HTML/JS UI
+  tests/                  full suite incl. dashboard API + privacy tests
 ```
+
+## Documentation
+
+Start with `docs/architecture.md` (system design),
+`docs/developer_guide.md` (contributing), `docs/teacher_guide.md` (running a
+class session), and `docs/privacy_summary.md` (what is and is not stored).
 
 ## How retrieval works (Phase 2)
 
@@ -162,27 +204,31 @@ A question is answered by combining two searches and fusing them:
    tagged context block (`[chunk_id=... source_id=...] text`) so the Phase 3
    grounding validator can verify the answer cites real retrieved chunks.
 
-## Phase 3 roadmap (next)
+## Dialogue safety (v1.0)
 
-1. `dialogue/intent_classifier.py`, `dialogue/query_rewriter.py`
-2. `dialogue/prompt_builder.py` (profile- and language-aware system prompt)
-3. `dialogue/llm_base.py`, `dialogue/gemini_client.py`, `dialogue/mock_llm.py`
-   (structured JSON: spoken_answer, used_chunk_ids, confidence,
-   unsupported_claims, fallback_used)
-4. `dialogue/response_validator.py` (grounding + length + language + no
-   secret leakage; regenerate once, else safe fallback)
-5. `safety/prompt_injection_filter.py`, `safety/output_safety.py`,
-   `safety/privacy_filter.py`
-6. `dialogue/answer_service.py` tying retrieval -> prompt -> LLM -> validate
-7. Tests: prompt builder, grounding validator, injection filter, answer
-   service, unknown-question refusal
+Questions pass a prompt-injection filter before any LLM call; retrieved
+content is treated as data, not instructions. Real-LLM answers use a JSON
+contract (`spoken_answer`, `used_chunk_ids`, `confidence`,
+`unsupported_claims`, `fallback_used`); cited chunk IDs are validated
+against what was actually retrieved, and ungrounded answers are replaced
+with a spoken refusal ("I don't have that detail verified in my guide
+yet…") in the visitor's language. A content safety filter runs last, before
+TTS.
 
-## Hardware-specific work to finish later (Phase 4)
+## Hardware notes (device mode)
 
-- `vision/yolo_detector.py` against a YOLO model trained on the approved
-  artworks (mock detector lets the pipeline run today).
-- `audio/whisper_stt.py` (faster-whisper) and `audio/piper_tts.py` on Jetson
-  with the Shokz OpenComm2 UC headset.
-- `hardware/ev3_adapter.py` / `servo_controller.py` — note the FeeTech
-  FT5478M expects ~7.4V; verify the PSU before enabling servo control.
-- Board target: Seeed reComputer Super J401 NX 16GB, JetPack 6.1.
+- Vision: train YOLO weights on the approved artworks and set
+  `hardware.yolo_model_path`; the ArtworkTracker stabilises detections and
+  supports dashboard manual override.
+- Audio: faster-whisper STT and Piper TTS on Jetson with the Shokz
+  OpenComm2 UC headset (`hardware.whisper_model_size`, `piper_voice_*`).
+- EV3 stand: set `hardware.ev3_bt_address` + `enable_ev3: true`. Emergency
+  stop (dashboard) blocks all movement until cleared with the admin token.
+- The KY-016 RGB LED GPIO is broken on JetPack 6.x (pins 29/31/33) — the
+  EV3 status LED is used instead and the KY-016 is not critical path.
+- FeeTech FT5478M servo expects ~7.4 V; verify the PSU before enabling.
+- Board target: Jetson Orin Nano now; Seeed reComputer Super J401
+  Orin NX 16 GB planned (JetPack 6.x).
+
+See `docs/device_demo_checklist.md` for the staged validation ladder (A–F)
+and `docs/school_pilot_v1_runbook.md` for running an actual pilot session.

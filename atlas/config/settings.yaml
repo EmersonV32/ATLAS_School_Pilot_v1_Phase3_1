@@ -27,6 +27,7 @@ llm:
   model: gemini-2.5-flash
   timeout_s: 8.0
   max_regenerations: 1
+  cloud_llm_enabled: false   # must be true before any cloud LLM call is made
   api_key_env: GEMINI_API_KEY
 
 logging:
@@ -40,3 +41,27 @@ hardware:
   headset_name: "Shokz OpenComm2 UC"
   enable_servo: false
   enable_ev3: false
+  # Device-mode assets. Missing paths make adapters fail gracefully;
+  # they are never required in dev mode.
+  yolo_model_path: models/atlas_yolo.pt
+  whisper_model_size: small
+  whisper_compute_type: int8
+  piper_binary_path: ""            # "" -> use `piper` from PATH
+  piper_voice_en: voices/en_US-amy-medium.onnx
+  piper_voice_fr: voices/fr_FR-mls-medium.onnx
+  ev3_bt_address: ""               # e.g. "00:16:53:AA:BB:CC"
+
+dashboard:
+  host: 127.0.0.1        # localhost only — the dashboard is a local tool
+  port: 8765
+  admin_token_env: ATLAS_ADMIN_TOKEN   # env var NAME, not the token
+
+privacy:
+  # School-pilot defaults. Changing these requires a documented reason.
+  store_raw_audio: false
+  store_raw_images: false
+  store_face_data: false
+  student_names_required: false
+  anonymous_session_ids: true
+  session_memory_persistent: false
+  transcript_logging_sanitized: true

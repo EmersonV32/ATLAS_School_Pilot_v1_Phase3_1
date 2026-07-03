@@ -40,6 +40,7 @@ class SessionResult:
     transcript: Optional[TranscriptResult]
     dialogue: Optional[DialogueResult]
     error: Optional[str] = None
+    tts_ok: bool = True  # False = tts_fallback_used (answer shown as text)
 
     @property
     def success(self) -> bool:
@@ -153,12 +154,20 @@ class SessionRunner:
             dialogue_result.response,
         )
 
-        # Step 5: speak the answer
+        # Step 5: speak the answer. TTS failure is non-fatal — the answer
+        # text is still returned so the dashboard can display it.
         self._hw.set_status_led("green")
-        self._tts.speak(dialogue_result.response, language=transcript.language)
+        spoke = self._tts.speak(dialogue_result.response, language=transcript.language)
+        if not spoke:
+            logger.warning("tts_fallback_used: showing answer as text only")
 
         # Step 6: signal EV3 stand
         self._hw.send(StandCommand.ROTATE_CW, stand_id=1)
         self._hw.set_status_led("off")
 
-        return SessionResult(detection=detection, transcript=transcript, dialogue=dialogue_result)
+        return SessionResult(
+            detection=detection,
+            transcript=transcript,
+            dialogue=dialogue_result,
+            tts_ok=bool(spoke),
+        )

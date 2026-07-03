@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class MockHardware(BaseHardware):
     """No-op adapter. Prints commands to console. Safe on Windows/Mac/Linux."""
 
-    def send(self, command: StandCommand, stand_id: int = 1) -> None:
+    def _send_command(self, command: StandCommand, stand_id: int = 1) -> None:
         logger.info("[HW] Stand %d → %s", stand_id, command.value)
         print(f"[HW] Stand {stand_id} -> {command.value}")
 

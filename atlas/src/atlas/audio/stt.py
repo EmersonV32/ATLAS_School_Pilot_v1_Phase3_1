@@ -11,6 +11,7 @@ class TranscriptResult:
     language: str = "en"       # ISO-639-1 code
     confidence: float = 1.0
     age_hint: str = "adult"    # "child" | "teen" | "adult"
+    duration_ms: float | None = None  # STT latency, for telemetry
 
 
 class BaseSTT(ABC):

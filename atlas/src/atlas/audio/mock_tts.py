@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class MockTTS(BaseTTS):
-    def speak(self, text: str, language: str = "en") -> None:
+    def speak(self, text: str, language: str = "en") -> bool:
         logger.info("[TTS:%s] %s", language.upper(), text)
         print(f"[TTS:{language.upper()}] {text}")
+        return True

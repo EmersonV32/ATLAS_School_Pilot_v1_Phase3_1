@@ -12,6 +12,12 @@ class ArtworkDetection:
     label: str
     confidence: float
     bbox: Optional[tuple] = None  # (x1,y1,x2,y2) normalised 0-1
+    timestamp: Optional[float] = None  # time.time() when detected
+    # Provenance: "vision" | "manual_override" | "last_stable"
+    source: str = "vision"
+    # True once the ArtworkTracker has seen this artwork on enough
+    # consecutive frames (or it was set manually).
+    stable: bool = False
 
     @property
     def is_confident(self) -> bool:
