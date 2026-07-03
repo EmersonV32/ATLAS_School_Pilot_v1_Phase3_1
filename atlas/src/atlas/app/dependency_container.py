@@ -29,6 +29,7 @@ class Container:
         self._retriever = None
         self._dialogue_engine = None
         self._vision_detector = None
+        self._artwork_tracker = None
         self._stt = None
         self._tts = None
         self._hardware = None
@@ -107,29 +108,35 @@ class Container:
         if self._dialogue_engine is None:
             from atlas.dialogue.dialogue_engine import DialogueEngine
 
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
+            use_gemini = (
+                self.settings.llm.provider == "gemini"
+                and self.settings.llm.cloud_llm_enabled
+                and self.settings.mode in (RunMode.DEVICE, RunMode.DEMO)
+            )
+            if use_gemini:
                 from atlas.dialogue.gemini_client import GeminiClient
 
                 llm = GeminiClient(
                     model=self.settings.llm.model,
-                    api_key=None,  # reads GEMINI_API_KEY env var at call time
+                    api_key=None,  # reads the env var at call time
                 )
             else:
                 from atlas.dialogue.mock_llm_client import MockLLMClient
 
                 llm = MockLLMClient()
-            self._dialogue_engine = DialogueEngine(llm_client=llm)
+            self._dialogue_engine = DialogueEngine(
+                llm_client=llm, expect_json=use_gemini
+            )
         return self._dialogue_engine
 
     # --- Phase 4: perception, speech, hardware, pipeline ---------------
     @property
     def vision_detector(self):
         if self._vision_detector is None:
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
+            if self.settings.mode == RunMode.DEVICE:
                 from atlas.vision.yolo_detector import YoloDetector
-                # TODO(jetson): add yolo_model_path to HardwareSettings
                 self._vision_detector = YoloDetector(
-                    model_path="models/atlas_yolo.pt",
+                    model_path=self.settings.hardware.yolo_model_path,
                     conf_threshold=0.65,
                 )
             else:
@@ -138,11 +145,28 @@ class Container:
         return self._vision_detector
 
     @property
+    def artwork_tracker(self):
+        if self._artwork_tracker is None:
+            from atlas.vision.tracker import ArtworkTracker
+
+            titles = self._artwork_titles()
+            self._artwork_tracker = ArtworkTracker(
+                detector=self.vision_detector,
+                conf_threshold=0.65,
+                stability_frames=3,
+                valid_artwork_ids=set(titles) or None,
+            )
+        return self._artwork_tracker
+
+    @property
     def stt(self):
         if self._stt is None:
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
+            if self.settings.mode == RunMode.DEVICE:
                 from atlas.audio.whisper_stt import WhisperSTT
-                self._stt = WhisperSTT(model_size="small", device="cuda")
+                self._stt = WhisperSTT(
+                    model_size=self.settings.hardware.whisper_model_size,
+                    compute_type=self.settings.hardware.whisper_compute_type,
+                )
             else:
                 from atlas.audio.mock_stt import MockSTT
                 self._stt = MockSTT()
@@ -151,12 +175,12 @@ class Container:
     @property
     def tts(self):
         if self._tts is None:
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
+            if self.settings.mode == RunMode.DEVICE:
                 from atlas.audio.piper_tts import PiperTTS
-                # TODO(jetson): add piper_voice_en / piper_voice_fr to HardwareSettings
                 self._tts = PiperTTS(
-                    voice_en="voices/en_US-amy-medium.onnx",
-                    voice_fr="voices/fr_FR-mls-medium.onnx",
+                    voice_en=self.settings.hardware.piper_voice_en,
+                    voice_fr=self.settings.hardware.piper_voice_fr,
+                    piper_binary=self.settings.hardware.piper_binary_path or "piper",
                 )
             else:
                 from atlas.audio.mock_tts import MockTTS
@@ -166,10 +190,16 @@ class Container:
     @property
     def hardware(self):
         if self._hardware is None:
-            if self.settings.mode in (RunMode.DEVICE, RunMode.DEMO):
+            use_ev3 = (
+                self.settings.mode == RunMode.DEVICE
+                and self.settings.hardware.enable_ev3
+                and self.settings.hardware.ev3_bt_address
+            )
+            if use_ev3:
                 from atlas.hardware.ev3_hardware import EV3Hardware
-                # TODO(jetson): add ev3_bt_address to HardwareSettings
-                self._hardware = EV3Hardware(bt_address="00:16:53:XX:XX:XX")
+                self._hardware = EV3Hardware(
+                    bt_address=self.settings.hardware.ev3_bt_address
+                )
             else:
                 from atlas.hardware.mock_hardware import MockHardware
                 self._hardware = MockHardware()
@@ -180,7 +210,7 @@ class Container:
         if self._session_runner is None:
             from atlas.pipeline.session_runner import SessionRunner, make_retriever
             self._session_runner = SessionRunner(
-                detector=self.vision_detector,
+                detector=self.artwork_tracker,
                 stt=self.stt,
                 tts=self.tts,
                 hardware=self.hardware,

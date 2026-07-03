@@ -69,7 +69,7 @@ class EV3Hardware(BaseHardware):
                 pass
             self._sock = None
 
-    def send(self, command: StandCommand, stand_id: int = 1) -> None:
+    def _send_command(self, command: StandCommand, stand_id: int = 1) -> None:
         duration_ms, direction = _CMD_PARAMS.get(command, (0, 0))
         cmd_byte = command.value.encode()[0]
         payload = struct.pack(">BBHb", stand_id, cmd_byte, duration_ms, direction)

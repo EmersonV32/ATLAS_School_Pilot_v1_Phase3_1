@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATLAS Teacher Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- 1. Header -->
+  <header>
+    <div>
+      <h1>ATLAS</h1>
+      <p class="slogan">Atlas — because every story deserves a listener.</p>
+    </div>
+    <div class="badges">
+      <span id="mode-badge" class="badge">mode: …</span>
+      <span id="state-badge" class="badge">state: idle</span>
+      <span id="estop-badge" class="badge hidden">EMERGENCY STOP</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- 2. Session Control -->
+    <section id="session">
+      <h2>Session Control</h2>
+      <div class="row">
+        <button id="btn-start">Start session</button>
+        <button id="btn-stop" class="secondary">Stop session</button>
+        <span class="mono" id="session-id">no session</span>
+      </div>
+      <p class="hint">Session IDs are anonymous. No student names are ever collected.</p>
+    </section>
+
+    <!-- 3. Experience Settings -->
+    <section id="experience">
+      <h2>Experience Settings</h2>
+      <div class="row">
+        <label>Content pack
+          <select id="sel-pack"></select>
+        </label>
+        <label>Language
+          <select id="sel-language">
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="es">Español (demo)</option>
+            <option value="it">Italiano (demo)</option>
+          </select>
+        </label>
+        <label>Profile
+          <select id="sel-profile">
+            <option value="child">Child</option>
+            <option value="teen">Teen</option>
+            <option value="adult_beginner" selected>Adult beginner</option>
+            <option value="expert">Expert</option>
+            <option value="visual_impairment">Visual impairment</option>
+            <option value="simple_language">Simple language</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="chk-accessibility"> Accessibility mode
+        </label>
+        <button id="btn-apply-experience">Apply</button>
+      </div>
+      <p class="hint">Transcript logging is <strong id="transcript-state">off</strong> (privacy default; change requires config edit).</p>
+    </section>
+
+    <!-- 4. Artwork Context -->
+    <section id="artwork">
+      <h2>Artwork Context</h2>
+      <div class="row">
+        <div class="stat"><span>Current artwork</span><strong id="art-label">—</strong></div>
+        <div class="stat"><span>Confidence</span><strong id="art-conf">—</strong></div>
+        <div class="stat"><span>Detection</span><strong id="art-stable">—</strong></div>
+        <div class="stat"><span>Source</span><strong id="art-source">—</strong></div>
+      </div>
+      <div class="row">
+        <label>Manual override
+          <select id="sel-artwork"></select>
+        </label>
+        <button id="btn-override">Set override</button>
+        <button id="btn-clear-override" class="secondary">Clear override</button>
+      </div>
+      <p class="hint warn hidden" id="art-warning"></p>
+    </section>
+
+    <!-- 5. Ask ATLAS -->
+    <section id="ask">
+      <h2>Ask ATLAS (typed-question fallback)</h2>
+      <div class="row">
+        <input type="text" id="inp-question" maxlength="500"
+               placeholder="Type a visitor question…">
+        <button id="btn-ask">Ask</button>
+      </div>
+      <div id="answer-box" class="answer hidden">
+        <p id="answer-text"></p>
+        <p class="meta" id="answer-meta"></p>
+      </div>
+    </section>
+
+    <!-- 6. System Health -->
+    <section id="health">
+      <h2>System Health</h2>
+      <ul id="health-list" class="health"></ul>
+    </section>
+
+    <!-- 7. Recent Interaction -->
+    <section id="recent">
+      <h2>Recent Interaction</h2>
+      <div class="stat-col">
+        <div class="stat"><span>Last answer</span><strong id="last-answer">—</strong></div>
+        <div class="stat"><span>Fallback used</span><strong id="last-fallback">—</strong></div>
+        <div class="stat"><span>Latency</span><strong id="last-latency">—</strong></div>
+      </div>
+    </section>
+
+    <!-- 8. Privacy Panel -->
+    <section id="privacy">
+      <h2>Privacy</h2>
+      <ul id="privacy-list" class="health"></ul>
+      <p class="hint" id="cloud-disclosure">
+        ATLAS uses an edge-first architecture: vision, speech, retrieval, motor
+        control, and text-to-speech run locally or nearby, while the current
+        prototype uses a cloud language model for final response generation
+        when enabled.
+      </p>
+    </section>
+
+    <!-- 9. Logs -->
+    <section id="logs">
+      <h2>Recent Logs (privacy-safe)</h2>
+      <div class="row">
+        <button id="btn-refresh-logs" class="secondary">Refresh</button>
+      </div>
+      <pre id="log-view" class="logview">(no logs loaded)</pre>
+    </section>
+
+    <!-- 10. Demo Controls + admin actions -->
+    <section id="demo">
+      <h2>Demo &amp; Admin Controls</h2>
+      <div class="row">
+        <label>Admin token
+          <input type="password" id="inp-token" placeholder="ATLAS_ADMIN_TOKEN value">
+        </label>
+      </div>
+      <div class="row" id="demo-buttons">
+        <button data-sim="low_confidence" class="secondary">Simulate low confidence</button>
+        <button data-sim="llm_timeout" class="secondary">Simulate LLM timeout</button>
+        <button data-sim="tts_failure" class="secondary">Simulate TTS failure</button>
+        <button data-sim="reset" class="secondary">Reset demo state</button>
+      </div>
+      <div class="row">
+        <button id="btn-ingest" class="secondary">Re-ingest selected pack</button>
+        <button id="btn-eval" class="secondary">Run RAG evaluation</button>
+        <button id="btn-estop" class="danger">EMERGENCY STOP</button>
+        <button id="btn-clear-estop" class="secondary">Clear emergency stop</button>
+      </div>
+      <pre id="admin-result" class="logview hidden"></pre>
+    </section>
+  </main>
+
+  <footer>
+    <p>ATLAS School Pilot v1.0 — local dashboard. Do not expose this server to
+    the public internet.</p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

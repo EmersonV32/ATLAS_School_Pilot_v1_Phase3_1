@@ -27,13 +27,23 @@ _BLOCKED_KEYS = {
     "raw_audio",
     "image",
     "raw_image",
+    "video",
+    "raw_video",
     "frame",
+    "face",
+    "face_data",
     "name",
     "student_name",
     "api_key",
     "gemini_api_key",
+    "atlas_admin_token",
+    "token",
+    "authorization",
     "secret",
     "password",
+    "prompt",
+    "system_prompt",
+    "raw_transcript",
 }
 
 

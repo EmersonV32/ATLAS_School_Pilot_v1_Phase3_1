@@ -55,10 +55,15 @@ class HybridRetriever:
             text = f"{text} ({self.artwork_titles[query.artwork_id]})"
         return text
 
-    def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
-        normalized = self.normalize_query(query)
-        rankings: list[list[RetrievedChunk]] = []
+    # Content packs are not required to provide every educational level.
+    # When the requested level has no chunks, fall back to this general
+    # level so profiles like visual_impairment still get grounded answers.
+    FALLBACK_LEVEL = "adult_beginner"
 
+    def _search_at_level(
+        self, normalized: str, query: RetrievalQuery, level: str
+    ) -> tuple[list[list[RetrievedChunk]], float | None, float | None]:
+        rankings: list[list[RetrievedChunk]] = []
         dense_ms = keyword_ms = None
 
         if self.settings.use_dense:
@@ -68,7 +73,7 @@ class HybridRetriever:
                     vector,
                     artwork_id=query.artwork_id,
                     language=query.language.value,
-                    educational_level=query.educational_level.value,
+                    educational_level=level,
                     top_k=self.settings.dense_top_k,
                 )
             dense_ms = t.elapsed_ms
@@ -80,11 +85,27 @@ class HybridRetriever:
                     normalized,
                     artwork_id=query.artwork_id,
                     language=query.language.value,
-                    educational_level=query.educational_level.value,
+                    educational_level=level,
                     top_k=self.settings.keyword_top_k,
                 )
             keyword_ms = t.elapsed_ms
             rankings.append(keyword_hits)
+
+        return rankings, dense_ms, keyword_ms
+
+    def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
+        normalized = self.normalize_query(query)
+
+        level = query.educational_level.value
+        rankings, dense_ms, keyword_ms = self._search_at_level(
+            normalized, query, level
+        )
+
+        # Exact level empty -> retry once at the general level.
+        if not any(rankings) and level != self.FALLBACK_LEVEL:
+            rankings, dense_ms, keyword_ms = self._search_at_level(
+                normalized, query, self.FALLBACK_LEVEL
+            )
 
         with Timer() as total:
             fused = reciprocal_rank_fusion(rankings, k=self.settings.rrf_k)

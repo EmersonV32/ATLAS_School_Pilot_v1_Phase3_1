@@ -26,7 +26,7 @@ rag = [
 vision = ["ultralytics>=8.2"]
 audio = ["faster-whisper>=1.0", "piper-tts>=1.2"]
 llm = ["google-generativeai>=0.7"]
-dev = ["pytest>=8.0", "ruff>=0.4"]
+dev = ["pytest>=8.0", "ruff>=0.4", "httpx>=0.28"]  # httpx: FastAPI TestClient
 # Convenience: everything except board-specific drivers.
 all = [
     "chromadb>=0.5",
