@@ -41,7 +41,9 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     """Open (creating parent dirs) a SQLite connection with Row factory."""
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(str(db_path))
+    # The device loop and the integrated dashboard share one retriever.
+    # SqliteFtsStore serializes access with a lock.
+    con = sqlite3.connect(str(db_path), check_same_thread=False)
     con.row_factory = sqlite3.Row
     return con
 

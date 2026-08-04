@@ -45,6 +45,7 @@ class ArtworkTracker:
         self._streak_count = 0
         self._last_stable: ArtworkDetection | None = None
         self._manual: ArtworkDetection | None = None
+        self._latest_visual: ArtworkDetection | None = None
 
     # -- manual override -------------------------------------------------
     def set_manual_override(self, artwork_id: str, label: str | None = None) -> None:
@@ -79,6 +80,7 @@ class ArtworkTracker:
         or None when there is genuinely no artwork context available.
         """
         if self._manual is not None:
+            self._latest_visual = self._manual
             return self._manual
 
         detection: ArtworkDetection | None = None
@@ -110,6 +112,7 @@ class ArtworkTracker:
                 source="vision",
                 stable=stable,
             )
+            self._latest_visual = tracked
             if stable:
                 self._last_stable = tracked
             return tracked
@@ -117,6 +120,7 @@ class ArtworkTracker:
         # Low confidence or nothing detected: break the streak, fall back.
         self._streak_id = None
         self._streak_count = 0
+        self._latest_visual = None
         if self._allow_last_stable and self._last_stable is not None:
             return replace(self._last_stable, source="last_stable")
         return None
@@ -137,4 +141,16 @@ class ArtworkTracker:
             "stable": bool(current and current.stable),
             "source": current.source if current else "none",
             "manual_override": self._manual is not None,
+        }
+
+    def visualization_status(self) -> dict:
+        """Latest per-frame box for an in-memory live preview."""
+        current = self._manual or self._latest_visual
+        return {
+            "artwork_id": current.artwork_id if current else None,
+            "label": current.label if current else None,
+            "confidence": current.confidence if current else None,
+            "bbox": current.bbox if current else None,
+            "stable": bool(current and current.stable),
+            "source": current.source if current else "none",
         }

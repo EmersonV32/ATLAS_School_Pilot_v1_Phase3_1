@@ -1,0 +1,50 @@
+ATLAS NX FLASH PREP NOTES
+
+Target board:
+- Seeed reComputer Super / J401
+- Jetson Orin NX 16GB
+- JetPack 6.2 / L4T 36.4.3 image
+
+Downloaded image:
+mfi_recomputer-super-orin-nx-16g-j401-6.2-36.4.3-2026-02-05.tar.gz
+
+Windows SHA256 computed on 2026-07-31:
+51F816D57DEDD6E2305ACD0AE8E0FFDC19AEC7319E351B7A70489F7EAB8D69C6
+
+Folder layout on Windows:
+C:\ATLAS_NX_FLASH
+  mfi_recomputer-super-orin-nx-16g-j401-6.2-36.4.3-2026-02-05.tar.gz
+  repos\
+  assets\
+
+Ubuntu Live USB check commands:
+df -h
+lsblk -f
+lsusb
+
+When booted into Ubuntu, find the Windows C: drive in Files.
+It may appear under /media/ubuntu/ or /media/<your-ubuntu-user>/.
+Navigate to ATLAS_NX_FLASH before running commands.
+
+Verify image in Ubuntu:
+sha256sum mfi_recomputer-super-orin-nx-16g-j401-6.2-36.4.3-2026-02-05.tar.gz
+
+Expected SHA256:
+51f816d57dedd6e2305acd0ae8e0ffdc19aec7319e351b7a70489f7eab8d69c6
+
+Extract in Ubuntu only:
+sudo tar xpf mfi_recomputer-super-orin-nx-16g-j401-6.2-36.4.3-2026-02-05.tar.gz
+
+Before flashing, put the Jetson in recovery mode and run:
+lsusb
+
+Expected Orin NX 16GB recovery USB ID:
+0955:7323 NVIDIA Corp
+
+Do not run the flash command until lsusb shows the NVIDIA recovery device.
+
+General reminder:
+- Use JetPack 6.2 for this prototype, not JetPack 7.x.
+- Use the reComputer Super image, not Robotics J401 image.
+- Do not extract the Seeed image in Windows.
+- Do not delete the old working repo; use it as the known-good fallback.

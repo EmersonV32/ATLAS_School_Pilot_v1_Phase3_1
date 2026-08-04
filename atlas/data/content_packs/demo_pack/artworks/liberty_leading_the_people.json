@@ -1,0 +1,58 @@
+{
+  "artwork_id": "liberty_leading_the_people",
+  "title": "Liberty Leading the People",
+  "artist": "Eugene Delacroix",
+  "date": "1830",
+  "materials": "Oil on canvas",
+  "dimensions": "260 cm x 325 cm",
+  "culture_origin": "French",
+  "movement": "Romanticism",
+  "official_description": "Delacroix combines a real Parisian barricade with an allegorical woman personifying Liberty during the July Revolution of 1830.",
+  "historical_context": "The painting responds to the Three Glorious Days of 27-29 July 1830, when Parisians rose against King Charles X.",
+  "visual_description": "Liberty strides over a barricade holding the French tricolour and a rifle while an armed crowd advances through smoke and fallen bodies.",
+  "themes": ["liberty", "revolution", "citizenship", "sacrifice", "allegory"],
+  "keywords": ["Liberty Leading the People", "Delacroix", "July Revolution", "1830", "tricolour", "barricade", "Phrygian cap"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_lib_louvre_record",
+      "title": "Le 28 juillet 1830. La Liberte guidant le peuple",
+      "url": "https://collections.louvre.fr/en/ark:/53355/cl010065872",
+      "publisher": "Musee du Louvre Collections",
+      "license_note": "ATLAS paraphrase of official object metadata and history.",
+      "last_checked": "2026-08-02"
+    },
+    {
+      "source_id": "src_lib_louvre_guide",
+      "title": "Think big! The Red Rooms - Liberty Leading the People",
+      "url": "https://www.louvre.fr/en/explore/the-palace/think-big",
+      "publisher": "Musee du Louvre",
+      "license_note": "ATLAS paraphrase of the official museum guide; no long museum text copied.",
+      "last_checked": "2026-08-02"
+    }
+  ],
+  "chunks": [
+    {"chunk_id":"lib_identity_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"official_description","text":"Eugene Delacroix painted Liberty Leading the People in 1830. Its complete title refers to 28 July 1830.","source_id":"src_lib_louvre_record","verified":true,"allowed_for_students":true,"keywords":["Eugene Delacroix","1830","28 July"]},
+    {"chunk_id":"lib_not_1789_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"The scene does not show the French Revolution of 1789. It refers to the July Revolution of 27, 28, and 29 July 1830.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["not 1789","July Revolution","Three Glorious Days"]},
+    {"chunk_id":"lib_context_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"During those three days, Parisians built barricades and rose against King Charles X, defending freedoms that included freedom of the press.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["Charles X","barricades","freedom of press","Paris"]},
+    {"chunk_id":"lib_allegory_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"theme","text":"The central woman is both an ideal classical figure and a woman of the people. She personifies the abstract idea of Liberty.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["allegory","woman","Liberty","classical"]},
+    {"chunk_id":"lib_visual_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Liberty moves forward over a barricade, raising the French tricolour in one hand and carrying a rifle in the other.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["flag","rifle","barricade","Liberty"]},
+    {"chunk_id":"lib_cap_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"She wears a Phrygian cap, a historical emblem of freedom, and her yellow garment recalls drapery from classical antiquity.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["Phrygian cap","freedom","yellow garment","antiquity"]},
+    {"chunk_id":"lib_colors_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Delacroix repeats blue, white, and red across the composition, visually echoing the tricolour flag that Liberty holds above the crowd.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["blue","white","red","tricolour","color"]},
+    {"chunk_id":"lib_composition_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"The advancing figures form a strong pyramid, with Liberty and the flag at the peak, making the movement feel forceful and upward.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["pyramid","composition","movement","flag"]},
+    {"chunk_id":"lib_dimensions_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"The monumental oil painting measures 2.6 metres high by 3.25 metres wide and carries the Louvre inventory number RF 129.","source_id":"src_lib_louvre_record","verified":true,"allowed_for_students":true,"keywords":["dimensions","oil on canvas","RF 129"]},
+    {"chunk_id":"lib_creation_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Delacroix painted it in Paris from September to December 1830, only months after the uprising, and signed and dated it in red paint.","source_id":"src_lib_louvre_record","verified":true,"allowed_for_students":true,"keywords":["September","December","signed","red paint"]},
+    {"chunk_id":"lib_salon_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"The painting was shown at the Salon of 1831, purchased from Delacroix by the French state that August, and moved to the Louvre in 1874.","source_id":"src_lib_louvre_record","verified":true,"allowed_for_students":true,"keywords":["Salon 1831","state purchase","1874","Louvre"]},
+    {"chunk_id":"lib_legacy_en_adult","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"adult_beginner","chunk_type":"theme","text":"The image became an internationally reused symbol of liberty and freedom struggles, even though it began with one specific Parisian uprising.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["legacy","symbol","freedom struggles","international"]},
+    {"chunk_id":"lib_child_en","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"child","chunk_type":"general","text":"Delacroix painted people crossing a barricade in Paris. A brave figure called Liberty holds the French flag high and leads everyone forward.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["Paris","Liberty","flag","barricade"]},
+    {"chunk_id":"lib_expert_history_en","artwork_id":"liberty_leading_the_people","language":"en","educational_level":"expert","chunk_type":"historical_context","text":"The official record traces an unstable display history after the 1831 state purchase: periods at the Luxembourg, storage, return during 1848, and final transfer to the Louvre in November 1874.","source_id":"src_lib_louvre_record","verified":true,"allowed_for_students":true,"keywords":["provenance","Luxembourg","storage","1848","1874"]},
+    {"chunk_id":"lib_identity_fr_adult","artwork_id":"liberty_leading_the_people","language":"fr","educational_level":"adult_beginner","chunk_type":"official_description","text":"Eugene Delacroix a peint La Liberte guidant le peuple en 1830. Le titre complet renvoie au 28 juillet 1830.","source_id":"src_lib_louvre_record","verified":true,"allowed_for_students":true,"keywords":["Eugene Delacroix","1830","28 juillet"]},
+    {"chunk_id":"lib_not_1789_fr_adult","artwork_id":"liberty_leading_the_people","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Le tableau ne montre pas la Revolution francaise de 1789. Il represente les Trois Glorieuses des 27, 28 et 29 juillet 1830.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["pas 1789","Trois Glorieuses","1830"]},
+    {"chunk_id":"lib_context_fr_adult","artwork_id":"liberty_leading_the_people","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Les Parisiens ont dresse des barricades contre le roi Charles X pour defendre leurs libertes, notamment celle de la presse.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["Charles X","barricades","liberte de la presse"]},
+    {"chunk_id":"lib_allegory_fr_adult","artwork_id":"liberty_leading_the_people","language":"fr","educational_level":"adult_beginner","chunk_type":"theme","text":"La femme centrale est a la fois une deesse classique et une femme du peuple. Elle personnifie l'idee de Liberte.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["allegorie","femme","Liberte","deesse"]},
+    {"chunk_id":"lib_visual_fr_adult","artwork_id":"liberty_leading_the_people","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"La Liberte franchit une barricade, leve le drapeau tricolore et porte un fusil. Un bonnet phrygien couvre sa tete.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["drapeau","fusil","barricade","bonnet phrygien"]},
+    {"chunk_id":"lib_composition_fr_adult","artwork_id":"liberty_leading_the_people","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"Les personnages forment une pyramide puissante dont la Liberte et le drapeau occupent le sommet.","source_id":"src_lib_louvre_guide","verified":true,"allowed_for_students":true,"keywords":["pyramide","composition","drapeau"]},
+    {"chunk_id":"lib_history_fr_adult","artwork_id":"liberty_leading_the_people","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Expose au Salon de 1831, le tableau a ete achete par l'Etat francais la meme annee et a rejoint le Louvre en 1874.","source_id":"src_lib_louvre_record","verified":true,"allowed_for_students":true,"keywords":["Salon 1831","Etat","1874","Louvre"]}
+  ]
+}

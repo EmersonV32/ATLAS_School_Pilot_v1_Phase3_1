@@ -18,9 +18,18 @@ rag:
   keyword_top_k: 10
   rrf_k: 60
   embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  # The setup process downloads this once. Normal boots never contact HF Hub.
+  embedding_local_files_only: true
   use_dense: true
   use_keyword: true
   use_cross_encoder_reranker: false
+  # Keep retrieval units focused on one fact. Longer curator-written entries
+  # are split deterministically during ingestion.
+  chunk_max_words: 55
+  # French is preferred when requested. English fills gaps for languages whose
+  # content has not yet been translated, and Gemini answers in the user language.
+  language_fallback_enabled: true
+  fallback_language: en
 
 llm:
   provider: mock        # mock | gemini
@@ -29,31 +38,123 @@ llm:
   max_regenerations: 1
   cloud_llm_enabled: false   # must be true before any cloud LLM call is made
   api_key_env: GEMINI_API_KEY
+  streaming_enabled: true
+  sentence_tts_enabled: true
 
 logging:
   level: INFO
   json_lines: true
-  log_transcripts: false   # privacy default: do not log transcripts
+  # Prototype testing mode: visitor text and generated answers are retained in
+  # atlas-runtime.log. Raw audio, images, prompts, and credentials remain off.
+  log_transcripts: true
+  log_live_stt: true
+  log_llm_responses: true
   retention_days: 30
 
 hardware:
+  # Stable mDNS name announced by firmware/xiao_camera.
+  camera_source: "http://atlas-camera.local:81/stream"
   camera_index: 0
+  camera_width: 640
+  camera_height: 480
+  camera_fps: 15
+  camera_rotation_degrees: 0
+  camera_reconnect_s: 1.0
   headset_name: "Shokz OpenComm2 UC"
+  headset_button_enabled: true
+  # Discover the Shokz Consumer Control node; 164 is Linux KEY_PLAYPAUSE.
+  headset_button_device: ""
+  headset_button_key_code: 164
+  headset_button_click_window_s: 0.55
   enable_servo: false
   enable_ev3: false
   # Device-mode assets. Missing paths make adapters fail gracefully;
   # they are never required in dev mode.
   yolo_model_path: models/atlas_yolo.pt
+  yolo_tensorrt_path: models/atlas_yolo.engine
+  # auto prefers TensorRT when the engine exists and falls back to PyTorch.
+  yolo_backend: auto
+  yolo_imgsz: 416
+  vision_conf_threshold: 0.24
+  vision_mask_conf_threshold: 0.45
+  vision_center_weight: 0.55
+  vision_center_threshold: 0.35
+  vision_hold_seconds: 2.0
+  vision_gap_tolerance_s: 0.8
+  vision_clear_frames: 4
+  vision_poll_interval_s: 0.05
+  manual_capture_enabled: true
+  manual_capture_keyboard_enabled: true
+  manual_capture_crop_ratio: 0.70
+  manual_capture_jpeg_quality: 85
   whisper_model_size: small
+  whisper_device: cpu
   whisper_compute_type: int8
+  whisper_beam_size: 5
+  # The fallback model is predownloaded during setup; never check HF at boot.
+  whisper_local_files_only: true
+  audio_sample_rate: 16000
+  audio_channels: 1
   piper_binary_path: ""            # "" -> use `piper` from PATH
-  piper_voice_en: voices/en_US-amy-medium.onnx
-  piper_voice_fr: voices/fr_FR-mls-medium.onnx
+  piper_voice_en: ~/piper_voices/en_US-ryan-low.onnx
+  piper_voice_fr: ~/piper_voices/fr_FR-siwis-medium.onnx
   ev3_bt_address: ""               # e.g. "00:16:53:AA:BB:CC"
+  ev3_mailbox_name: atlas
+  ev3_connect_timeout_s: 12.0
+  # Leave false with the nationals EV3 script. Enable after uploading the
+  # updated ev3/ev3_motors.py included in this repository.
+  ev3_status_led_enabled: false
+
+speech:
+  stt_provider: deepgram
+  tts_provider: cartesia
+  # Explicitly approved for the prototype: question audio may go to Deepgram,
+  # and answer text may go to Cartesia. Neither provider response is stored.
+  cloud_speech_enabled: true
+  offline_fallback_enabled: true
+  deepgram_api_key_env: DEEPGRAM_API_KEY
+  deepgram_model: nova-3
+  deepgram_language: multi
+  deepgram_endpointing_ms: 400
+  deepgram_final_timeout_s: 3.0
+  listen_duration_s: 8.0
+  deepgram_keyterms:
+    - ATLAS
+    - Mona Lisa
+    - La Joconde
+    - Starry Night
+    - The Starry Night
+    - Tutankhamun
+    - mask of Tutankhamun
+    - Sunflowers
+    - Liberty Leading the People
+    - Girl with a Pearl Earring
+    - Great Wave off Kanagawa
+    - Vincent van Gogh
+    - Leonardo da Vinci
+    - who painted
+    - qui a peint
+    - peint la Joconde
+    - quien pinto
+    - chi ha dipinto
+  silero_threshold: 0.5
+  silero_model_path: models/silero_vad.onnx
+  silero_min_speech_ms: 250
+  silero_min_silence_ms: 1200
+  silero_pre_roll_ms: 250
+  cartesia_api_key_env: CARTESIA_API_KEY
+  cartesia_model: sonic-3.5
+  cartesia_api_version: "2026-03-01"
+  cartesia_voice_id: a5136bf9-224c-4d76-b823-52bd5efcffcc
+  cartesia_sample_rate: 24000
+  cartesia_response_timeout_s: 15.0
 
 dashboard:
+  enabled: true
   host: 127.0.0.1        # localhost only — the dashboard is a local tool
   port: 8765
+  admin_auth_required: false  # prototype only; safe because host is loopback
+  allow_demo_controls: true   # local prototype simulations; no public binding
   admin_token_env: ATLAS_ADMIN_TOKEN   # env var NAME, not the token
 
 privacy:

@@ -16,4 +16,5 @@ ruff>=0.4
 #   pip install -e ".[rag]"      ChromaDB + sentence-transformers + rank-bm25
 #   pip install -e ".[vision]"   ultralytics (YOLO)
 #   pip install -e ".[audio]"    faster-whisper + piper-tts
-#   pip install -e ".[llm]"      google-generativeai
+#   pip install -e ".[audio-cloud]" Deepgram/Cartesia transport + Silero VAD
+#   pip install -e ".[llm]"      google-genai

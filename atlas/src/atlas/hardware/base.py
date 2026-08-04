@@ -7,7 +7,9 @@ Safety model:
   - Hardware commands come only from the session runner / dashboard —
     never from LLM output.
 """
+
 from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -16,11 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 class StandCommand(Enum):
-    ROTATE_CW  = "rotate_cw"
+    ROTATE_CW = "rotate_cw"
     ROTATE_CCW = "rotate_ccw"
-    CENTER     = "center"
-    LOCK       = "lock"
-    RELEASE    = "release"
+    CENTER = "center"
+    LOCK = "lock"
+    RELEASE = "release"
 
 
 class BaseHardware(ABC):
@@ -54,6 +56,27 @@ class BaseHardware(ABC):
         is not critical path.
         """
         ...
+
+    def warm_up(self) -> None:
+        """Optional connection/preload hook used by the device runtime."""
+        return None
+
+    def focus_artwork(self, artwork_id: str) -> None:
+        """Move the exhibit into its focused state for one artwork."""
+        stand_ids = {
+            "starry_night": 1,
+            "mona_lisa": 2,
+            "tutankhamun_mask": 3,
+        }
+        self.send(StandCommand.ROTATE_CW, stand_ids.get(artwork_id, 1))
+
+    def reset_exhibit(self) -> None:
+        """Return the exhibit to its neutral state (all paintings up)."""
+        self.send(StandCommand.CENTER)
+
+    def close(self) -> None:
+        """Optional resource cleanup hook."""
+        return None
 
     # -- emergency stop ----------------------------------------------------
     def emergency_stop(self) -> None:

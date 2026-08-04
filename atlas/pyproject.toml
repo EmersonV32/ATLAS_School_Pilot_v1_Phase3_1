@@ -24,8 +24,18 @@ rag = [
     "rank-bm25>=0.2.2",
 ]
 vision = ["ultralytics>=8.2"]
-audio = ["faster-whisper>=1.0", "piper-tts>=1.2"]
-llm = ["google-generativeai>=0.7"]
+audio = [
+    "faster-whisper>=1.0",
+    "piper-tts>=1.2",
+    "sounddevice>=0.4",
+]
+audio-cloud = [
+    "numpy>=1.26",
+    "onnxruntime>=1.16",
+    "sounddevice>=0.4",
+    "websockets>=14",
+]
+llm = ["google-genai>=1.0"]
 dev = ["pytest>=8.0", "ruff>=0.4", "httpx>=0.28"]  # httpx: FastAPI TestClient
 # Convenience: everything except board-specific drivers.
 all = [
@@ -35,7 +45,10 @@ all = [
     "ultralytics>=8.2",
     "faster-whisper>=1.0",
     "piper-tts>=1.2",
-    "google-generativeai>=0.7",
+    "onnxruntime>=1.16",
+    "sounddevice>=0.4",
+    "websockets>=14",
+    "google-genai>=1.0",
     "pytest>=8.0",
     "ruff>=0.4",
 ]

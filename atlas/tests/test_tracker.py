@@ -74,6 +74,25 @@ class TestStability:
             tracker.update()
         assert tracker.update() is None
 
+    def test_visualization_reports_only_the_current_frame_box(self):
+        detection = ArtworkDetection(
+            artwork_id="mona_lisa",
+            label="Mona Lisa",
+            confidence=0.91,
+            bbox=(0.1, 0.2, 0.8, 0.9),
+        )
+        tracker = ArtworkTracker(
+            ScriptedDetector([detection, None]), stability_frames=1
+        )
+
+        tracker.update()
+        visual = tracker.visualization_status()
+        assert visual["artwork_id"] == "mona_lisa"
+        assert visual["bbox"] == (0.1, 0.2, 0.8, 0.9)
+
+        tracker.update()
+        assert tracker.visualization_status()["bbox"] is None
+
 
 class TestManualOverride:
     def test_override_wins_over_vision(self):

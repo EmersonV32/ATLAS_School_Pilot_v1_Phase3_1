@@ -1,0 +1,58 @@
+{
+  "artwork_id": "girl_with_a_pearl_earring",
+  "title": "Girl with a Pearl Earring",
+  "artist": "Johannes Vermeer",
+  "date": "c. 1665",
+  "materials": "Oil on canvas",
+  "dimensions": "44.5 cm x 39 cm",
+  "culture_origin": "Dutch",
+  "movement": "Dutch Golden Age",
+  "official_description": "Vermeer's imaginary character study shows a young woman turning toward the viewer in exotic dress and a large pearl earring.",
+  "historical_context": "The painting entered Arnoldus Andries des Tombe's collection in 1881 and was bequeathed to the Mauritshuis after his death.",
+  "visual_description": "A young woman turns over her shoulder against a dark background, wearing a blue-and-yellow headscarf and a luminous pearl.",
+  "themes": ["gaze", "light", "identity", "imagination", "presence"],
+  "keywords": ["Girl with a Pearl Earring", "Vermeer", "tronie", "pearl", "turban", "ultramarine", "light"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_gpe_mauritshuis",
+      "title": "Johannes Vermeer - Girl with a Pearl Earring",
+      "url": "https://www.mauritshuis.nl/en/our-collection/artworks/670-girl-with-a-pearl-earring",
+      "publisher": "Mauritshuis",
+      "license_note": "ATLAS paraphrase of the official museum record; no long museum text copied.",
+      "last_checked": "2026-08-02"
+    },
+    {
+      "source_id": "src_gpe_research",
+      "title": "Girl with a Pearl Earring research stories",
+      "url": "https://www.mauritshuis.nl/en/our-collection/restoration-and-research/closer-to-vermeer-and-the-girl/",
+      "publisher": "Mauritshuis",
+      "license_note": "ATLAS paraphrase of official conservation research.",
+      "last_checked": "2026-08-02"
+    }
+  ],
+  "chunks": [
+    {"chunk_id":"gpe_identity_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"official_description","text":"Johannes Vermeer painted Girl with a Pearl Earring around 1665. It is oil on canvas and measures 44.5 by 39 centimetres.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["Johannes Vermeer","1665","oil","dimensions"]},
+    {"chunk_id":"gpe_tronie_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"It is not a portrait of an identified person. It is a tronie, a Dutch character study of an imagined figure or type.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["tronie","not portrait","imagined figure","character study"]},
+    {"chunk_id":"gpe_pose_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"The girl looks over her shoulder with her head slightly tilted, grey-blue eyes shining, and moist lips slightly parted.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["shoulder","eyes","lips","gaze"]},
+    {"chunk_id":"gpe_costume_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"She wears a blue-and-yellow headscarf and an ochre jacket. The exotic costume helps mark the image as a tronie rather than everyday dress.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["headscarf","turban","ochre jacket","costume"]},
+    {"chunk_id":"gpe_pearl_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"An improbably large pearl hangs against the dark background and catches a bright reflection, becoming the visual focus and modern title of the painting.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["pearl","reflection","title","jewel"]},
+    {"chunk_id":"gpe_light_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Vermeer models the face with gradual transitions and nearly invisible brushstrokes, producing soft skin and luminous light without hard outlines.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["light","soft modelling","brushstrokes","face"]},
+    {"chunk_id":"gpe_dots_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"The clothing is painted more broadly than the face and animated by small dots of paint that suggest reflected light, a characteristic Vermeer effect.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["dots","reflected light","clothing","technique"]},
+    {"chunk_id":"gpe_ultramarine_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Research found ultramarine in the blue headscarf and even mixed into shadows of the yellow jacket; Vermeer also used translucent glazes in the headscarf.","source_id":"src_gpe_research","verified":true,"allowed_for_students":true,"keywords":["ultramarine","headscarf","glaze","yellow jacket"]},
+    {"chunk_id":"gpe_lips_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"The lips contain a translucent red lake glaze over vermilion, with small highlights that help them appear moist.","source_id":"src_gpe_research","verified":true,"allowed_for_students":true,"keywords":["lips","red lake","vermilion","glaze"]},
+    {"chunk_id":"gpe_background_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"Scientific study indicates that the background was originally a dark greenish black, although its color and gloss changed over time.","source_id":"src_gpe_research","verified":true,"allowed_for_students":true,"keywords":["background","greenish black","aging","research"]},
+    {"chunk_id":"gpe_provenance_en_adult","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Arnoldus Andries des Tombe bought the painting at a Hague auction in 1881 for 2.30 guilders and later left it to the Mauritshuis.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["Des Tombe","1881","2.30 guilders","Mauritshuis"]},
+    {"chunk_id":"gpe_child_en","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"child","chunk_type":"general","text":"Vermeer imagined this girl turning to look at us. Soft light makes her eyes, lips, and very large earring shine against the dark background.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["girl","light","eyes","earring"]},
+    {"chunk_id":"gpe_expert_paint_en","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"expert","chunk_type":"technique","text":"The face uses blended tonal transitions, while the costume is economical and schematic. This contrast directs attention to the gaze, mouth, and pearl rather than descriptive detail.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["tonal transitions","costume","economy","focus"]},
+    {"chunk_id":"gpe_expert_research_en","artwork_id":"girl_with_a_pearl_earring","language":"en","educational_level":"expert","chunk_type":"historical_context","text":"Modern examination has combined microscopy, infrared, ultraviolet, X-ray, and pigment mapping to study individual brushstrokes, glazes, alterations, and the painting's changed background.","source_id":"src_gpe_research","verified":true,"allowed_for_students":true,"keywords":["microscopy","infrared","X-ray","pigment mapping"]},
+    {"chunk_id":"gpe_identity_fr_adult","artwork_id":"girl_with_a_pearl_earring","language":"fr","educational_level":"adult_beginner","chunk_type":"official_description","text":"Johannes Vermeer a peint La Jeune Fille a la perle vers 1665. Cette huile sur toile mesure 44,5 sur 39 centimetres.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["Johannes Vermeer","1665","huile","dimensions"]},
+    {"chunk_id":"gpe_tronie_fr_adult","artwork_id":"girl_with_a_pearl_earring","language":"fr","educational_level":"adult_beginner","chunk_type":"fact","text":"Ce n'est pas le portrait d'une personne identifiee, mais une tronie: une etude neerlandaise d'un personnage imagine.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["tronie","pas portrait","personnage imagine"]},
+    {"chunk_id":"gpe_visual_fr_adult","artwork_id":"girl_with_a_pearl_earring","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"La jeune fille regarde par-dessus son epaule. Ses yeux gris-bleu brillent et ses levres humides sont legerement ouvertes.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["epaule","yeux","levres","regard"]},
+    {"chunk_id":"gpe_costume_fr_adult","artwork_id":"girl_with_a_pearl_earring","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Elle porte un foulard bleu et jaune, une veste ocre et une perle volontairement enorme qui capte la lumiere.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["foulard","veste","perle","lumiere"]},
+    {"chunk_id":"gpe_light_fr_adult","artwork_id":"girl_with_a_pearl_earring","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"Vermeer modele le visage avec des transitions tres douces et des coups de pinceau presque invisibles, sans contours durs.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["lumiere","modelage","pinceau","visage"]},
+    {"chunk_id":"gpe_materials_fr_adult","artwork_id":"girl_with_a_pearl_earring","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"Les recherches ont trouve de l'outremer dans le foulard bleu et les ombres de la veste jaune, ainsi que des glacis rouges sur les levres.","source_id":"src_gpe_research","verified":true,"allowed_for_students":true,"keywords":["outremer","glacis","foulard","levres"]},
+    {"chunk_id":"gpe_history_fr_adult","artwork_id":"girl_with_a_pearl_earring","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Arnoldus Andries des Tombe a achete le tableau a La Haye en 1881 pour 2,30 florins, puis l'a legue au Mauritshuis.","source_id":"src_gpe_mauritshuis","verified":true,"allowed_for_students":true,"keywords":["Des Tombe","1881","2,30 florins","Mauritshuis"]}
+  ]
+}

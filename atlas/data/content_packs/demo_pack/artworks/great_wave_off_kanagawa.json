@@ -1,0 +1,67 @@
+{
+  "artwork_id": "great_wave_off_kanagawa",
+  "title": "The Great Wave off Kanagawa",
+  "artist": "Katsushika Hokusai",
+  "date": "c. 1830-1832",
+  "materials": "Woodblock print; ink and color on paper",
+  "dimensions": "25.7 cm x 37.9 cm",
+  "culture_origin": "Japan, Edo period",
+  "movement": "Ukiyo-e",
+  "official_description": "Hokusai's woodblock print sets an enormous curling wave and three boats against a distant Mount Fuji.",
+  "historical_context": "Published around 1830-1832 as part of Hokusai's series Thirty-six Views of Mount Fuji, the print used newly available Prussian blue.",
+  "visual_description": "A claw-like wave arches over three narrow boats while foam scatters like fingers and snow-capped Mount Fuji appears small in the distance.",
+  "themes": ["nature", "danger", "human vulnerability", "endurance", "Mount Fuji"],
+  "keywords": ["Great Wave", "Hokusai", "Kanagawa", "Mount Fuji", "woodblock", "Prussian blue", "boats", "ukiyo-e"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_wave_met",
+      "title": "Under the Wave off Kanagawa, also known as The Great Wave",
+      "url": "https://www.metmuseum.org/art/collection/search/45434",
+      "publisher": "The Metropolitan Museum of Art",
+      "license_note": "ATLAS paraphrase of official object metadata; Met image is Open Access/Public Domain.",
+      "last_checked": "2026-08-02"
+    },
+    {
+      "source_id": "src_wave_met_essay",
+      "title": "The Great Wave: Anatomy of an Icon",
+      "url": "https://www.metmuseum.org/essays/hokusai-great-wave",
+      "publisher": "The Metropolitan Museum of Art",
+      "license_note": "ATLAS paraphrase of official technical research.",
+      "last_checked": "2026-08-02"
+    },
+    {
+      "source_id": "src_wave_bm",
+      "title": "The Great Wave: spot the difference",
+      "url": "https://www.britishmuseum.org/blog/great-wave-spot-difference",
+      "publisher": "The British Museum",
+      "license_note": "ATLAS paraphrase of official museum research; no long museum text copied.",
+      "last_checked": "2026-08-02"
+    }
+  ],
+  "chunks": [
+    {"chunk_id":"wave_identity_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"official_description","text":"Katsushika Hokusai designed Under the Wave off Kanagawa, commonly called The Great Wave, around 1830-1832 in Edo-period Japan.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["Katsushika Hokusai","Under the Wave","1830","Edo"]},
+    {"chunk_id":"wave_series_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"The print belongs to Hokusai's landscape series Thirty-six Views of Mount Fuji, which repeatedly presents Japan's sacred mountain from changing places and conditions.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["Thirty-six Views","Mount Fuji","series","landscape"]},
+    {"chunk_id":"wave_medium_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"It is a color woodblock print made with ink and color on paper, not a unique oil painting.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["woodblock","ink","paper","print"]},
+    {"chunk_id":"wave_dimensions_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"The Metropolitan Museum impression numbered JP1847 measures 25.7 by 37.9 centimetres.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["dimensions","JP1847","Met"]},
+    {"chunk_id":"wave_visual_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"An enormous curling wave rises above three long boats, while white foam forms pointed, claw-like shapes around the crest.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["wave","three boats","foam","claws"]},
+    {"chunk_id":"wave_fuji_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Mount Fuji appears very small inside the hollow beneath the wave, making the near water seem even larger and more dangerous.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["Mount Fuji","scale","distance","wave"]},
+    {"chunk_id":"wave_perspective_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Hokusai uses a dramatic contrast of scale and distance: the nearby wave dominates, the boats are trapped beneath it, and Mount Fuji recedes toward the horizon.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["perspective","scale","foreground","horizon"]},
+    {"chunk_id":"wave_blue_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"The design was among the early Japanese prints to feature imported Prussian blue, a vivid synthetic pigment that resisted fading better than older blue dyes.","source_id":"src_wave_bm","verified":true,"allowed_for_students":true,"keywords":["Prussian blue","pigment","synthetic","fading"]},
+    {"chunk_id":"wave_printing_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Many impressions were printed from the same carved blocks. They vary because blocks wore down and printers changed color and registration during production.","source_id":"src_wave_bm","verified":true,"allowed_for_students":true,"keywords":["impressions","blocks","printing","variation"]},
+    {"chunk_id":"wave_popularity_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Woodblock prints were affordable popular objects rather than single luxury paintings, helping this dramatic design circulate widely.","source_id":"src_wave_bm","verified":true,"allowed_for_students":true,"keywords":["affordable","popular","circulation","woodblock"]},
+    {"chunk_id":"wave_theme_en_adult","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"adult_beginner","chunk_type":"theme","text":"The tiny people and boats face nature's beauty and danger, while distant Mount Fuji appears calm and enduring.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["nature","danger","people","endurance"]},
+    {"chunk_id":"wave_child_en","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"child","chunk_type":"general","text":"Hokusai made a print of a giant blue wave curling over three little boats. Far away, Mount Fuji looks tiny but steady.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["wave","boats","Mount Fuji","blue"]},
+    {"chunk_id":"wave_expert_blue_en","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"expert","chunk_type":"technique","text":"The publisher advertised the Fuji series around New Year 1831 using Prussian blue as a selling point; technical analysis links the color to a double woodblock printing process.","source_id":"src_wave_met_essay","verified":true,"allowed_for_students":true,"keywords":["publisher","1831","Prussian blue","double printing"]},
+    {"chunk_id":"wave_expert_impressions_en","artwork_id":"great_wave_off_kanagawa","language":"en","educational_level":"expert","chunk_type":"technique","text":"There is no single definitive physical Great Wave: surviving impressions show differences in line breaks, pigment, wear, and printing sequence while sharing Hokusai's design.","source_id":"src_wave_bm","verified":true,"allowed_for_students":true,"keywords":["impressions","line breaks","wear","sequence"]},
+    {"chunk_id":"wave_identity_fr_adult","artwork_id":"great_wave_off_kanagawa","language":"fr","educational_level":"adult_beginner","chunk_type":"official_description","text":"Katsushika Hokusai a cree Sous la vague au large de Kanagawa, appelee La Grande Vague, vers 1830-1832 pendant l'epoque d'Edo.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["Katsushika Hokusai","Kanagawa","1830","Edo"]},
+    {"chunk_id":"wave_series_fr_adult","artwork_id":"great_wave_off_kanagawa","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"L'estampe appartient a la serie Trente-six vues du mont Fuji, qui montre la montagne sacree depuis differents lieux.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["Trente-six vues","mont Fuji","serie"]},
+    {"chunk_id":"wave_medium_fr_adult","artwork_id":"great_wave_off_kanagawa","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"Il s'agit d'une estampe sur bois imprimee avec de l'encre et des couleurs sur papier, et non d'une peinture unique.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["estampe","bois","encre","papier"]},
+    {"chunk_id":"wave_visual_fr_adult","artwork_id":"great_wave_off_kanagawa","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Une vague immense se courbe au-dessus de trois bateaux. Son ecume blanche forme des pointes semblables a des griffes.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["vague","trois bateaux","ecume","griffes"]},
+    {"chunk_id":"wave_fuji_fr_adult","artwork_id":"great_wave_off_kanagawa","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Le mont Fuji parait minuscule dans le creux de la vague, ce qui agrandit encore la menace de l'eau au premier plan.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["mont Fuji","echelle","distance","vague"]},
+    {"chunk_id":"wave_blue_fr_adult","artwork_id":"great_wave_off_kanagawa","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"L'oeuvre fait partie des premieres estampes japonaises utilisant le bleu de Prusse, un pigment synthetique vif qui resistait mieux a la decoloration.","source_id":"src_wave_bm","verified":true,"allowed_for_students":true,"keywords":["bleu de Prusse","pigment","decoloration"]},
+    {"chunk_id":"wave_prints_fr_adult","artwork_id":"great_wave_off_kanagawa","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"De nombreuses impressions ont ete tirees des memes blocs. L'usure du bois et les choix des imprimeurs expliquent leurs petites differences.","source_id":"src_wave_bm","verified":true,"allowed_for_students":true,"keywords":["impressions","blocs","usure","imprimeurs"]},
+    {"chunk_id":"wave_theme_fr_adult","artwork_id":"great_wave_off_kanagawa","language":"fr","educational_level":"adult_beginner","chunk_type":"theme","text":"Les petits humains affrontent la beaute et le danger de la nature, tandis que le mont Fuji reste calme au loin.","source_id":"src_wave_met","verified":true,"allowed_for_students":true,"keywords":["humains","nature","danger","mont Fuji"]}
+  ]
+}

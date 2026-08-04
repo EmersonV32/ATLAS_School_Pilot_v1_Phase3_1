@@ -2,9 +2,10 @@
 # In dev/local modes these values are ignored; mocks are used instead.
 
 camera:
+  source: "http://atlas-camera.local:81/stream"
   index: 0
-  width: 1280
-  height: 720
+  width: 640
+  height: 480
   fps: 15
 
 audio:
@@ -14,7 +15,7 @@ audio:
 
 jetson:
   board: "Seeed reComputer Super J401 NX 16GB"
-  jetpack: "6.1"
+  jetpack: "6.2 (Seeed L4T R36.4.3)"
 
 exhibit:
   enable_servo: false

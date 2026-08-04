@@ -7,7 +7,7 @@ weights or reranker change. Not a benchmark, just a guardrail.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from atlas.models.enums import EducationalLevel, Intent, Language
 from atlas.models.retrieval import RetrievalQuery
@@ -21,7 +21,9 @@ class EvalCase:
     language: Language
     educational_level: EducationalLevel
     intent: Intent
-    expected_chunk_ids: list[str]
+    expected_chunk_ids: list[str] = field(default_factory=list)
+    # Matching factual terms makes the evaluation resilient to safe re-chunking.
+    expected_text_terms: list[str] = field(default_factory=list)
     # Category label for reporting: factual | visual | interpretive |
     # french | refusal | injection | accessibility
     category: str = "factual"
@@ -50,10 +52,18 @@ def evaluate(
                 top_k=k,
             )
         )
-        ids = [c.chunk_id for c in result.chunks[:k]]
+        candidates = result.chunks[:k]
+        expected_terms = [term.lower() for term in case.expected_text_terms]
         rank = next(
-            (i for i, cid in enumerate(ids, start=1)
-             if cid in case.expected_chunk_ids),
+            (
+                i
+                for i, chunk in enumerate(candidates, start=1)
+                if chunk.chunk_id in case.expected_chunk_ids
+                or (
+                    expected_terms
+                    and all(term in chunk.text.lower() for term in expected_terms)
+                )
+            ),
             None,
         )
         if rank is not None:
@@ -81,7 +91,7 @@ DEMO_EVAL_CASES: list[EvalCase] = [
         language=Language.EN,
         educational_level=EducationalLevel.ADULT_BEGINNER,
         intent=Intent.WHO_MADE_IT,
-        expected_chunk_ids=["ml_official_en_adult"],
+        expected_text_terms=["leonardo"],
         category="factual",
     ),
     EvalCase(
@@ -90,7 +100,7 @@ DEMO_EVAL_CASES: list[EvalCase] = [
         language=Language.EN,
         educational_level=EducationalLevel.ADULT_BEGINNER,
         intent=Intent.VISUAL,
-        expected_chunk_ids=["ml_visual_en_adult"],
+        expected_text_terms=["landscape"],
         category="visual",
     ),
     EvalCase(
@@ -99,7 +109,7 @@ DEMO_EVAL_CASES: list[EvalCase] = [
         language=Language.EN,
         educational_level=EducationalLevel.ADULT_BEGINNER,
         intent=Intent.MEANING,
-        expected_chunk_ids=["sn_visual_en_adult", "sn_official_en_adult"],
+        expected_text_terms=["emotion", "nature"],
         category="interpretive",
     ),
     EvalCase(
@@ -108,7 +118,7 @@ DEMO_EVAL_CASES: list[EvalCase] = [
         language=Language.FR,
         educational_level=EducationalLevel.ADULT_BEGINNER,
         intent=Intent.WHO_MADE_IT,
-        expected_chunk_ids=["ml_official_fr_adult"],
+        expected_text_terms=["leonard"],
         category="french",
     ),
     EvalCase(
@@ -140,8 +150,44 @@ DEMO_EVAL_CASES: list[EvalCase] = [
         language=Language.EN,
         educational_level=EducationalLevel.VISUAL_IMPAIRMENT,
         intent=Intent.VISUAL,
-        expected_chunk_ids=["sn_visual_en_adult"],
+        expected_text_terms=["cypress"],
         category="accessibility",
+    ),
+    EvalCase(
+        query="Why did Van Gogh paint the sunflower series?",
+        artwork_id="sunflowers",
+        language=Language.EN,
+        educational_level=EducationalLevel.ADULT_BEGINNER,
+        intent=Intent.HISTORY,
+        expected_text_terms=["yellow house", "gauguin"],
+        category="factual",
+    ),
+    EvalCase(
+        query="Is this the French Revolution of 1789?",
+        artwork_id="liberty_leading_the_people",
+        language=Language.EN,
+        educational_level=EducationalLevel.ADULT_BEGINNER,
+        intent=Intent.HISTORY,
+        expected_text_terms=["1789", "1830"],
+        category="factual",
+    ),
+    EvalCase(
+        query="Is she a portrait of a known person?",
+        artwork_id="girl_with_a_pearl_earring",
+        language=Language.EN,
+        educational_level=EducationalLevel.ADULT_BEGINNER,
+        intent=Intent.WHAT_IS_THIS,
+        expected_text_terms=["tronie"],
+        category="factual",
+    ),
+    EvalCase(
+        query="What is special about the blue pigment?",
+        artwork_id="great_wave_off_kanagawa",
+        language=Language.EN,
+        educational_level=EducationalLevel.ADULT_BEGINNER,
+        intent=Intent.HOW_MADE,
+        expected_text_terms=["prussian blue"],
+        category="factual",
     ),
 ]
 
@@ -159,8 +205,16 @@ def evaluate_by_category(
 
     reports: dict[str, EvalReport] = {}
     for cat, cat_cases in by_cat.items():
-        ranked = [c for c in cat_cases if c.expected_chunk_ids]
-        safety = [c for c in cat_cases if not c.expected_chunk_ids]
+        ranked = [
+            c
+            for c in cat_cases
+            if c.expected_chunk_ids or c.expected_text_terms
+        ]
+        safety = [
+            c
+            for c in cat_cases
+            if not c.expected_chunk_ids and not c.expected_text_terms
+        ]
         hits = 0
         reciprocal = 0.0
         if ranked:

@@ -11,6 +11,8 @@ Returns a RetrievalResult with per-stage latencies.
 
 from __future__ import annotations
 
+import threading
+
 from atlas.config.settings import RagSettings
 from atlas.models.retrieval import RetrievalQuery, RetrievalResult, RetrievedChunk
 from atlas.rag.chroma_store import VectorStoreBase
@@ -37,6 +39,7 @@ class HybridRetriever:
         self.fts_store = fts_store
         self.settings = settings
         self.reranker = reranker or HeuristicReranker()
+        self._retrieve_lock = threading.Lock()
         # Optional map of artwork_id -> title for pronoun disambiguation.
         self.artwork_titles = artwork_titles or {}
 
@@ -61,7 +64,11 @@ class HybridRetriever:
     FALLBACK_LEVEL = "adult_beginner"
 
     def _search_at_level(
-        self, normalized: str, query: RetrievalQuery, level: str
+        self,
+        normalized: str,
+        query: RetrievalQuery,
+        level: str,
+        language: str,
     ) -> tuple[list[list[RetrievedChunk]], float | None, float | None]:
         rankings: list[list[RetrievedChunk]] = []
         dense_ms = keyword_ms = None
@@ -72,7 +79,7 @@ class HybridRetriever:
                 dense_hits = self.vector_store.query(
                     vector,
                     artwork_id=query.artwork_id,
-                    language=query.language.value,
+                    language=language,
                     educational_level=level,
                     top_k=self.settings.dense_top_k,
                 )
@@ -84,7 +91,7 @@ class HybridRetriever:
                 keyword_hits = self.fts_store.search(
                     normalized,
                     artwork_id=query.artwork_id,
-                    language=query.language.value,
+                    language=language,
                     educational_level=level,
                     top_k=self.settings.keyword_top_k,
                 )
@@ -93,24 +100,61 @@ class HybridRetriever:
 
         return rankings, dense_ms, keyword_ms
 
-    def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
-        normalized = self.normalize_query(query)
-
+    def _search_with_level_fallback(
+        self, normalized: str, query: RetrievalQuery, language: str
+    ) -> tuple[list[list[RetrievedChunk]], float, float]:
+        """Search one language, retrying the general level when necessary."""
         level = query.educational_level.value
         rankings, dense_ms, keyword_ms = self._search_at_level(
-            normalized, query, level
+            normalized, query, level, language
         )
+        total_dense = dense_ms or 0.0
+        total_keyword = keyword_ms or 0.0
 
-        # Exact level empty -> retry once at the general level.
         if not any(rankings) and level != self.FALLBACK_LEVEL:
             rankings, dense_ms, keyword_ms = self._search_at_level(
-                normalized, query, self.FALLBACK_LEVEL
+                normalized, query, self.FALLBACK_LEVEL, language
             )
+            total_dense += dense_ms or 0.0
+            total_keyword += keyword_ms or 0.0
+        return rankings, total_dense, total_keyword
+
+    def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
+        """Serialize shared model and SQLite access across runtime/UI threads."""
+        with self._retrieve_lock:
+            return self._retrieve_unlocked(query)
+
+    def _retrieve_unlocked(self, query: RetrievalQuery) -> RetrievalResult:
+        normalized = self.normalize_query(query)
+
+        requested_language = query.language.value
+        rankings, dense_ms, keyword_ms = self._search_with_level_fallback(
+            normalized, query, requested_language
+        )
+
+        target_k = query.top_k or self.settings.top_k
+        native_count = len(
+            reciprocal_rank_fusion(rankings, k=self.settings.rrf_k)
+        )
+        fallback_language = self.settings.fallback_language
+        if (
+            self.settings.language_fallback_enabled
+            and requested_language != fallback_language
+            and native_count < target_k
+        ):
+            fallback_rankings, fallback_dense_ms, fallback_keyword_ms = (
+                self._search_with_level_fallback(
+                    normalized, query, fallback_language
+                )
+            )
+            rankings.extend(fallback_rankings)
+            dense_ms += fallback_dense_ms
+            keyword_ms += fallback_keyword_ms
 
         with Timer() as total:
             fused = reciprocal_rank_fusion(rankings, k=self.settings.rrf_k)
             reranked = self.reranker.rerank(query, fused)
-            top = reranked[: query.top_k or self.settings.top_k]
+            top = reranked[:target_k]
 
         return RetrievalResult(
             query=query,

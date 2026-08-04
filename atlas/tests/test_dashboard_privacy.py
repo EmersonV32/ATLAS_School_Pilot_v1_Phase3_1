@@ -55,15 +55,17 @@ class TestPrivacyDefaults:
         assert s.logging.log_transcripts is False
         assert s.llm.cloud_llm_enabled is False
 
-    def test_repo_config_keeps_safe_defaults(self):
-        """The checked-in config/settings.yaml must not weaken privacy."""
+    def test_repo_testing_config_logs_text_but_not_raw_media(self):
+        """Prototype config may log text, never raw audio/images/face data."""
         from atlas.config.loader import load_settings
 
         s = load_settings(REPO_ROOT / "config")
         assert s.privacy.store_raw_audio is False
         assert s.privacy.store_raw_images is False
         assert s.privacy.store_face_data is False
-        assert s.logging.log_transcripts is False
+        assert s.logging.log_transcripts is True
+        assert s.logging.log_live_stt is True
+        assert s.logging.log_llm_responses is True
 
 
 class TestLogHygiene:
@@ -120,6 +122,7 @@ class TestProtectedEndpoints:
         assert ingest.status_code == 401
         assert client.post("/eval/rag").status_code == 401
         assert client.post("/hardware/clear-emergency-stop").status_code == 401
+        assert client.get("/admin/config").status_code == 401
         simulate = client.post("/demo/simulate", json={"scenario": "reset"})
         assert simulate.status_code == 401
 

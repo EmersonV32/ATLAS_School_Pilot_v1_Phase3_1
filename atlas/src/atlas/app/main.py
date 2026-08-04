@@ -15,12 +15,33 @@ future version aims to replace this with an on-device language model.
 from __future__ import annotations
 
 import argparse
+import logging
 
 from atlas.app.dependency_container import build_container
 from atlas.app.events import Event
 from atlas.app.state_machine import StateMachine
 from atlas.models.enums import RunMode
 from atlas.utils.ids import new_session_id
+
+
+def _configure_runtime_logging(level: str) -> None:
+    """Emit all ATLAS module logs to the process stream captured by systemd."""
+    atlas_logger = logging.getLogger("atlas")
+    atlas_logger.setLevel(getattr(logging, str(level).upper(), logging.INFO))
+    if not any(
+        getattr(handler, "_atlas_runtime", False)
+        for handler in atlas_logger.handlers
+    ):
+        handler = logging.StreamHandler()
+        handler._atlas_runtime = True  # type: ignore[attr-defined]
+        handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(levelname)s %(name)s: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
+        atlas_logger.addHandler(handler)
+    atlas_logger.propagate = False
 
 
 def _scripted_dev_walkthrough(sm: StateMachine) -> None:
@@ -56,8 +77,21 @@ def main() -> None:
         "--config-dir", default="config", help="Path to the config directory"
     )
     parser.add_argument(
-        "--run", type=int, default=0, metavar="N",
-        help="Run N real pipeline cycles via SessionRunner instead of the scripted walkthrough",
+        "--run",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Run N complete pipeline interactions",
+    )
+    parser.add_argument(
+        "--device-loop",
+        action="store_true",
+        help="Run the real camera-driven device loop until Ctrl+C",
+    )
+    parser.add_argument(
+        "--wait-ready",
+        action="store_true",
+        help="Preload every component, then wait for Enter before interaction",
     )
     args = parser.parse_args()
 
@@ -66,12 +100,31 @@ def main() -> None:
         container.settings.mode = RunMode(args.mode)
 
     settings = container.settings
+    _configure_runtime_logging(settings.logging.level)
     print("ATLAS School Pilot v1")
     print(f"  mode          : {settings.mode.value}")
     print(f"  default pack  : {settings.default_pack_id}")
     print(f"  llm provider  : {settings.llm.provider}")
     print(f"  logs dir      : {settings.paths.logs_dir}")
     print(f"  log transcripts: {settings.logging.log_transcripts}")
+    print(f"  log live STT   : {settings.logging.log_live_stt}")
+    print(f"  log LLM answers: {settings.logging.log_llm_responses}")
+
+    if settings.mode == RunMode.DEVICE and (args.run > 0 or args.device_loop):
+        from atlas.app.device_runtime import DeviceRuntime
+
+        runtime = DeviceRuntime(container)
+        try:
+            runtime.run(
+                max_interactions=args.run,
+                wait_for_terminal=args.wait_ready,
+            )
+        except KeyboardInterrupt:
+            print("\nATLAS stopped safely.")
+        except RuntimeError as exc:
+            print(f"\nATLAS could not start: {exc}")
+            raise SystemExit(2) from exc
+        return
 
     if args.run > 0:
         runner = container.session_runner

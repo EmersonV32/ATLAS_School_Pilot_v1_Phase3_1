@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATLAS Admin</title>
+  <link rel="stylesheet" href="/static/style.css?v=6">
+</head>
+<body class="admin-page">
+  <header class="app-header ops-header">
+    <div class="brand-block">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <div><strong class="brand-name">ATLAS</strong><span class="brand-subtitle">Operations console</span></div>
+    </div>
+    <div class="ops-header-metrics" aria-label="System summary">
+      <div><span>Mode</span><strong id="metric-mode">--</strong></div>
+      <div><span>Session</span><strong id="metric-session">Idle</strong></div>
+      <div><span>Artwork</span><strong id="metric-artwork">None</strong></div>
+      <div><span>Latency</span><strong id="metric-latency">--</strong></div>
+    </div>
+    <div class="header-actions">
+      <span id="admin-state" class="status-pill neutral">Connecting</span>
+      <span id="local-mode" class="status-pill warning hidden">Local test mode</span>
+      <button id="btn-refresh" type="button" class="secondary compact-button">Refresh</button>
+      <a class="quiet-link" href="/">Visitor view</a>
+    </div>
+  </header>
+
+  <main class="ops-dashboard">
+    <section class="ops-panel settings-panel" aria-labelledby="settings-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Configuration</p><h1 id="settings-title">Settings</h1></div>
+        <span id="restart-badge" class="status-pill warning hidden">Restart required</span>
+      </div>
+      <div id="auth-controls" class="auth-controls hidden">
+        <label>Admin token<input id="inp-token" type="password" autocomplete="current-password"></label>
+        <button id="btn-unlock" type="button">Unlock</button>
+      </div>
+      <div class="settings-scroll">
+        <section class="control-section">
+          <div class="section-heading"><h2>Experience</h2><span id="experience-state" class="metric">Ready</span></div>
+          <div class="dense-form four-columns">
+            <label>Content pack<select id="sel-pack"></select></label>
+            <label>Language
+              <select id="sel-language">
+                <option value="en">English</option><option value="fr">Francais</option>
+                <option value="es">Espanol</option><option value="it">Italiano</option>
+              </select>
+            </label>
+            <label>Profile
+              <select id="sel-profile">
+                <option value="child">Child</option><option value="teen">Teen</option>
+                <option value="adult_beginner">Adult beginner</option><option value="expert">Expert</option>
+                <option value="visual_impairment">Visual impairment</option>
+                <option value="simple_language">Simple language</option>
+              </select>
+            </label>
+            <label class="switch-field"><input id="chk-accessibility" type="checkbox"><span>Audio description</span></label>
+          </div>
+          <div class="command-group compact-actions">
+            <button id="btn-apply-experience" type="button">Apply</button>
+            <button id="btn-start" type="button" class="secondary">Start</button>
+            <button id="btn-stop" type="button" class="secondary">End</button>
+          </div>
+        </section>
+
+        <form id="config-form">
+          <details class="settings-disclosure">
+            <summary>Language model</summary>
+            <div class="dense-form three-columns">
+              <label>Provider<select id="cfg-llm-provider"><option value="gemini">Gemini</option><option value="mock">Mock</option></select></label>
+              <label>Model<input id="cfg-llm-model" type="text"></label>
+              <label>Timeout (s)<input id="cfg-llm-timeout" type="number" min="1" max="60" step="0.5"></label>
+              <label class="switch-field"><input id="cfg-cloud-llm" type="checkbox"><span>Cloud LLM</span></label>
+              <label class="switch-field"><input id="cfg-streaming" type="checkbox"><span>Streaming</span></label>
+              <label class="switch-field"><input id="cfg-sentence-tts" type="checkbox"><span>Sentence TTS</span></label>
+            </div>
+          </details>
+          <details class="settings-disclosure">
+            <summary>Speech and VAD</summary>
+            <div class="dense-form three-columns">
+              <label>STT<select id="cfg-stt"><option value="deepgram">Deepgram</option><option value="whisper">Whisper</option></select></label>
+              <label>TTS<select id="cfg-tts"><option value="cartesia">Cartesia</option><option value="piper">Piper</option></select></label>
+              <label>Deepgram model<input id="cfg-deepgram-model" type="text"></label>
+              <label>Deepgram language<input id="cfg-deepgram-language" type="text"></label>
+              <label>Listening window (s)<input id="cfg-listen-duration" type="number" min="3" max="20" step="0.5"></label>
+              <label>Cartesia model<input id="cfg-cartesia-model" type="text"></label>
+              <label>Cartesia voice ID<input id="cfg-cartesia-voice" type="text"></label>
+              <label>VAD threshold<input id="cfg-vad-threshold" type="number" min="0.05" max="0.95" step="0.05"></label>
+              <label>Silence endpoint (ms)<input id="cfg-vad-silence" type="number" min="100" max="3000" step="50"></label>
+              <label class="switch-field"><input id="cfg-cloud-speech" type="checkbox"><span>Cloud speech</span></label>
+              <label class="switch-field"><input id="cfg-offline-fallback" type="checkbox"><span>Offline fallback</span></label>
+              <label class="switch-field"><input id="cfg-log-live-stt" type="checkbox"><span>Log live STT</span></label>
+              <label class="switch-field"><input id="cfg-log-transcripts" type="checkbox"><span>Log final questions</span></label>
+              <label class="switch-field"><input id="cfg-log-llm" type="checkbox"><span>Log LLM answers</span></label>
+            </div>
+          </details>
+          <details class="settings-disclosure">
+            <summary>Vision and retrieval</summary>
+            <div class="dense-form four-columns">
+              <label>YOLO backend<select id="cfg-yolo"><option value="auto">Auto</option><option value="tensorrt">TensorRT</option><option value="pytorch">PyTorch</option></select></label>
+              <label>Confidence<input id="cfg-confidence" type="number" min="0.05" max="0.95" step="0.01"></label>
+              <label>Mask confidence<input id="cfg-mask-confidence" type="number" min="0.05" max="0.95" step="0.01"></label>
+              <label>Center weight<input id="cfg-center-weight" type="number" min="0" max="1" step="0.01"></label>
+              <label>Center threshold<input id="cfg-center-threshold" type="number" min="0" max="1" step="0.01"></label>
+              <label>Hold time (s)<input id="cfg-hold" type="number" min="0.25" max="10" step="0.25"></label>
+              <label>Gap tolerance (s)<input id="cfg-gap-tolerance" type="number" min="0" max="3" step="0.1"></label>
+              <label>Capture crop<input id="cfg-crop" type="number" min="0.25" max="1" step="0.05"></label>
+              <label>RAG results<input id="cfg-top-k" type="number" min="1" max="20"></label>
+              <label>Dense candidates<input id="cfg-dense-top-k" type="number" min="1" max="50"></label>
+              <label>Keyword candidates<input id="cfg-keyword-top-k" type="number" min="1" max="50"></label>
+              <label>Chunk words<input id="cfg-chunk-words" type="number" min="20" max="200"></label>
+              <label class="switch-field"><input id="cfg-language-fallback" type="checkbox"><span>Language fallback</span></label>
+              <label>Fallback language<select id="cfg-fallback-language"><option value="en">English</option><option value="fr">Francais</option><option value="es">Espanol</option><option value="it">Italiano</option></select></label>
+            </div>
+          </details>
+          <div class="settings-save-bar"><button id="btn-save-config" type="submit">Save settings</button></div>
+        </form>
+      </div>
+    </section>
+
+    <section class="ops-panel live-panel" aria-labelledby="camera-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Vision</p><h1 id="camera-title">Live camera</h1></div>
+        <div class="camera-badges"><span id="camera-state" class="status-pill neutral">Connecting</span><span id="camera-detection" class="status-pill neutral">No artwork</span></div>
+      </div>
+      <div class="vision-workspace">
+        <div class="ops-camera-stage"><img id="admin-camera" alt="Live ATLAS camera feed"></div>
+        <aside class="vision-telemetry" aria-label="Live interaction telemetry">
+          <div><p class="eyebrow">Interaction</p><h2>Current state</h2></div>
+          <ul class="status-list telemetry-list">
+            <li><span>Session</span><strong id="vision-session">Idle</strong></li>
+            <li><span>Language</span><strong id="vision-language">--</strong></li>
+            <li><span>Artwork</span><strong id="vision-artwork">None</strong></li>
+            <li><span>Confidence</span><strong id="vision-confidence">--</strong></li>
+            <li><span>Last latency</span><strong id="vision-latency">--</strong></li>
+          </ul>
+          <div class="provider-readout">
+            <span>STT</span><strong id="vision-stt">Checking</strong>
+            <span>TTS</span><strong id="vision-tts">Checking</strong>
+          </div>
+          <p id="vision-last-answer" class="vision-answer">No answer yet.</p>
+        </aside>
+      </div>
+      <div class="camera-readout">
+        <span id="camera-source">Camera stream</span>
+        <strong id="camera-confidence">--</strong>
+      </div>
+    </section>
+
+    <section class="ops-panel logs-panel" aria-labelledby="logs-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Diagnostics</p><h1 id="logs-title">Live logs</h1></div>
+        <div class="command-group log-controls">
+          <label class="switch-field"><input id="chk-pause-logs" type="checkbox"><span>Pause</span></label>
+          <button id="btn-refresh-logs" type="button" class="secondary compact-button">Refresh</button>
+        </div>
+      </div>
+      <div class="log-grid">
+        <div class="log-column"><div class="log-label"><span>Runtime</span><strong id="runtime-log-state">Waiting</strong></div><pre id="runtime-log-view" class="result-view live-log">No runtime logs loaded.</pre></div>
+        <div class="log-column"><div class="log-label"><span>Events</span><strong>Structured</strong></div><pre id="event-log-view" class="result-view live-log">No events loaded.</pre></div>
+      </div>
+    </section>
+
+    <section class="ops-panel operations-panel" aria-labelledby="operations-title">
+      <div class="ops-panel-header"><div><p class="eyebrow">Control</p><h1 id="operations-title">Operations</h1></div><span id="estop-status" class="status-pill ok">Safety clear</span></div>
+      <div class="operations-grid">
+        <section class="control-section">
+          <h2>Artwork context</h2>
+          <div class="stacked-controls">
+            <select id="sel-artwork" aria-label="Artwork"></select>
+            <div class="command-group compact-actions">
+              <button id="btn-override" type="button">Override</button>
+              <button id="btn-clear-override" type="button" class="secondary">Clear</button>
+              <button id="btn-capture" type="button" class="secondary">Capture</button>
+            </div>
+          </div>
+        </section>
+        <section class="control-section">
+          <h2>Components</h2>
+          <ul id="health-list" class="status-list compact-status"></ul>
+        </section>
+        <section class="control-section">
+          <h2>Knowledge base</h2>
+          <div class="stacked-controls">
+            <select id="content-pack" aria-label="Content pack"></select>
+            <div class="command-group compact-actions"><button id="btn-ingest" type="button">Re-index</button><button id="btn-eval" type="button" class="secondary">Evaluate</button></div>
+            <pre id="content-result" class="result-view compact-result">No operation run.</pre>
+          </div>
+        </section>
+        <section class="control-section">
+          <h2>Safety and simulation</h2>
+          <div class="command-group compact-actions"><button id="btn-estop" type="button" class="danger">Emergency stop</button><button id="btn-clear-estop" type="button" class="secondary">Clear stop</button></div>
+          <div class="simulation-row">
+            <button type="button" class="secondary" data-sim="low_confidence">Low confidence</button>
+            <button type="button" class="secondary" data-sim="llm_timeout">LLM timeout</button>
+            <button type="button" class="secondary" data-sim="tts_failure">TTS failure</button>
+            <button type="button" class="secondary" data-sim="reset">Reset</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <p id="admin-notice" class="notice hidden" role="status"></p>
+  <script src="/static/admin.js?v=7"></script>
+</body>
+</html>

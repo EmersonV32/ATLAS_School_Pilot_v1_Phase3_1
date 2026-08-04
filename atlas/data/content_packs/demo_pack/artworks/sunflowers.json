@@ -1,0 +1,50 @@
+{
+  "artwork_id": "sunflowers",
+  "title": "Sunflowers",
+  "artist": "Vincent van Gogh",
+  "date": "1888",
+  "materials": "Oil on canvas",
+  "dimensions": "92.1 cm x 73 cm",
+  "culture_origin": "Dutch artist working in Arles, France",
+  "movement": "Post-Impressionism",
+  "official_description": "A yellow-on-yellow still life of fifteen sunflowers in different stages of growth and decay, painted in Arles.",
+  "historical_context": "Van Gogh made the Arles sunflower paintings to decorate the Yellow House before Paul Gauguin's visit.",
+  "visual_description": "Fifteen jagged, drooping, blooming, and seeding flowers fill a simple yellow vase against a pale yellow wall.",
+  "themes": ["friendship", "gratitude", "nature", "vitality", "mortality"],
+  "keywords": ["sunflowers", "van gogh", "Arles", "Yellow House", "Gauguin", "impasto", "yellow", "fifteen flowers"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_sf_ng",
+      "title": "Vincent van Gogh - Sunflowers - NG3863",
+      "url": "https://www.nationalgallery.org.uk/paintings/vincent-van-gogh-sunflowers",
+      "publisher": "The National Gallery, London",
+      "license_note": "ATLAS paraphrase of the official museum record; no long museum text copied.",
+      "last_checked": "2026-08-02"
+    }
+  ],
+  "chunks": [
+    {"chunk_id":"sf_identity_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"official_description","text":"Vincent van Gogh painted this version of Sunflowers in Arles in 1888, using oil on canvas.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["Vincent van Gogh","Arles","1888","oil"]},
+    {"chunk_id":"sf_dimensions_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"The National Gallery painting measures 92.1 by 73 centimetres, is signed Vincent, and has inventory number NG3863.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["dimensions","signed Vincent","NG3863"]},
+    {"chunk_id":"sf_series_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Van Gogh painted seven Arles versions in total during 1888 and 1889; five versions are now displayed in museums around the world.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["seven versions","five museums","series"]},
+    {"chunk_id":"sf_yellow_house_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"He planned the paintings as decorations for the Yellow House before his friend and fellow artist Paul Gauguin arrived.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["Yellow House","Paul Gauguin","decoration","friend"]},
+    {"chunk_id":"sf_speed_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"Van Gogh completed the first four sunflower canvases in one week, working quickly before the cut flowers faded.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["one week","quickly","flowers faded"]},
+    {"chunk_id":"sf_fifteen_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"This version shows fifteen sunflowers: some are buds, some are fully open, and others have lost petals and are turning to seed.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["fifteen","buds","petals","seeds"]},
+    {"chunk_id":"sf_impasto_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Thick impasto creates raised texture. Long strokes follow petals and stems, while small dabs imitate the rough seed heads.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["impasto","texture","strokes","seed heads"]},
+    {"chunk_id":"sf_palette_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Van Gogh limited the picture mainly to yellow, ranging from orange ochre to the pale greenish yellow of the background.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["yellow","orange ochre","palette","background"]},
+    {"chunk_id":"sf_signature_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"The vase is divided into two yellow bands, and Van Gogh signed his first name Vincent in blue on its left side.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["vase","signature","Vincent","blue"]},
+    {"chunk_id":"sf_vanitas_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"theme","text":"The flowers' movement from bud to decay connects the still life with the vanitas tradition, which reflects on the temporary nature of life.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["vanitas","life cycle","decay","mortality"]},
+    {"chunk_id":"sf_friendship_en_adult","artwork_id":"sunflowers","language":"en","educational_level":"adult_beginner","chunk_type":"theme","text":"The National Gallery notes possible meanings of friendship, gratitude, and the beauty and vitality of nature.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["friendship","gratitude","vitality","nature"]},
+    {"chunk_id":"sf_child_en","artwork_id":"sunflowers","language":"en","educational_level":"child","chunk_type":"general","text":"Van Gogh painted fifteen bright sunflowers in one vase. Some are young, some are open, and some are becoming seeds, so we see the flowers changing over time.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["fifteen","flowers","vase","change"]},
+    {"chunk_id":"sf_expert_series_en","artwork_id":"sunflowers","language":"en","educational_level":"expert","chunk_type":"historical_context","text":"The series was made in two groups: four canvases in August 1888 and three repetitions in January 1889, intended partly as companions to portraits of Madame Roulin.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["August 1888","January 1889","repetitions","Madame Roulin"]},
+    {"chunk_id":"sf_expert_style_en","artwork_id":"sunflowers","language":"en","educational_level":"expert","chunk_type":"technique","text":"The restricted yellow palette, calligraphic contours, directional strokes, and dense impasto make the still life an early statement of Van Gogh's mature Arles style.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["Arles style","palette","contours","impasto"]},
+    {"chunk_id":"sf_identity_fr_adult","artwork_id":"sunflowers","language":"fr","educational_level":"adult_beginner","chunk_type":"official_description","text":"Vincent van Gogh a peint cette version des Tournesols a Arles en 1888, a l'huile sur toile.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["Vincent van Gogh","Arles","1888","huile"]},
+    {"chunk_id":"sf_series_fr_adult","artwork_id":"sunflowers","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Van Gogh a peint sept versions a Arles en 1888 et 1889. Cinq sont aujourd'hui exposees dans des musees.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["sept versions","cinq musees","serie"]},
+    {"chunk_id":"sf_gauguin_fr_adult","artwork_id":"sunflowers","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Il voulait decorer la Maison jaune avant l'arrivee de son ami et collegue Paul Gauguin.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["Maison jaune","Paul Gauguin","amitie"]},
+    {"chunk_id":"sf_visual_fr_adult","artwork_id":"sunflowers","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Le vase contient quinze tournesols: des boutons, des fleurs ouvertes et des tetes qui perdent leurs petales et produisent des graines.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["quinze","boutons","petales","graines"]},
+    {"chunk_id":"sf_impasto_fr_adult","artwork_id":"sunflowers","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"L'impasto epais cree du relief. Les longs traits suivent les petales et les tiges, tandis que de petites touches imitent les graines.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["impasto","relief","traits","graines"]},
+    {"chunk_id":"sf_palette_fr_adult","artwork_id":"sunflowers","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"La palette est presque entierement jaune, de l'ocre orange au jaune pale legerement vert du fond.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["jaune","ocre","palette","fond"]},
+    {"chunk_id":"sf_meaning_fr_adult","artwork_id":"sunflowers","language":"fr","educational_level":"adult_beginner","chunk_type":"theme","text":"Les etapes de la vie des fleurs rappellent la tradition des vanites. Elles peuvent aussi evoquer l'amitie, la gratitude et la vitalite de la nature.","source_id":"src_sf_ng","verified":true,"allowed_for_students":true,"keywords":["vanite","amitie","gratitude","nature"]}
+  ]
+}

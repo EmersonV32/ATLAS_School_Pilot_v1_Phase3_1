@@ -1,0 +1,28 @@
+ATLAS Jetson quick commands
+===========================
+
+Project folders:
+- Old stable repo: ~/atlas/wrofutureinnovators2026
+- New Emerson repo: ~/atlas/ATLAS_School_Pilot_v1_Phase3_1
+- Python venv: ~/atlas/venvs/yolo-runtime
+
+Start old stable ATLAS:
+  ~/atlas/start_atlas_old.sh
+
+Manual environment:
+  cd ~/atlas/wrofutureinnovators2026
+  source ~/atlas/venvs/yolo-runtime/bin/activate
+
+Important:
+- Do NOT run: sudo apt upgrade -y
+- NVIDIA L4T packages are held because Seeed J401 bootloader/kernel upgrades failed.
+- Safe package installs are okay, but avoid changing nvidia-l4t-* packages.
+- Current missing runtime pieces: .env with GEMINI_API_KEY, connected camera/mic/speaker/EV3.
+
+Performance while plugged in:
+  sudo jetson_clocks
+
+Health checks:
+  sudo apt-get check
+  python -m pip check
+  uname -a

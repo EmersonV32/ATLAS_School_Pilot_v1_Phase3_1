@@ -87,8 +87,9 @@ class SentenceTransformerEmbedder(EmbedderBase):
     was not installed.
     """
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, *, local_files_only: bool = True) -> None:
         self._model_name = model_name
+        self._local_files_only = local_files_only
         self._model = None  # loaded on first use
 
     def _load(self):
@@ -100,7 +101,10 @@ class SentenceTransformerEmbedder(EmbedderBase):
                     "sentence-transformers is not installed. "
                     'Run: pip install -e ".[rag]"'
                 ) from exc
-            self._model = SentenceTransformer(self._model_name)
+            self._model = SentenceTransformer(
+                self._model_name,
+                local_files_only=self._local_files_only,
+            )
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         self._load()
@@ -119,4 +123,7 @@ def make_embedder(settings: RagSettings, *, mock: bool = False) -> EmbedderBase:
     """Factory: return MockEmbedder for dev/test, real embedder otherwise."""
     if mock:
         return MockEmbedder()
-    return SentenceTransformerEmbedder(settings.embedding_model)
+    return SentenceTransformerEmbedder(
+        settings.embedding_model,
+        local_files_only=settings.embedding_local_files_only,
+    )
