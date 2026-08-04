@@ -8,22 +8,18 @@ still stays within that artwork.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
 from atlas.config.settings import RagSettings
 from atlas.models.enums import EducationalLevel, Intent, Language
-from atlas.models.retrieval import RetrievalQuery, RetrievedChunk
+from atlas.models.retrieval import RetrievalQuery
 from atlas.rag.chroma_store import SimpleVectorStore
-from atlas.rag.chunking import prepare_chunks
-from atlas.rag.embeddings import (
-    MockEmbedder,
-    SentenceTransformerEmbedder,
-    make_embedder,
-)
+from atlas.rag.embeddings import MockEmbedder
 from atlas.rag.ingest import load_content_pack
+from atlas.rag.chunking import prepare_chunks
+from atlas.models.retrieval import RetrievedChunk
 from atlas.rag.retriever import HybridRetriever
 from atlas.rag.sqlite_fts_store import SqliteFtsStore
 
@@ -33,38 +29,6 @@ PACK_DIR = (
     / "content_packs"
     / "demo_pack"
 )
-
-
-def test_real_embedder_defaults_to_cached_files_only():
-    embedder = make_embedder(RagSettings())
-    assert isinstance(embedder, SentenceTransformerEmbedder)
-    assert embedder._local_files_only is True
-
-
-def test_sqlite_store_supports_integrated_dashboard_thread(tmp_path):
-    store = SqliteFtsStore(tmp_path / "shared.db")
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        assert pool.submit(store.count).result() == 0
-
-
-def test_simple_vector_reset_clears_persisted_records(tmp_path) -> None:
-    path = tmp_path / "vecs.json"
-    store = SimpleVectorStore(persist_path=path)
-    store.add(
-        [
-            {
-                "chunk_id": "old",
-                "vector": [1.0, 0.0],
-                "text": "stale content",
-                "metadata": {},
-            }
-        ]
-    )
-
-    store.reset()
-
-    assert store.count() == 0
-    assert SimpleVectorStore(persist_path=path).count() == 0
 
 
 @pytest.fixture()
@@ -96,7 +60,7 @@ def retriever(tmp_path) -> HybridRetriever:
                         "keywords": c.keywords,
                     },
                 }
-                for c, v in zip(chunks, vectors, strict=True)
+                for c, v in zip(chunks, vectors)
             ]
         )
         fts_store.add_chunks(
@@ -152,21 +116,6 @@ def test_language_filter_isolates_french(retriever: HybridRetriever) -> None:
     )
     assert result.chunks
     assert all(c.language == "fr" for c in result.chunks)
-
-
-def test_missing_language_falls_back_to_english(retriever: HybridRetriever) -> None:
-    result = retriever.retrieve(
-        RetrievalQuery(
-            text="quien pinto la noche estrellada",
-            artwork_id="starry_night",
-            language=Language.ES,
-            educational_level=EducationalLevel.ADULT_BEGINNER,
-            intent=Intent.WHO_MADE_IT,
-            top_k=3,
-        )
-    )
-    assert result.chunks
-    assert all(c.language == "en" for c in result.chunks)
 
 
 def test_artwork_filter_excludes_others(retriever: HybridRetriever) -> None:

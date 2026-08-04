@@ -69,7 +69,6 @@ def ingest_pack(settings: Settings, pack_dir: str | Path, *, reset: bool = False
 
     db_path = Path(settings.paths.sqlite_dir) / "atlas.db"
     if reset:
-        vector_store.reset()
         con = sqlite_db.connect(db_path)
         sqlite_db.reset(con)
         con.close()
@@ -77,9 +76,7 @@ def ingest_pack(settings: Settings, pack_dir: str | Path, *, reset: bool = False
 
     total_chunks = 0
     for artwork in pack.artworks:
-        chunks = prepare_chunks(
-            artwork, max_words=settings.rag.chunk_max_words
-        )
+        chunks = prepare_chunks(artwork)
         if not chunks:
             continue
 

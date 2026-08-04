@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from atlas.models.artwork import Artwork, Chunk, Source
 from atlas.models.enums import ChunkType, EducationalLevel, Language
-from atlas.rag.chunking import prepare_chunks
 
 
 def _valid_artwork_dict() -> dict:
@@ -100,20 +99,3 @@ def test_extra_fields_forbidden() -> None:
             last_checked="2026-06-01",
             sneaky="nope",
         )
-
-
-def test_long_chunk_is_split_with_stable_child_ids() -> None:
-    data = _valid_artwork_dict()
-    data["chunks"][0]["text"] = (
-        "The first sentence contains a focused museum fact. "
-        "The second sentence contains another useful museum fact."
-    )
-    artwork = Artwork.model_validate(data)
-
-    chunks = prepare_chunks(artwork, max_words=8)
-
-    assert [c.chunk_id for c in chunks] == [
-        "starry_night_visual_en_1__01",
-        "starry_night_visual_en_1__02",
-    ]
-    assert all(len(c.text.split()) <= 8 for c in chunks)

@@ -1,20 +1,17 @@
 """Checks that a generated response has meaningful overlap with the retrieved context.
 
-This is a heuristic guard. The production upgrade path is a cross-encoder
-that scores (response, context) pairs directly. For now, answer-token coverage
-with a configurable threshold is enough to catch totally unrelated answers.
+This is a heuristic guard — the production upgrade path is a cross-encoder
+reranker that scores (response, context) pairs directly. For now, token-overlap
+with a configurable threshold is good enough to catch total hallucination.
 """
 from __future__ import annotations
 
 import re
-import unicodedata
 
 
 def _tokens(text: str) -> set[str]:
-    """Accent-insensitive alphabetic tokens of four or more characters."""
-    normalized = unicodedata.normalize("NFKD", text)
-    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
-    return set(re.findall(r"\b[a-z]{4,}\b", ascii_text.lower()))
+    """Lowercase alphabetic tokens of 4+ characters."""
+    return set(re.findall(r"\b[a-z]{4,}\b", text.lower()))
 
 
 class GroundingValidator:
@@ -25,8 +22,8 @@ class GroundingValidator:
     """
 
     def __init__(self, min_overlap: float = 0.05) -> None:
-        # Five percent is intentionally permissive because grounded answers
-        # can paraphrase the source and use a different visitor language.
+        # Jaccard overlap threshold — 5% is intentionally permissive;
+        # responses can be paraphrases without sharing many exact tokens.
         self.min_overlap = min_overlap
 
     def validate(
@@ -42,8 +39,8 @@ class GroundingValidator:
         if len(stripped) < 15:
             return False, "response_too_short"
 
-        # Imported here to avoid a module-level circular dependency.
-        from atlas.dialogue.prompt_builder import _extract_text
+        # Build context token set
+        from atlas.dialogue.prompt_builder import _extract_text  # avoid circular at module level
 
         context_text = " ".join(_extract_text(c) for c in context_chunks)
         ctx_tokens = _tokens(context_text)
@@ -56,10 +53,11 @@ class GroundingValidator:
         if not resp_tokens:
             return False, "response_no_meaningful_tokens"
 
+        union = ctx_tokens | resp_tokens
         intersection = ctx_tokens & resp_tokens
-        response_coverage = len(intersection) / len(resp_tokens)
+        jaccard = len(intersection) / len(union)
 
-        if response_coverage < self.min_overlap:
-            return False, f"low_overlap:{response_coverage:.3f}"
+        if jaccard < self.min_overlap:
+            return False, f"low_overlap:{jaccard:.3f}"
 
-        return True, f"ok:{response_coverage:.3f}"
+        return True, f"ok:{jaccard:.3f}"

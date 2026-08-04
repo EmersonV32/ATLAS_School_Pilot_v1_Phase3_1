@@ -16,15 +16,6 @@ cultural experience.
 ATLAS is **not** fully offline and does not claim to be. Cloud LLM mode is
 documented, opt-in, and disclosed (see `docs/cloud_llm_disclosure.md`).
 
-## Complete recovery bundle
-
-The repository now includes the integrated runtime, XIAO firmware, EV3 code,
-the authoritative YOLO checkpoint, exact Jetson package snapshot, setup and
-repair history, prior reports, and an exact archived snapshot of the nationals
-repository. Start with `docs/recovery/REBUILD_FROM_FRESH_FLASH.md` after a
-reflash. Credentials and device-generated TensorRT/cache files are the only
-intentional exclusions.
-
 ## Status: School Pilot v1.0
 
 The full pipeline runs in dev mode with no hardware, no API key and no ML

@@ -1,203 +1,80 @@
-"""EV3 adapter for the proven ATLAS Pybricks text-mailbox protocol."""
+"""
+EV3 hardware adapter — Bluetooth RFCOMM socket.
 
+Protocol note: the EV3 side must be programmed to receive and act on this
+message format. Each message is a 5-byte packet:
+  [0] stand_id  (uint8)
+  [1] cmd_byte  (first byte of StandCommand.value ASCII)
+  [2-3] duration_ms (uint16 big-endian)
+  [4] direction (int8: 1=CW, -1=CCW, 0=stop)
+
+LED messages are prefixed with 0xFF:
+  [0] 0xFF
+  [1] colour_code (0=off, 1=green, 2=amber, 3=red)
+
+Pair the EV3 to the Jetson first:
+  bluetoothctl -> pair <EV3_MAC> -> trust <EV3_MAC>
+"""
 from __future__ import annotations
-
 import logging
 import socket
 import struct
-import threading
-import time
-
 from .base import BaseHardware, StandCommand
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_COMMAND_NO_REPLY = 0x81
-_WRITE_MAILBOX = 0x9E
-_RFCOMM_CHANNEL = 1
-
-_ARTWORK_TO_SLOT = {
-    "starry_night": "slot_1",  # EV3 port A
-    "mona_lisa": "slot_2",  # EV3 port B
-    "tutankhamun_mask": "slot_3",  # EV3 port C
-    "pharaoh_mask": "slot_3",
+_CMD_PARAMS: dict[StandCommand, tuple[int, int]] = {
+    StandCommand.ROTATE_CW:  (800, 1),
+    StandCommand.ROTATE_CCW: (800, -1),
+    StandCommand.CENTER:     (400, 0),
+    StandCommand.LOCK:       (0, 0),
+    StandCommand.RELEASE:    (0, 0),
 }
-
-
-class _MailboxClient:
-    """Minimal Pybricks v2-compatible text mailbox client.
-
-    Framing follows the MIT-licensed Pybricks v2.0 messaging implementation:
-    https://github.com/pybricks/pybricks-micropython
-    """
-
-    def __init__(self, address: str, timeout_s: float) -> None:
-        self.socket = socket.socket(
-            socket.AF_BLUETOOTH,
-            socket.SOCK_STREAM,
-            socket.BTPROTO_RFCOMM,
-        )
-        self.socket.settimeout(timeout_s)
-        self.socket.connect((address, _RFCOMM_CHANNEL))
-
-    def _recv_exact(self, size: int) -> bytes:
-        data = bytearray()
-        while len(data) < size:
-            chunk = self.socket.recv(size - len(data))
-            if not chunk:
-                raise ConnectionError("EV3 closed the Bluetooth connection")
-            data.extend(chunk)
-        return bytes(data)
-
-    def _receive_text(self, mailbox_name: str) -> str:
-        message_size = struct.unpack("<H", self._recv_exact(2))[0]
-        message = self._recv_exact(message_size)
-        _count, command_type, command, name_size = struct.unpack("<HBBB", message[:5])
-        if command_type != _SYSTEM_COMMAND_NO_REPLY or command != _WRITE_MAILBOX:
-            raise ValueError("unexpected EV3 mailbox response")
-        name = message[5 : 5 + name_size].decode().rstrip("\0")
-        if name != mailbox_name:
-            raise ValueError(f"unexpected EV3 mailbox name: {name!r}")
-        data_start = 5 + name_size
-        data_size = struct.unpack("<H", message[data_start : data_start + 2])[0]
-        payload = message[data_start + 2 : data_start + 2 + data_size]
-        return payload.decode().rstrip("\0")
-
-    def send_text(self, mailbox_name: str, value: str) -> None:
-        name = (mailbox_name + "\0").encode()
-        payload = (value + "\0").encode()
-        send_len = 7 + len(name) + len(payload)
-        packet = struct.pack(
-            f"<HHBBB{len(name)}sH{len(payload)}s",
-            send_len,
-            1,
-            _SYSTEM_COMMAND_NO_REPLY,
-            _WRITE_MAILBOX,
-            len(name),
-            name,
-            len(payload),
-            payload,
-        )
-        self.socket.sendall(packet)
-
-    def exchange(self, mailbox_name: str, value: str) -> str:
-        self.send_text(mailbox_name, value)
-        return self._receive_text(mailbox_name)
-
-    def close(self) -> None:
-        self.socket.close()
+_LED_CODES = {"off": 0, "green": 1, "amber": 2, "red": 3}
 
 
 class EV3Hardware(BaseHardware):
-    """Send text commands understood by ``ev3/ev3_motors.py``.
-
-    Pybricks mailbox framing is required by the working EV3 program. Raw
-    RFCOMM packets are not protocol-compatible with that server.
+    """
+    bt_address: EV3 Bluetooth MAC address (e.g. "00:16:53:XX:XX:XX")
+    port: RFCOMM channel (default 1, check your EV3 program)
     """
 
-    def __init__(
-        self,
-        bt_address: str,
-        mailbox_name: str = "atlas",
-        connect_timeout_s: float = 12.0,
-        status_led_enabled: bool = False,
-    ) -> None:
-        self._address = bt_address
-        self._mailbox_name = mailbox_name
-        self._connect_timeout_s = connect_timeout_s
-        self._status_led_enabled = status_led_enabled
-        self._client: _MailboxClient | None = None
-        self._lock = threading.RLock()
-
-    @property
-    def connected(self) -> bool:
-        return self._client is not None
+    def __init__(self, bt_address: str, port: int = 1) -> None:
+        self._addr = bt_address
+        self._port = port
+        self._sock: socket.socket | None = None
 
     def _connect(self) -> None:
-        if self.connected:
+        if self._sock is not None:
             return
-        started = time.monotonic()
-        client = _MailboxClient(self._address, self._connect_timeout_s)
-        if time.monotonic() - started > self._connect_timeout_s:
-            logger.warning("EV3 connection exceeded configured timeout")
-        # The first mailbox message can be discarded by this EV3 stack. Send
-        # a warm-up ping and accept either a reply or one short timeout.
-        client.send_text(self._mailbox_name, "ping")
-        client.socket.settimeout(1.0)
         try:
-            client._receive_text(self._mailbox_name)
-        except TimeoutError:
-            pass
-        finally:
-            client.socket.settimeout(self._connect_timeout_s)
-        self._client = client
-        logger.info("EV3 mailbox connected at %s", self._address)
+            self._sock = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+            self._sock.settimeout(5.0)
+            self._sock.connect((self._addr, self._port))
+            logger.info("EV3 connected: %s port %d", self._addr, self._port)
+        except OSError as exc:
+            logger.error("EV3 connect failed: %s", exc)
+            self._sock = None
+            raise
 
-    def warm_up(self) -> None:
-        with self._lock:
+    def _send_raw(self, payload: bytes) -> None:
+        try:
             self._connect()
-            if not self._send_text("ping", reconnect=False, quiet=True):
-                raise RuntimeError("EV3 did not answer ping")
-
-    def _disconnect(self) -> None:
-        if self._client is not None:
+            self._sock.sendall(payload)
+        except Exception as exc:
+            logger.warning("EV3 send failed: %s — closing socket", exc)
             try:
-                self._client.close()
-            except OSError:
+                self._sock.close()
+            except Exception:
                 pass
-        self._client = None
-
-    def _send_text(
-        self, command: str, reconnect: bool = True, quiet: bool = False
-    ) -> bool:
-        with self._lock:
-            try:
-                self._connect()
-                reply = self._client.exchange(self._mailbox_name, command)
-                if reply in ("ok", "pong"):
-                    return True
-                if not quiet:
-                    logger.warning("EV3 rejected %r: %r", command, reply)
-            except Exception as exc:
-                if not quiet:
-                    logger.warning("EV3 command %r failed: %s", command, exc)
-                self._disconnect()
-                if reconnect:
-                    try:
-                        self._connect()
-                        reply = self._client.exchange(self._mailbox_name, command)
-                        return reply in ("ok", "pong")
-                    except Exception as retry_exc:
-                        logger.warning("EV3 retry failed: %s", retry_exc)
-                        self._disconnect()
-            return False
+            self._sock = None
 
     def _send_command(self, command: StandCommand, stand_id: int = 1) -> None:
-        if command == StandCommand.CENTER:
-            self.reset_exhibit()
-        elif command == StandCommand.RELEASE:
-            self._send_text("lower_all")
-        else:
-            logger.info("EV3 generic command ignored: %s", command.value)
-
-    def focus_artwork(self, artwork_id: str) -> None:
-        if self.emergency_stopped:
-            logger.warning("EV3 focus blocked by emergency stop")
-            return
-        slot = _ARTWORK_TO_SLOT.get(artwork_id)
-        if slot is None:
-            logger.warning("No EV3 slot configured for artwork %r", artwork_id)
-            return
-        self._send_text(f"raise:{slot}")
-
-    def reset_exhibit(self) -> None:
-        if not self.emergency_stopped:
-            self._send_text("raise_all")
+        duration_ms, direction = _CMD_PARAMS.get(command, (0, 0))
+        cmd_byte = command.value.encode()[0]
+        payload = struct.pack(">BBHb", stand_id, cmd_byte, duration_ms, direction)
+        self._send_raw(payload)
 
     def set_status_led(self, colour: str) -> None:
-        if self._status_led_enabled:
-            self._send_text(f"status:{colour}", quiet=True)
-
-    def close(self) -> None:
-        with self._lock:
-            self._disconnect()
+        code = _LED_CODES.get(colour, 0)
+        self._send_raw(struct.pack("BB", 0xFF, code))

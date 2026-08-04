@@ -1,0 +1,20 @@
+# Core runtime (dev mode runs with just these).
+pydantic>=2.6
+PyYAML>=6.0
+python-dotenv>=1.0
+
+# Dashboard API
+fastapi>=0.110
+uvicorn>=0.29
+
+# Dev tooling
+pytest>=8.0
+ruff>=0.4
+
+# Heavy / optional dependencies are intentionally NOT here.
+# Install per environment via extras (see pyproject.toml):
+#   pip install -e ".[rag]"      ChromaDB + sentence-transformers + rank-bm25
+#   pip install -e ".[vision]"   ultralytics (YOLO)
+#   pip install -e ".[audio]"    faster-whisper + piper-tts
+#   pip install -e ".[audio-cloud]" Deepgram/Cartesia transport + Silero VAD
+#   pip install -e ".[llm]"      google-genai

@@ -3,13 +3,13 @@
 Run from the atlas project root with:
     python -m pytest tests/test_dialogue.py -v
 """
-
 from __future__ import annotations
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
 
 def _chunk(text: str) -> dict:
     return {"text": text}
@@ -34,7 +34,6 @@ _STARRY_NIGHT_CHUNKS = [
 # ---------------------------------------------------------------------------
 # MockLLMClient
 # ---------------------------------------------------------------------------
-
 
 class TestMockLLMClient:
     def test_returns_string(self):
@@ -73,39 +72,32 @@ class TestMockLLMClient:
 # PromptBuilder
 # ---------------------------------------------------------------------------
 
-
 class TestPromptBuilder:
     def test_returns_two_messages(self):
-        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+        from atlas.dialogue.prompt_builder import PromptBuilder, DialogueContext
 
-        ctx = DialogueContext(
-            question="Who painted this?", artwork_chunks=_STARRY_NIGHT_CHUNKS
-        )
+        ctx = DialogueContext(question="Who painted this?", artwork_chunks=_STARRY_NIGHT_CHUNKS)
         messages = PromptBuilder().build(ctx)
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
         assert messages[1]["role"] == "user"
 
     def test_user_message_contains_question(self):
-        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+        from atlas.dialogue.prompt_builder import PromptBuilder, DialogueContext
 
-        ctx = DialogueContext(
-            question="When was this painted?", artwork_chunks=_STARRY_NIGHT_CHUNKS
-        )
+        ctx = DialogueContext(question="When was this painted?", artwork_chunks=_STARRY_NIGHT_CHUNKS)
         messages = PromptBuilder().build(ctx)
         assert "When was this painted?" in messages[1]["content"]
 
     def test_user_message_contains_context(self):
-        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+        from atlas.dialogue.prompt_builder import PromptBuilder, DialogueContext
 
-        ctx = DialogueContext(
-            question="Tell me more.", artwork_chunks=_STARRY_NIGHT_CHUNKS
-        )
+        ctx = DialogueContext(question="Tell me more.", artwork_chunks=_STARRY_NIGHT_CHUNKS)
         messages = PromptBuilder().build(ctx)
         assert "van Gogh" in messages[1]["content"]
 
     def test_french_system_prompt(self):
-        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+        from atlas.dialogue.prompt_builder import PromptBuilder, DialogueContext
 
         ctx = DialogueContext(
             question="Qui a peint ceci?",
@@ -115,24 +107,8 @@ class TestPromptBuilder:
         messages = PromptBuilder().build(ctx)
         assert "Vous êtes ATLAS" in messages[0]["content"]
 
-    def test_system_prompt_repairs_only_clear_speech_errors(self):
-        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
-
-        ctx = DialogueContext(
-            question="Qui appelle la Joconde?",
-            artwork_chunks=_STARRY_NIGHT_CHUNKS,
-            visitor_language="fr",
-        )
-        system = PromptBuilder().build(ctx)[0]["content"]
-        assert "homophone" in system
-        assert "ask one short clarifying question" in system
-        assert "Qui a peint la Joconde" in system
-        user = PromptBuilder().build(ctx)[1]["content"]
-        assert "LIKELY INTENDED QUESTION AFTER SPEECH REPAIR" in user
-        assert "Qui a peint la Joconde ?" in user
-
     def test_child_age_adds_hint(self):
-        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+        from atlas.dialogue.prompt_builder import PromptBuilder, DialogueContext
 
         ctx = DialogueContext(
             question="What is this?",
@@ -140,12 +116,10 @@ class TestPromptBuilder:
             visitor_age=9,
         )
         messages = PromptBuilder().build(ctx)
-        assert (
-            "child" in messages[1]["content"].lower() or "8" in messages[1]["content"]
-        )
+        assert "child" in messages[1]["content"].lower() or "8" in messages[1]["content"]
 
     def test_empty_chunks_handled(self):
-        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+        from atlas.dialogue.prompt_builder import PromptBuilder, DialogueContext
 
         ctx = DialogueContext(question="Tell me something.", artwork_chunks=[])
         messages = PromptBuilder().build(ctx)
@@ -155,7 +129,6 @@ class TestPromptBuilder:
 # ---------------------------------------------------------------------------
 # GroundingValidator
 # ---------------------------------------------------------------------------
-
 
 class TestGroundingValidator:
     def test_mock_response_always_passes(self):
@@ -197,20 +170,6 @@ class TestGroundingValidator:
         ok, reason = v.validate(response, _STARRY_NIGHT_CHUNKS)
         assert ok is False
 
-    def test_french_paraphrase_passes_with_large_context(self):
-        from atlas.dialogue.grounding_validator import GroundingValidator
-
-        context = _STARRY_NIGHT_CHUNKS + [
-            {
-                "text": "La Joconde, aussi appel\u00e9e Mona Lisa, a \u00e9t\u00e9 "
-                "peinte par L\u00e9onard de Vinci."
-            }
-        ] * 20
-        response = "La Joconde a \u00e9t\u00e9 peinte par L\u00e9onard de Vinci."
-        ok, reason = GroundingValidator().validate(response, context)
-        assert ok is True
-        assert reason.startswith("ok:")
-
     def test_no_context_passes_through(self):
         from atlas.dialogue.grounding_validator import GroundingValidator
 
@@ -223,7 +182,6 @@ class TestGroundingValidator:
 # ---------------------------------------------------------------------------
 # SafetyFilter
 # ---------------------------------------------------------------------------
-
 
 class TestSafetyFilter:
     def test_clean_response_passes(self):
@@ -263,11 +221,10 @@ class TestSafetyFilter:
 # DialogueEngine (integration)
 # ---------------------------------------------------------------------------
 
-
 class TestDialogueEngine:
     def _engine(self):
-        from atlas.dialogue.dialogue_engine import DialogueEngine
         from atlas.dialogue.mock_llm_client import MockLLMClient
+        from atlas.dialogue.dialogue_engine import DialogueEngine
 
         return DialogueEngine(llm_client=MockLLMClient())
 

@@ -9,15 +9,10 @@ from __future__ import annotations
 
 import json
 import logging
-import re
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from atlas.app.dependency_container import Container
-from atlas.config.settings import Settings
 from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.retrieval import RetrievalQuery
 from atlas.utils.ids import new_session_id
@@ -26,16 +21,6 @@ from atlas.utils.time import Timer
 logger = logging.getLogger(__name__)
 
 _DEFAULT_PROFILE = EducationalLevel.ADULT_BEGINNER.value
-
-
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    merged = dict(base)
-    for key, value in override.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
 
 
 def _to_language(value: str | None, fallback: str = "en") -> Language:
@@ -53,20 +38,14 @@ def _to_level(value: str | None) -> EducationalLevel:
 
 
 class RuntimeService:
-    def __init__(
-        self,
-        container: Container,
-        capture_request: Callable[[], None] | None = None,
-    ) -> None:
+    def __init__(self, container: Container) -> None:
         self.container = container
-        self._capture_request = capture_request
         self.session_id: str | None = None
         self.language: str = "en"
         self.profile: str = _DEFAULT_PROFILE
         self.pack_id: str = container.settings.default_pack_id
         self.accessibility_mode: bool = False
         self.last_answer: dict[str, Any] | None = None
-        self._pending_settings: Settings | None = None
         # Demo-only simulation flags (never active outside dev/demo mode).
         self.demo_flags: set[str] = set()
 
@@ -128,32 +107,6 @@ class RuntimeService:
         self.container.artwork_tracker.clear_manual_override()
         return self.container.artwork_tracker.status()
 
-    def capture_artwork(self) -> dict[str, Any]:
-        """Identify the center crop without storing the source frame."""
-        if self._capture_request is not None:
-            self._capture_request()
-            return {"requested": True, "capture_source": "device_runtime"}
-
-        capture = self.container.manual_artwork_capture
-        if capture is None:
-            raise RuntimeError(
-                "manual capture requires device/demo mode with Gemini enabled"
-            )
-        camera = self.container.camera_source
-        camera.start(timeout_s=5.0)
-        frame, _ = camera.latest(copy=True)
-        if frame is None:
-            raise RuntimeError("camera has no current frame")
-        detection = capture.identify(frame)
-        if detection is None:
-            raise LookupError("the centered artwork was not recognized")
-        self.container.artwork_tracker.set_manual_override(
-            detection.artwork_id, detection.label
-        )
-        status = self.container.artwork_tracker.status()
-        status["capture_source"] = "manual_center_crop"
-        return status
-
     def artwork_status(self) -> dict[str, Any]:
         status = self.container.artwork_tracker.status()
         if "low_confidence" in self.demo_flags:
@@ -161,50 +114,6 @@ class RuntimeService:
             status["stable"] = False
             status["warning"] = "low_confidence (simulated)"
         return status
-
-    def camera_frame_jpeg(self) -> bytes:
-        """Return one annotated in-memory frame without storing it."""
-        import cv2
-
-        frame, _ = self.container.camera_source.latest(copy=True)
-        if frame is None:
-            raise RuntimeError("camera has no current frame")
-
-        visual = self.container.artwork_tracker.visualization_status()
-        bbox = visual.get("bbox")
-        if bbox:
-            height, width = frame.shape[:2]
-            x1, y1, x2, y2 = (
-                int(bbox[0] * width),
-                int(bbox[1] * height),
-                int(bbox[2] * width),
-                int(bbox[3] * height),
-            )
-            color = (45, 190, 135) if visual.get("stable") else (235, 170, 45)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
-            confidence = visual.get("confidence")
-            confidence_text = (
-                f" {confidence * 100:.0f}%" if confidence is not None else ""
-            )
-            label = f"{visual.get('label') or 'Artwork'}{confidence_text}"
-            text_y = max(28, y1 - 10)
-            cv2.putText(
-                frame,
-                label,
-                (max(8, x1), text_y),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                color,
-                2,
-                cv2.LINE_AA,
-            )
-
-        ok, encoded = cv2.imencode(
-            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 82]
-        )
-        if not ok:
-            raise RuntimeError("camera frame encoding failed")
-        return encoded.tobytes()
 
     def _artwork_map(self) -> dict[str, str]:
         """artwork_id -> title for the selected pack."""
@@ -230,9 +139,6 @@ class RuntimeService:
     ) -> dict[str, Any]:
         lang = _to_language(language or self.language)
         level = _to_level(profile or self.profile)
-        settings = self.container.settings
-        if settings.logging.log_transcripts:
-            logger.info("[Typed question] %s", question)
         artwork = self.artwork_status()
         artwork_id = artwork.get("artwork_id")
 
@@ -289,21 +195,6 @@ class RuntimeService:
             "error": dialogue.error,
         }
         self.last_answer = answer
-        if settings.logging.log_llm_responses:
-            logger.info("[LLM final] %s", dialogue.response)
-        logger.info(
-            "[Timing] Typed question total %.0f ms "
-            "[retrieval_ms=%s grounded=%s fallback=%s error=%s]",
-            total.elapsed_ms,
-            (
-                f"{result.total_latency_ms:.0f}"
-                if result.total_latency_ms is not None
-                else "n/a"
-            ),
-            dialogue.grounded,
-            dialogue.fallback_used,
-            dialogue.error or "none",
-        )
 
         session_id = self.session_id or "no_session"
         log_fields: dict[str, Any] = {
@@ -312,6 +203,7 @@ class RuntimeService:
             "retrieval_latency_ms": result.total_latency_ms,
             "fallback_used": dialogue.fallback_used,
         }
+        settings = self.container.settings
         if settings.logging.log_transcripts:
             transcript = question
             if settings.privacy.transcript_logging_sanitized:
@@ -374,104 +266,6 @@ class RuntimeService:
             for cat, rep in sorted(reports.items())
         }
 
-    # -- operator configuration ----------------------------------------------
-    @staticmethod
-    def _editable_config(settings: Settings) -> dict[str, Any]:
-        llm = settings.llm
-        speech = settings.speech
-        hardware = settings.hardware
-        rag = settings.rag
-        logging_settings = settings.logging
-        return {
-            "llm": {
-                "provider": llm.provider,
-                "model": llm.model,
-                "cloud_llm_enabled": llm.cloud_llm_enabled,
-                "streaming_enabled": llm.streaming_enabled,
-                "sentence_tts_enabled": llm.sentence_tts_enabled,
-                "timeout_s": llm.timeout_s,
-            },
-            "speech": {
-                "stt_provider": speech.stt_provider,
-                "tts_provider": speech.tts_provider,
-                "cloud_speech_enabled": speech.cloud_speech_enabled,
-                "offline_fallback_enabled": speech.offline_fallback_enabled,
-                "deepgram_model": speech.deepgram_model,
-                "deepgram_language": speech.deepgram_language,
-                "listen_duration_s": speech.listen_duration_s,
-                "silero_threshold": speech.silero_threshold,
-                "silero_min_silence_ms": speech.silero_min_silence_ms,
-                "cartesia_model": speech.cartesia_model,
-                "cartesia_voice_id": speech.cartesia_voice_id,
-            },
-            "hardware": {
-                "yolo_backend": hardware.yolo_backend,
-                "vision_conf_threshold": hardware.vision_conf_threshold,
-                "vision_mask_conf_threshold": hardware.vision_mask_conf_threshold,
-                "vision_center_weight": hardware.vision_center_weight,
-                "vision_center_threshold": hardware.vision_center_threshold,
-                "vision_hold_seconds": hardware.vision_hold_seconds,
-                "vision_gap_tolerance_s": hardware.vision_gap_tolerance_s,
-                "manual_capture_crop_ratio": hardware.manual_capture_crop_ratio,
-            },
-            "rag": {
-                "top_k": rag.top_k,
-                "dense_top_k": rag.dense_top_k,
-                "keyword_top_k": rag.keyword_top_k,
-                "chunk_max_words": rag.chunk_max_words,
-                "language_fallback_enabled": rag.language_fallback_enabled,
-                "fallback_language": rag.fallback_language,
-            },
-            "logging": {
-                "log_transcripts": logging_settings.log_transcripts,
-                "log_live_stt": logging_settings.log_live_stt,
-                "log_llm_responses": logging_settings.log_llm_responses,
-            },
-        }
-
-    def dashboard_config(self) -> dict[str, Any]:
-        settings = self._pending_settings or self.container.settings
-        return {
-            "config": self._editable_config(settings),
-            "restart_required": self._pending_settings is not None,
-        }
-
-    def save_dashboard_config(self, patch: dict[str, Any]) -> dict[str, Any]:
-        """Validate and atomically persist a non-secret settings patch."""
-        if not patch:
-            return self.dashboard_config()
-
-        current = self._pending_settings or self.container.settings
-        candidate_data = _deep_merge(current.model_dump(mode="python"), patch)
-        candidate = Settings.model_validate(candidate_data)
-
-        override_path = Path(
-            self.container.settings.dashboard.config_override_path
-        ).expanduser()
-        existing: dict[str, Any] = {}
-        if override_path.exists():
-            loaded = yaml.safe_load(override_path.read_text(encoding="utf-8")) or {}
-            if not isinstance(loaded, dict):
-                raise ValueError("dashboard override file must contain a mapping")
-            existing = loaded
-        persisted = _deep_merge(existing, patch)
-
-        override_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = override_path.with_suffix(override_path.suffix + ".tmp")
-        temporary.write_text(
-            yaml.safe_dump(persisted, sort_keys=True), encoding="utf-8"
-        )
-        temporary.replace(override_path)
-        self._pending_settings = candidate
-
-        self.container.logger.log(
-            session_id=self.session_id or "no_session",
-            state="dashboard",
-            event="settings_updated",
-            extra={"changed_sections": ",".join(sorted(patch))},
-        )
-        return self.dashboard_config()
-
     # -- hardware ---------------------------------------------------------------
     def emergency_stop(self) -> dict[str, Any]:
         self.container.hardware.emergency_stop()
@@ -484,11 +278,7 @@ class RuntimeService:
     # -- demo controls -------------------------------------------------------
     def demo_simulate(self, scenario: str) -> dict[str, Any]:
         mode = self.container.settings.mode
-        allow_device_testing = (
-            self.container.settings.dashboard.allow_demo_controls
-            and self.container.settings.dashboard.host in {"127.0.0.1", "localhost", "::1"}
-        )
-        if mode not in (RunMode.DEV, RunMode.DEMO) and not allow_device_testing:
+        if mode not in (RunMode.DEV, RunMode.DEMO):
             raise PermissionError("demo controls are only available in dev/demo mode")
         if scenario == "reset":
             self.demo_flags.clear()
@@ -521,14 +311,8 @@ class RuntimeService:
         try:
             components["retriever"] = type(c.retriever).__name__
             components["llm"] = type(c.dialogue_engine._llm).__name__
-            stt_status = getattr(c.stt, "provider_status", None)
-            tts_status = getattr(c.tts, "provider_status", None)
-            components["stt"] = (
-                stt_status() if callable(stt_status) else type(c.stt).__name__
-            )
-            components["tts"] = (
-                tts_status() if callable(tts_status) else type(c.tts).__name__
-            )
+            components["stt"] = type(c.stt).__name__
+            components["tts"] = type(c.tts).__name__
             components["vision"] = type(c.vision_detector).__name__
             components["hardware"] = type(c.hardware).__name__
         except Exception as exc:
@@ -566,8 +350,6 @@ class RuntimeService:
                 "store_face_data": settings.privacy.store_face_data,
                 "anonymous_session_ids": settings.privacy.anonymous_session_ids,
                 "transcript_logging": settings.logging.log_transcripts,
-                "live_stt_logging": settings.logging.log_live_stt,
-                "llm_response_logging": settings.logging.log_llm_responses,
                 "cloud_llm_enabled": settings.llm.cloud_llm_enabled,
                 "cloud_llm_provider": settings.llm.provider,
             },
@@ -578,32 +360,3 @@ class RuntimeService:
 
     def recent_logs(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.container.logger.read_recent(limit=limit)
-
-    def runtime_logs(self, limit: int = 250) -> dict[str, Any]:
-        """Return the testing-mode tail of the device process log."""
-        path = Path(self.container.settings.paths.logs_dir) / "atlas-runtime.log"
-        if not path.is_file():
-            return {
-                "available": False,
-                "lines": ["Runtime log will appear after ATLAS restarts."],
-            }
-        ansi = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
-        try:
-            with path.open("rb") as handle:
-                handle.seek(0, 2)
-                size = handle.tell()
-                read_size = min(size, max(65536, min(limit * 512, 4 * 1024 * 1024)))
-                handle.seek(size - read_size)
-                raw = handle.read()
-        except OSError as exc:
-            return {
-                "available": False,
-                "lines": [f"Runtime log unavailable: {type(exc).__name__}"],
-            }
-        lines = raw.decode("utf-8", errors="replace").splitlines()
-        if read_size < size and lines:
-            lines = lines[1:]
-        return {
-            "available": True,
-            "lines": [ansi.sub("", line.rstrip()) for line in lines[-limit:]],
-        }

@@ -1,0 +1,49 @@
+{
+  "artwork_id": "starry_night",
+  "title": "The Starry Night",
+  "artist": "Vincent van Gogh",
+  "date": "June 1889",
+  "materials": "Oil on canvas",
+  "dimensions": "73.7 cm x 92.1 cm",
+  "culture_origin": "Dutch artist working in Saint-Remy, France",
+  "movement": "Post-Impressionism",
+  "official_description": "Van Gogh transformed observations from Saint-Remy into an expressive night landscape filled with vivid color and rhythmic movement.",
+  "historical_context": "The work was painted during Van Gogh's stay at the Saint-Paul-de-Mausole asylum in southern France.",
+  "visual_description": "A turbulent blue sky, luminous stars, crescent moon, dark cypress, quiet village, and rolling hills fill the canvas.",
+  "themes": ["night", "nature", "emotion", "observation", "imagination"],
+  "keywords": ["starry night", "van gogh", "Saint-Remy", "cypress", "Venus", "moon", "village", "swirls"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_sn_moma",
+      "title": "Vincent van Gogh. The Starry Night. Saint Remy, June 1889",
+      "url": "https://www.moma.org/collection/works/79802",
+      "publisher": "The Museum of Modern Art",
+      "license_note": "ATLAS paraphrase of the official museum record; no long museum text copied.",
+      "last_checked": "2026-08-02"
+    }
+  ],
+  "chunks": [
+    {"chunk_id":"sn_identity_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"official_description","text":"Vincent van Gogh painted The Starry Night in Saint-Remy in June 1889, using oil paint on canvas.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["Vincent van Gogh","June 1889","Saint-Remy"]},
+    {"chunk_id":"sn_dimensions_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"The canvas measures 73.7 by 92.1 centimetres and belongs to the Museum of Modern Art as object 472.1941.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["dimensions","MoMA","472.1941"]},
+    {"chunk_id":"sn_asylum_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Van Gogh was staying at the Saint-Paul-de-Mausole asylum in southern France when the view from his window inspired the painting.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["asylum","window","Saint-Paul-de-Mausole"]},
+    {"chunk_id":"sn_daylight_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Although it represents night, Van Gogh painted it during the day over several sessions rather than directly copying one nighttime view.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["daytime","sessions","observation","imagination"]},
+    {"chunk_id":"sn_village_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"The village was based on other views and could not actually be seen from Van Gogh's asylum window.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["village","invented","window"]},
+    {"chunk_id":"sn_cypress_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"A flame-like cypress rises from the foreground almost to the top of the canvas, visually joining the earth and sky.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["cypress","foreground","earth","sky"]},
+    {"chunk_id":"sn_celestial_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"The sky contains a bright crescent moon at the right and Venus, the morning star, left of centre, each surrounded by rings of light.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["moon","Venus","morning star","light"]},
+    {"chunk_id":"sn_sky_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Swirling blue bands make the sky appear turbulent and wave-like, while the small village below remains hushed and still.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["swirls","blue","turbulent","village"]},
+    {"chunk_id":"sn_color_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Van Gogh used vivid blues and yellows with energetic, visible brushwork to communicate mood as well as observed nature.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["blue","yellow","brushwork","mood"]},
+    {"chunk_id":"sn_meaning_en_adult","artwork_id":"starry_night","language":"en","educational_level":"adult_beginner","chunk_type":"theme","text":"The painting combines observation with invention, turning a real landscape into an emotional image of night, nature, and imagination.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["emotion","nature","imagination","observation"]},
+    {"chunk_id":"sn_child_en","artwork_id":"starry_night","language":"en","educational_level":"child","chunk_type":"general","text":"Van Gogh painted a night sky that moves like ocean waves. Bright stars and a moon shine above a quiet town and a tall dark tree.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["stars","moon","town","tree"]},
+    {"chunk_id":"sn_expert_construction_en","artwork_id":"starry_night","language":"en","educational_level":"expert","chunk_type":"technique","text":"MoMA describes the work as both observation and departure: the village came from other views, the cypress was moved closer, and celestial forms were altered to intensify their glow.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["construction","alteration","celestial forms","cypress"]},
+    {"chunk_id":"sn_expert_symbol_en","artwork_id":"starry_night","language":"en","educational_level":"expert","chunk_type":"theme","text":"The cypress can be interpreted as a bridge between earthly life and the heavens; these trees were also associated with graveyards and mourning.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["cypress","symbol","heaven","mourning"]},
+    {"chunk_id":"sn_identity_fr_adult","artwork_id":"starry_night","language":"fr","educational_level":"adult_beginner","chunk_type":"official_description","text":"Vincent van Gogh a peint La Nuit etoilee a Saint-Remy en juin 1889, avec de la peinture a l'huile sur toile.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["Vincent van Gogh","juin 1889","Saint-Remy"]},
+    {"chunk_id":"sn_asylum_fr_adult","artwork_id":"starry_night","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Van Gogh sejournait a l'asile Saint-Paul-de-Mausole dans le sud de la France lorsque la vue depuis sa fenetre a inspire le tableau.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["asile","fenetre","Saint-Paul-de-Mausole"]},
+    {"chunk_id":"sn_daylight_fr_adult","artwork_id":"starry_night","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"Meme si le tableau montre la nuit, Van Gogh l'a realise pendant la journee en plusieurs seances.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["journee","seances","observation"]},
+    {"chunk_id":"sn_village_fr_adult","artwork_id":"starry_night","language":"fr","educational_level":"adult_beginner","chunk_type":"fact","text":"Le village vient d'autres vues et ne pouvait pas etre vu depuis la fenetre de l'asile.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["village","imagination","fenetre"]},
+    {"chunk_id":"sn_visual_fr_adult","artwork_id":"starry_night","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Des bandes bleues tourbillonnantes agitent le ciel, tandis qu'un village silencieux repose sous la lune, Venus et les etoiles lumineuses.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["tourbillons","lune","Venus","etoiles"]},
+    {"chunk_id":"sn_cypress_fr_adult","artwork_id":"starry_night","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Un cypres sombre en forme de flamme monte presque jusqu'au bord superieur et relie visuellement la terre au ciel.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["cypres","flamme","terre","ciel"]},
+    {"chunk_id":"sn_color_fr_adult","artwork_id":"starry_night","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"Les bleus et les jaunes vifs, poses avec des coups de pinceau visibles, expriment une emotion autant qu'un paysage observe.","source_id":"src_sn_moma","verified":true,"allowed_for_students":true,"keywords":["bleu","jaune","pinceau","emotion"]}
+  ]
+}

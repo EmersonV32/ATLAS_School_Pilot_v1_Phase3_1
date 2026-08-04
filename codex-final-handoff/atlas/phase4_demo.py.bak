@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""
+ATLAS School Pilot v1 — Phase 4 Demo
+Runs 3 full mock interaction cycles.
+No hardware, no API key, no internet required.
+"""
+from atlas.vision.mock_detector import MockDetector
+from atlas.audio.mock_stt import MockSTT
+from atlas.audio.mock_tts import MockTTS
+from atlas.hardware.mock_hardware import MockHardware
+from atlas.dialogue.mock_llm_client import MockLLMClient
+from atlas.dialogue.dialogue_engine import DialogueEngine
+from atlas.dialogue.prompt_builder import PromptBuilder
+from atlas.dialogue.grounding_validator import GroundingValidator
+from atlas.dialogue.safety_filter import SafetyFilter
+from atlas.pipeline.session_runner import SessionRunner
+
+
+def mock_retriever(artwork_id: str, query: str) -> list[dict]:
+    """Stand-in for the real Phase 2 RAG retriever."""
+    return [
+        {"text": f"This is a well-known artwork: {artwork_id.replace('_', ' ')}. "
+                 "It belongs to the museum's permanent collection."},
+        {"text": f"The question '{query}' is commonly asked by visitors. "
+                 "This piece has significant cultural and historical value."},
+    ]
+
+
+def main() -> None:
+    print("=" * 62)
+    print("  ATLAS Phase 4 Demo -- Full Mock Pipeline")
+    print("=" * 62)
+
+    engine = DialogueEngine(
+        llm=MockLLMClient(),
+        prompt_builder=PromptBuilder(),
+        grounding_validator=GroundingValidator(),
+        safety_filter=SafetyFilter(),
+    )
+
+    runner = SessionRunner(
+        detector=MockDetector(),
+        stt=MockSTT(),
+        tts=MockTTS(),
+        hardware=MockHardware(),
+        dialogue_engine=engine,
+        retriever=mock_retriever,
+    )
+
+    all_passed = True
+    for cycle in range(1, 4):
+        print(f"\n--- Cycle {cycle} ---")
+        result = runner.run_once(frame=None)
+        if result.success:
+            print(f"  Artwork  : {result.detection.label} ({result.detection.confidence:.0%})")
+            print(f"  Question : [{result.transcript.language}/{result.transcript.age_hint}] "
+                  f"{result.transcript.text}")
+            ans = result.dialogue.answer_text
+            print(f"  Answer   : {ans[:100]}{'...' if len(ans) > 100 else ''}")
+            print(f"  Grounded : {result.dialogue.grounded}   Filtered : {result.dialogue.filtered}")
+        else:
+            print(f"  FAILED: {result.error}")
+            all_passed = False
+
+    print("\n" + "=" * 62)
+    if all_passed:
+        print("  All checks passed.")
+    else:
+        print("  One or more cycles failed — check output above.")
+    print("=" * 62)
+
+
+if __name__ == "__main__":
+    main()

@@ -9,9 +9,3 @@ data/sqlite/*
 !data/**/.gitkeep
 .pytest_cache/
 .ruff_cache/
-firmware/xiao_camera/wifi_secrets.h
-models/atlas_yolo.engine
-models/atlas_yolo.onnx
-models/silero_vad.onnx
-*.tar.gz
-*.zip

@@ -1,0 +1,39 @@
+"""States and events for the ATLAS interaction state machine."""
+
+from __future__ import annotations
+
+from enum import Enum
+
+
+class State(str, Enum):
+    """The interaction states ATLAS moves through for one question."""
+
+    IDLE = "IDLE"
+    LISTENING = "LISTENING"
+    TRANSCRIBING = "TRANSCRIBING"
+    DETECTING_ARTWORK = "DETECTING_ARTWORK"
+    RETRIEVING = "RETRIEVING"
+    GENERATING = "GENERATING"
+    VALIDATING = "VALIDATING"
+    SPEAKING = "SPEAKING"
+    WAITING_FOR_FOLLOWUP = "WAITING_FOR_FOLLOWUP"
+    ERROR = "ERROR"
+
+
+class Event(str, Enum):
+    """Events that drive transitions between states."""
+
+    START_LISTENING = "START_LISTENING"
+    AUDIO_CAPTURED = "AUDIO_CAPTURED"
+    TRANSCRIBED = "TRANSCRIBED"
+    ARTWORK_DETECTED = "ARTWORK_DETECTED"
+    RETRIEVED = "RETRIEVED"
+    GENERATED = "GENERATED"
+    VALIDATION_PASSED = "VALIDATION_PASSED"
+    VALIDATION_FAILED_RETRY = "VALIDATION_FAILED_RETRY"
+    VALIDATION_FAILED_FALLBACK = "VALIDATION_FAILED_FALLBACK"
+    SPOKEN = "SPOKEN"
+    FOLLOWUP_RECEIVED = "FOLLOWUP_RECEIVED"
+    FOLLOWUP_TIMEOUT = "FOLLOWUP_TIMEOUT"
+    ERROR_OCCURRED = "ERROR_OCCURRED"
+    RESET = "RESET"

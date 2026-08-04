@@ -3,108 +3,167 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ATLAS Visitor</title>
+  <title>ATLAS Teacher Dashboard</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="visitor-page">
-  <header class="app-header">
-    <div class="brand-block">
-      <span class="brand-mark" aria-hidden="true">A</span>
-      <div>
-        <strong class="brand-name">ATLAS</strong>
-        <span class="brand-subtitle">Museum guide</span>
-      </div>
+<body>
+  <!-- 1. Header -->
+  <header>
+    <div>
+      <h1>ATLAS</h1>
+      <p class="slogan">Atlas — because every story deserves a listener.</p>
     </div>
-    <div class="header-actions">
-      <span id="connection-badge" class="status-pill neutral">Connecting</span>
-      <a class="quiet-link" href="/admin">Admin</a>
+    <div class="badges">
+      <span id="mode-badge" class="badge">mode: …</span>
+      <span id="state-badge" class="badge">state: idle</span>
+      <span id="estop-badge" class="badge hidden">EMERGENCY STOP</span>
     </div>
   </header>
 
-  <main class="visitor-shell">
-    <section class="control-band" aria-label="Experience controls">
-      <div class="command-group">
-        <button id="btn-start" type="button">Start</button>
-        <button id="btn-stop" type="button" class="secondary">End</button>
+  <main>
+    <!-- 2. Session Control -->
+    <section id="session">
+      <h2>Session Control</h2>
+      <div class="row">
+        <button id="btn-start">Start session</button>
+        <button id="btn-stop" class="secondary">Stop session</button>
+        <span class="mono" id="session-id">no session</span>
       </div>
-      <div class="segmented" aria-label="Language">
-        <button type="button" data-language="en">EN</button>
-        <button type="button" data-language="fr">FR</button>
-        <button type="button" data-language="es">ES</button>
-        <button type="button" data-language="it">IT</button>
-      </div>
-      <label class="compact-field">Audience
-        <select id="sel-profile">
-          <option value="child">Child</option>
-          <option value="teen">Teen</option>
-          <option value="adult_beginner" selected>Adult</option>
-          <option value="expert">Expert</option>
-          <option value="simple_language">Simple language</option>
-        </select>
-      </label>
-      <label class="switch-field">
-        <input type="checkbox" id="chk-accessibility">
-        <span>Audio description</span>
-      </label>
+      <p class="hint">Session IDs are anonymous. No student names are ever collected.</p>
     </section>
 
-    <section class="artwork-focus" aria-live="polite">
-      <p class="eyebrow">Current artwork</p>
-      <h1 id="art-title">Waiting for an artwork</h1>
-      <div class="artwork-meta">
-        <span id="art-state">No detection</span>
-        <span id="art-confidence">--</span>
+    <!-- 3. Experience Settings -->
+    <section id="experience">
+      <h2>Experience Settings</h2>
+      <div class="row">
+        <label>Content pack
+          <select id="sel-pack"></select>
+        </label>
+        <label>Language
+          <select id="sel-language">
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="es">Español (demo)</option>
+            <option value="it">Italiano (demo)</option>
+          </select>
+        </label>
+        <label>Profile
+          <select id="sel-profile">
+            <option value="child">Child</option>
+            <option value="teen">Teen</option>
+            <option value="adult_beginner" selected>Adult beginner</option>
+            <option value="expert">Expert</option>
+            <option value="visual_impairment">Visual impairment</option>
+            <option value="simple_language">Simple language</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="chk-accessibility"> Accessibility mode
+        </label>
+        <button id="btn-apply-experience">Apply</button>
       </div>
-      <div class="confidence-track" aria-hidden="true">
-        <span id="confidence-fill"></span>
+      <p class="hint">Transcript logging is <strong id="transcript-state">off</strong> (privacy default; change requires config edit).</p>
+    </section>
+
+    <!-- 4. Artwork Context -->
+    <section id="artwork">
+      <h2>Artwork Context</h2>
+      <div class="row">
+        <div class="stat"><span>Current artwork</span><strong id="art-label">—</strong></div>
+        <div class="stat"><span>Confidence</span><strong id="art-conf">—</strong></div>
+        <div class="stat"><span>Detection</span><strong id="art-stable">—</strong></div>
+        <div class="stat"><span>Source</span><strong id="art-source">—</strong></div>
       </div>
-      <div class="command-group focus-actions">
-        <button id="btn-capture" type="button">Capture artwork</button>
-        <button id="btn-clear-artwork" type="button" class="secondary">Clear</button>
+      <div class="row">
+        <label>Manual override
+          <select id="sel-artwork"></select>
+        </label>
+        <button id="btn-override">Set override</button>
+        <button id="btn-clear-override" class="secondary">Clear override</button>
+      </div>
+      <p class="hint warn hidden" id="art-warning"></p>
+    </section>
+
+    <!-- 5. Ask ATLAS -->
+    <section id="ask">
+      <h2>Ask ATLAS (typed-question fallback)</h2>
+      <div class="row">
+        <input type="text" id="inp-question" maxlength="500"
+               placeholder="Type a visitor question…">
+        <button id="btn-ask">Ask</button>
+      </div>
+      <div id="answer-box" class="answer hidden">
+        <p id="answer-text"></p>
+        <p class="meta" id="answer-meta"></p>
       </div>
     </section>
 
-    <section class="camera-panel" aria-label="Live artwork camera">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Live vision</p>
-          <h2>YOLO camera</h2>
-        </div>
-        <span id="camera-state" class="metric">Connecting</span>
-      </div>
-      <div class="camera-stage">
-        <img id="camera-feed" alt="Live camera with artwork detection overlay">
-      </div>
-      <p class="camera-privacy">Live preview only. Frames are not stored.</p>
+    <!-- 6. System Health -->
+    <section id="health">
+      <h2>System Health</h2>
+      <ul id="health-list" class="health"></ul>
     </section>
 
-    <section class="conversation-panel">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Conversation</p>
-          <h2>Ask ATLAS</h2>
-        </div>
-        <span id="latency-label" class="metric">--</span>
-      </div>
-      <div id="answer-box" class="answer-surface" aria-live="polite">
-        <p id="answer-text">ATLAS is ready when you are.</p>
-        <p id="answer-detail" class="answer-detail"></p>
-      </div>
-      <div class="ask-row">
-        <input id="inp-question" type="text" maxlength="500"
-               aria-label="Question" placeholder="Ask about the artwork">
-        <button id="btn-ask" type="button">Ask</button>
+    <!-- 7. Recent Interaction -->
+    <section id="recent">
+      <h2>Recent Interaction</h2>
+      <div class="stat-col">
+        <div class="stat"><span>Last answer</span><strong id="last-answer">—</strong></div>
+        <div class="stat"><span>Fallback used</span><strong id="last-fallback">—</strong></div>
+        <div class="stat"><span>Latency</span><strong id="last-latency">—</strong></div>
       </div>
     </section>
 
-    <section class="privacy-strip" aria-label="Privacy status">
-      <span id="session-label">No active session</span>
-      <span>Raw audio and images are not stored</span>
+    <!-- 8. Privacy Panel -->
+    <section id="privacy">
+      <h2>Privacy</h2>
+      <ul id="privacy-list" class="health"></ul>
+      <p class="hint" id="cloud-disclosure">
+        ATLAS uses an edge-first architecture: vision, speech, retrieval, motor
+        control, and text-to-speech run locally or nearby, while the current
+        prototype uses a cloud language model for final response generation
+        when enabled.
+      </p>
     </section>
-    <p id="notice" class="notice hidden" role="status"></p>
+
+    <!-- 9. Logs -->
+    <section id="logs">
+      <h2>Recent Logs (privacy-safe)</h2>
+      <div class="row">
+        <button id="btn-refresh-logs" class="secondary">Refresh</button>
+      </div>
+      <pre id="log-view" class="logview">(no logs loaded)</pre>
+    </section>
+
+    <!-- 10. Demo Controls + admin actions -->
+    <section id="demo">
+      <h2>Demo &amp; Admin Controls</h2>
+      <div class="row">
+        <label>Admin token
+          <input type="password" id="inp-token" placeholder="ATLAS_ADMIN_TOKEN value">
+        </label>
+      </div>
+      <div class="row" id="demo-buttons">
+        <button data-sim="low_confidence" class="secondary">Simulate low confidence</button>
+        <button data-sim="llm_timeout" class="secondary">Simulate LLM timeout</button>
+        <button data-sim="tts_failure" class="secondary">Simulate TTS failure</button>
+        <button data-sim="reset" class="secondary">Reset demo state</button>
+      </div>
+      <div class="row">
+        <button id="btn-ingest" class="secondary">Re-ingest selected pack</button>
+        <button id="btn-eval" class="secondary">Run RAG evaluation</button>
+        <button id="btn-estop" class="danger">EMERGENCY STOP</button>
+        <button id="btn-clear-estop" class="secondary">Clear emergency stop</button>
+      </div>
+      <pre id="admin-result" class="logview hidden"></pre>
+    </section>
   </main>
 
-  <footer>ATLAS - because every story deserves a listener.</footer>
+  <footer>
+    <p>ATLAS School Pilot v1.0 — local dashboard. Do not expose this server to
+    the public internet.</p>
+  </footer>
+
   <script src="/static/app.js"></script>
 </body>
 </html>

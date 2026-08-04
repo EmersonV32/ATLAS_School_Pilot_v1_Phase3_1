@@ -1,0 +1,56 @@
+{
+  "artwork_id": "mona_lisa",
+  "title": "Mona Lisa",
+  "artist": "Leonardo da Vinci",
+  "date": "c. 1503-1519",
+  "materials": "Oil on poplar panel",
+  "dimensions": "77 cm x 53 cm",
+  "culture_origin": "Italian, Renaissance",
+  "movement": "High Renaissance",
+  "official_description": "Leonardo da Vinci's portrait of Lisa Gherardini combines a natural turning pose, a distant landscape, and subtle sfumato modelling.",
+  "historical_context": "Painted over several years in the early sixteenth century, the portrait later became especially famous after its 1911 theft from the Louvre.",
+  "visual_description": "Lisa turns toward the viewer with folded hands and an enigmatic smile before a hazy landscape of roads, water, and mountains.",
+  "themes": ["portrait", "identity", "gaze", "nature", "mystery"],
+  "keywords": ["mona lisa", "la joconde", "la gioconda", "lisa gherardini", "leonardo", "sfumato", "smile", "poplar"],
+  "supported_languages": ["en", "fr"],
+  "educational_levels": ["child", "adult_beginner", "expert"],
+  "sources": [
+    {
+      "source_id": "src_ml_louvre_gallery",
+      "title": "From the Mona Lisa to The Wedding Feast at Cana",
+      "url": "https://www.louvre.fr/en/explore/the-palace/from-the-mona-lisa-to-the-wedding-feast-at-cana",
+      "publisher": "Musee du Louvre",
+      "license_note": "ATLAS paraphrase of the official museum page; no long museum text copied.",
+      "last_checked": "2026-08-02"
+    },
+    {
+      "source_id": "src_ml_louvre_record",
+      "title": "Leonardo da Vinci - Mona Lisa",
+      "url": "https://boutique.louvre.fr/en/product/29818-print-da-vinci-mona-lisa.html",
+      "publisher": "Official Louvre Museum Shop",
+      "license_note": "ATLAS paraphrase used for object metadata only.",
+      "last_checked": "2026-08-02"
+    }
+  ],
+  "chunks": [
+    {"chunk_id":"ml_identity_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"official_description","text":"The Mona Lisa is Leonardo da Vinci's portrait of Lisa Gherardini, the wife of Florentine silk merchant Francesco del Giocondo.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["identity","Lisa Gherardini","Francesco del Giocondo"]},
+    {"chunk_id":"ml_names_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"Her husband's surname explains the Italian title La Gioconda and the French title La Joconde.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["La Gioconda","La Joconde","name"]},
+    {"chunk_id":"ml_metadata_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"fact","text":"Leonardo worked on the painting from about 1503 to 1519. It is oil on poplar wood and measures 77 by 53 centimetres.","source_id":"src_ml_louvre_record","verified":true,"allowed_for_students":true,"keywords":["1503","1519","oil","poplar","dimensions"]},
+    {"chunk_id":"ml_pose_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Lisa turns naturally toward the viewer, meets our gaze, and rests one hand over the other in a calm seated pose.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["pose","hands","gaze","seated"]},
+    {"chunk_id":"ml_smile_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Her small, ambiguous smile and direct gaze make her expression seem to change as the viewer studies it.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["smile","expression","gaze","mystery"]},
+    {"chunk_id":"ml_sfumato_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"technique","text":"Leonardo used sfumato: thin glazes create smoky transitions, soft contours, and very subtle contrasts instead of hard outlines.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["sfumato","glazes","contours","technique"]},
+    {"chunk_id":"ml_landscape_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Behind Lisa is an imagined-looking distant landscape with winding routes, water, rocky mountains, and a hazy atmosphere.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["landscape","mountains","water","haze"]},
+    {"chunk_id":"ml_theft_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"The painting disappeared from the Louvre on 21 August 1911. It was recovered more than two years later after former Louvre worker Vincenzo Peruggia tried to sell it in Italy.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["theft","1911","Vincenzo Peruggia","recovered"]},
+    {"chunk_id":"ml_conservation_en_adult","artwork_id":"mona_lisa","language":"en","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Since 2005 the Louvre has displayed it in temperature- and humidity-controlled protective glass because its poplar panel has warped and developed a crack.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["conservation","glass","temperature","humidity","crack"]},
+    {"chunk_id":"ml_child_en","artwork_id":"mona_lisa","language":"en","educational_level":"child","chunk_type":"general","text":"Leonardo painted a real woman named Lisa. Her gentle smile, folded hands, and misty background make the small portrait feel alive and mysterious.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["Lisa","smile","hands","mystery"]},
+    {"chunk_id":"ml_expert_sfumato_en","artwork_id":"mona_lisa","language":"en","educational_level":"expert","chunk_type":"technique","text":"The Louvre describes Leonardo's sfumato as layered glazes producing a smoky effect with restrained contour and contrast, especially in the face.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["sfumato","glaze","modelling","Renaissance"]},
+    {"chunk_id":"ml_expert_support_en","artwork_id":"mona_lisa","language":"en","educational_level":"expert","chunk_type":"fact","text":"Unlike a canvas painting, the work is painted on a poplar panel. Changes in that wooden support are the reason for its tightly controlled display environment.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["poplar panel","support","conservation"]},
+    {"chunk_id":"ml_identity_fr_adult","artwork_id":"mona_lisa","language":"fr","educational_level":"adult_beginner","chunk_type":"official_description","text":"La Joconde est le portrait de Lisa Gherardini peint par Leonard de Vinci. Elle etait l'epouse du marchand florentin Francesco del Giocondo.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["Joconde","Lisa Gherardini","Leonard de Vinci"]},
+    {"chunk_id":"ml_names_fr_adult","artwork_id":"mona_lisa","language":"fr","educational_level":"adult_beginner","chunk_type":"fact","text":"Le nom de son mari explique le titre italien La Gioconda et le titre francais La Joconde.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["La Gioconda","La Joconde","nom"]},
+    {"chunk_id":"ml_metadata_fr_adult","artwork_id":"mona_lisa","language":"fr","educational_level":"adult_beginner","chunk_type":"fact","text":"Leonard a travaille sur cette huile sur bois de peuplier vers 1503-1519. Le panneau mesure 77 sur 53 centimetres.","source_id":"src_ml_louvre_record","verified":true,"allowed_for_students":true,"keywords":["1503","1519","huile","peuplier","dimensions"]},
+    {"chunk_id":"ml_pose_fr_adult","artwork_id":"mona_lisa","language":"fr","educational_level":"adult_beginner","chunk_type":"visual_description","text":"Lisa se tourne naturellement vers nous, croise notre regard et pose calmement une main sur l'autre.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["pose","mains","regard"]},
+    {"chunk_id":"ml_sfumato_fr_adult","artwork_id":"mona_lisa","language":"fr","educational_level":"adult_beginner","chunk_type":"technique","text":"Le sfumato de Leonard utilise des glacis pour creer des transitions fumeuses, des contours doux et des contrastes tres subtils.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["sfumato","glacis","contours","technique"]},
+    {"chunk_id":"ml_theft_fr_adult","artwork_id":"mona_lisa","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"La Joconde a disparu du Louvre le 21 aout 1911. Elle a ete retrouvee plus de deux ans plus tard lorsque Vincenzo Peruggia a tente de la vendre en Italie.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["vol","1911","Vincenzo Peruggia"]},
+    {"chunk_id":"ml_conservation_fr_adult","artwork_id":"mona_lisa","language":"fr","educational_level":"adult_beginner","chunk_type":"historical_context","text":"Depuis 2005, une vitrine controle la temperature et l'humidite. Le bois de peuplier s'est deforme et une fissure est apparue.","source_id":"src_ml_louvre_gallery","verified":true,"allowed_for_students":true,"keywords":["conservation","vitrine","humidite","fissure"]}
+  ]
+}

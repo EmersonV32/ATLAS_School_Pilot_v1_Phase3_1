@@ -11,7 +11,6 @@ from __future__ import annotations
 import math
 import re
 import sqlite3
-import threading
 from collections import Counter
 from pathlib import Path
 
@@ -38,50 +37,47 @@ class SqliteFtsStore:
 
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
-        self._lock = threading.RLock()
         self.con = sqlite_db.connect(self.db_path)
         self.has_fts = sqlite_db.init_schema(self.con)
 
     # -- ingestion -------------------------------------------------------
     def add_chunks(self, chunks: list[RetrievedChunk]) -> int:
         """Insert chunk rows (and FTS rows). Idempotent on chunk_id."""
-        with self._lock:
-            cur = self.con.cursor()
-            for c in chunks:
+        cur = self.con.cursor()
+        for c in chunks:
+            cur.execute(
+                """INSERT OR REPLACE INTO chunks
+                   (chunk_id, artwork_id, language, educational_level,
+                    chunk_type, text, source_id, verified,
+                    allowed_for_students, keywords)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    c.chunk_id,
+                    c.artwork_id,
+                    c.language or "",
+                    c.educational_level or "",
+                    c.chunk_type or "",
+                    c.text,
+                    c.source_id,
+                    1,
+                    1,
+                    " ".join(c.keywords),
+                ),
+            )
+            if self.has_fts:
                 cur.execute(
-                    """INSERT OR REPLACE INTO chunks
-                       (chunk_id, artwork_id, language, educational_level,
-                        chunk_type, text, source_id, verified,
-                        allowed_for_students, keywords)
-                       VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                    (
-                        c.chunk_id,
-                        c.artwork_id,
-                        c.language or "",
-                        c.educational_level or "",
-                        c.chunk_type or "",
-                        c.text,
-                        c.source_id,
-                        1,
-                        1,
-                        " ".join(c.keywords),
-                    ),
+                    "DELETE FROM chunks_fts WHERE chunk_id = ?", (c.chunk_id,)
                 )
-                if self.has_fts:
-                    cur.execute(
-                        "DELETE FROM chunks_fts WHERE chunk_id = ?", (c.chunk_id,)
-                    )
-                    cur.execute(
-                        "INSERT INTO chunks_fts (chunk_id, text, keywords) "
-                        "VALUES (?,?,?)",
-                        (c.chunk_id, c.text, " ".join(c.keywords)),
-                    )
-            self.con.commit()
+                cur.execute(
+                    "INSERT INTO chunks_fts (chunk_id, text, keywords) "
+                    "VALUES (?,?,?)",
+                    (c.chunk_id, c.text, " ".join(c.keywords)),
+                )
+        self.con.commit()
         return len(chunks)
 
     def count(self) -> int:
-        with self._lock:
-            return self.con.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
+        return self.con.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
 
     # -- retrieval -------------------------------------------------------
     def search(
@@ -93,15 +89,14 @@ class SqliteFtsStore:
         educational_level: str,
         top_k: int,
     ) -> list[RetrievedChunk]:
-        with self._lock:
-            if self.has_fts:
-                rows = self._search_fts(
-                    query, artwork_id, language, educational_level, top_k
-                )
-            else:
-                rows = self._search_python_bm25(
-                    query, artwork_id, language, educational_level, top_k
-                )
+        if self.has_fts:
+            rows = self._search_fts(
+                query, artwork_id, language, educational_level, top_k
+            )
+        else:
+            rows = self._search_python_bm25(
+                query, artwork_id, language, educational_level, top_k
+            )
         results: list[RetrievedChunk] = []
         for rank, (row, score) in enumerate(rows, start=1):
             results.append(
@@ -164,7 +159,7 @@ class SqliteFtsStore:
         docs = [_tokenize(r["text"] + " " + (r["keywords"] or "")) for r in rows]
         scored = _bm25(_tokenize(query), docs)
         ranked = sorted(
-            zip(rows, scored, strict=True), key=lambda t: t[1], reverse=True
+            zip(rows, scored), key=lambda t: t[1], reverse=True
         )[:top_k]
         return [(r, s) for r, s in ranked if s > 0] or ranked[:top_k]
 

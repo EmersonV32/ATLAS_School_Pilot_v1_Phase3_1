@@ -1,0 +1,1 @@
+"""ATLAS safety package."""

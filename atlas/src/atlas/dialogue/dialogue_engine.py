@@ -15,9 +15,7 @@ Usage example (dev mode):
     engine = DialogueEngine(llm_client=MockLLMClient())
     result = engine.respond(
         question="Who painted this?",
-        artwork_chunks=[
-            {"text": "The Starry Night was painted by Vincent van Gogh in 1889."}
-        ],
+        artwork_chunks=[{"text": "The Starry Night was painted by Vincent van Gogh in 1889."}],
         language="en",
     )
     print(result.response)
@@ -26,20 +24,12 @@ from __future__ import annotations
 
 import json
 import logging
-import queue
 import re
-import threading
-from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
+from atlas.dialogue.prompt_builder import PromptBuilder, DialogueContext, _extract_chunk_id
 from atlas.dialogue.grounding_validator import GroundingValidator
-from atlas.dialogue.prompt_builder import (
-    DialogueContext,
-    PromptBuilder,
-    _extract_chunk_id,
-)
 from atlas.dialogue.safety_filter import SafetyFilter
-from atlas.dialogue.sentence_stream import SentenceAssembler
 from atlas.safety.prompt_injection_filter import PromptInjectionFilter
 
 logger = logging.getLogger(__name__)
@@ -217,141 +207,3 @@ class DialogueEngine:
             confidence=confidence,
             fallback_used=fallback_used,
         )
-
-    def respond_stream(
-        self,
-        question: str,
-        artwork_chunks: list,
-        on_sentence: Callable[[str], object],
-        visitor_age: int | None = None,
-        language: str = "en",
-        profile: str | None = None,
-    ) -> DialogueResult:
-        """Generate and validate in one thread while TTS consumes sentences.
-
-        The producer continues pulling LLM tokens while ``on_sentence`` plays
-        the previous sentence, hiding most TTS time without speaking an
-        unvalidated sentence.
-        """
-        if self._injection.is_injection(question):
-            result = DialogueResult(
-                response=self._injection.safe_response(language),
-                language=language,
-                grounded=True,
-                grounding_reason="injection_refused",
-                filtered=True,
-                fallback_used=True,
-                confidence="high",
-            )
-            on_sentence(result.response)
-            return result
-
-        ctx = DialogueContext(
-            question=question,
-            artwork_chunks=artwork_chunks,
-            visitor_age=visitor_age,
-            visitor_language=language,
-            profile=profile,
-        )
-        messages = self._prompt_builder.build(ctx, streaming_output=True)
-        events: queue.Queue[tuple[str, object]] = queue.Queue()
-
-        def generate_chunks() -> Iterable[str]:
-            stream_method = getattr(self._llm, "generate_stream", None)
-            if callable(stream_method):
-                return stream_method(messages)
-            return (self._llm.generate(messages),)
-
-        def producer() -> None:
-            assembler = SentenceAssembler()
-            accepted: list[str] = []
-            grounded = True
-            grounding_reason = "stream_complete"
-            filtered = False
-            fallback_used = False
-            error: str | None = None
-            try:
-                for text_chunk in generate_chunks():
-                    for sentence in assembler.feed(text_chunk):
-                        ok, reason = self._validator.validate(
-                            sentence,
-                            artwork_chunks,
-                        )
-                        if not ok:
-                            grounded = False
-                            grounding_reason = reason
-                            fallback_used = True
-                            sentence = UNGROUNDED_FALLBACK.get(
-                                language,
-                                UNGROUNDED_FALLBACK["en"],
-                            )
-                        sentence, was_filtered = self._safety.filter(
-                            sentence,
-                            language,
-                        )
-                        filtered = filtered or was_filtered
-                        accepted.append(sentence)
-                        events.put(("sentence", sentence))
-                        if not ok or was_filtered:
-                            raise StopIteration
-
-                remainder = assembler.flush()
-                if remainder:
-                    ok, reason = self._validator.validate(remainder, artwork_chunks)
-                    if not ok:
-                        grounded = False
-                        grounding_reason = reason
-                        fallback_used = True
-                        remainder = UNGROUNDED_FALLBACK.get(
-                            language,
-                            UNGROUNDED_FALLBACK["en"],
-                        )
-                    remainder, was_filtered = self._safety.filter(
-                        remainder,
-                        language,
-                    )
-                    filtered = filtered or was_filtered
-                    accepted.append(remainder)
-                    events.put(("sentence", remainder))
-            except StopIteration:
-                pass
-            except Exception as exc:
-                logger.error("Streaming LLM generation failed: %s", exc)
-                error = str(exc)
-                grounded = False
-                grounding_reason = "llm_error"
-                if not accepted:
-                    fallback_used = True
-                    fallback = (
-                        "Je suis desole, je ne peux pas repondre en ce moment."
-                        if language == "fr"
-                        else "I'm sorry, I can't generate a response right now."
-                    )
-                    accepted.append(fallback)
-                    events.put(("sentence", fallback))
-
-            result = DialogueResult(
-                response=" ".join(accepted).strip(),
-                language=language,
-                grounded=grounded,
-                grounding_reason=grounding_reason,
-                filtered=filtered,
-                error=error,
-                confidence="medium" if grounded else "low",
-                fallback_used=fallback_used,
-            )
-            events.put(("done", result))
-
-        thread = threading.Thread(
-            target=producer,
-            name="atlas-llm-stream",
-            daemon=True,
-        )
-        thread.start()
-        while True:
-            event_type, payload = events.get()
-            if event_type == "sentence":
-                on_sentence(str(payload))
-                continue
-            thread.join(timeout=0.2)
-            return payload

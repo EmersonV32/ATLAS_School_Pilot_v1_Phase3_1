@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATLAS Visitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="visitor-page">
+  <header class="app-header">
+    <div class="brand-block">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <div>
+        <strong class="brand-name">ATLAS</strong>
+        <span class="brand-subtitle">Museum guide</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="connection-badge" class="status-pill neutral">Connecting</span>
+      <a class="quiet-link" href="/admin">Admin</a>
+    </div>
+  </header>
+
+  <main class="visitor-shell">
+    <section class="control-band" aria-label="Experience controls">
+      <div class="command-group">
+        <button id="btn-start" type="button">Start</button>
+        <button id="btn-stop" type="button" class="secondary">End</button>
+      </div>
+      <div class="segmented" aria-label="Language">
+        <button type="button" data-language="en">EN</button>
+        <button type="button" data-language="fr">FR</button>
+        <button type="button" data-language="es">ES</button>
+        <button type="button" data-language="it">IT</button>
+      </div>
+      <label class="compact-field">Audience
+        <select id="sel-profile">
+          <option value="child">Child</option>
+          <option value="teen">Teen</option>
+          <option value="adult_beginner" selected>Adult</option>
+          <option value="expert">Expert</option>
+          <option value="simple_language">Simple language</option>
+        </select>
+      </label>
+      <label class="switch-field">
+        <input type="checkbox" id="chk-accessibility">
+        <span>Audio description</span>
+      </label>
+    </section>
+
+    <section class="artwork-focus" aria-live="polite">
+      <p class="eyebrow">Current artwork</p>
+      <h1 id="art-title">Waiting for an artwork</h1>
+      <div class="artwork-meta">
+        <span id="art-state">No detection</span>
+        <span id="art-confidence">--</span>
+      </div>
+      <div class="confidence-track" aria-hidden="true">
+        <span id="confidence-fill"></span>
+      </div>
+      <div class="command-group focus-actions">
+        <button id="btn-capture" type="button">Capture artwork</button>
+        <button id="btn-clear-artwork" type="button" class="secondary">Clear</button>
+      </div>
+    </section>
+
+    <section class="camera-panel" aria-label="Live artwork camera">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Live vision</p>
+          <h2>YOLO camera</h2>
+        </div>
+        <span id="camera-state" class="metric">Connecting</span>
+      </div>
+      <div class="camera-stage">
+        <img id="camera-feed" alt="Live camera with artwork detection overlay">
+      </div>
+      <p class="camera-privacy">Live preview only. Frames are not stored.</p>
+    </section>
+
+    <section class="conversation-panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Conversation</p>
+          <h2>Ask ATLAS</h2>
+        </div>
+        <span id="latency-label" class="metric">--</span>
+      </div>
+      <div id="answer-box" class="answer-surface" aria-live="polite">
+        <p id="answer-text">ATLAS is ready when you are.</p>
+        <p id="answer-detail" class="answer-detail"></p>
+      </div>
+      <div class="ask-row">
+        <input id="inp-question" type="text" maxlength="500"
+               aria-label="Question" placeholder="Ask about the artwork">
+        <button id="btn-ask" type="button">Ask</button>
+      </div>
+    </section>
+
+    <section class="privacy-strip" aria-label="Privacy status">
+      <span id="session-label">No active session</span>
+      <span>Raw audio and images are not stored</span>
+    </section>
+    <p id="notice" class="notice hidden" role="status"></p>
+  </main>
+
+  <footer>ATLAS - because every story deserves a listener.</footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

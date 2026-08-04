@@ -62,10 +62,6 @@ class VectorStoreBase(ABC):
     def count(self) -> int:
         ...
 
-    @abstractmethod
-    def reset(self) -> None:
-        """Remove all records while keeping the store ready for ingestion."""
-
 
 class SimpleVectorStore(VectorStoreBase):
     """In-process cosine store with optional JSON persistence (dev mode)."""
@@ -96,10 +92,6 @@ class SimpleVectorStore(VectorStoreBase):
 
     def count(self) -> int:
         return len(self._records)
-
-    def reset(self) -> None:
-        self._records = []
-        self._save()
 
     def query(self, vector, *, artwork_id, language, educational_level, top_k):
         scored: list[tuple[float, dict[str, Any]]] = []
@@ -141,7 +133,6 @@ class ChromaVectorStore(VectorStoreBase):
                 'ChromaDB is not installed. Run: pip install -e ".[rag]"'
             ) from exc
         self._client = chromadb.PersistentClient(path=str(persist_dir))
-        self._collection_name = collection
         self._col = self._client.get_or_create_collection(collection)
 
     def add(self, items: list[dict[str, Any]]) -> int:
@@ -155,12 +146,6 @@ class ChromaVectorStore(VectorStoreBase):
 
     def count(self) -> int:
         return self._col.count()
-
-    def reset(self) -> None:
-        self._client.delete_collection(self._collection_name)
-        self._col = self._client.get_or_create_collection(
-            self._collection_name
-        )
 
     def query(self, vector, *, artwork_id, language, educational_level, top_k):
         where: dict[str, Any] = {
