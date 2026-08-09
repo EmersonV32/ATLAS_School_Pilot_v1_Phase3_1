@@ -1,0 +1,11 @@
+{
+  "name": "ATLAS Museum Guide Setup",
+  "short_name": "ATLAS",
+  "description": "Private, local visitor setup for the ATLAS museum guide.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#f3ecdf",
+  "theme_color": "#f3ecdf"
+}

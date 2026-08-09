@@ -329,6 +329,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   display: grid;
   grid-template-columns: minmax(31rem, 0.95fr) minmax(36rem, 1.25fr);
   grid-template-areas:
+    "visitor visitor"
     "settings camera"
     "logs operations";
   gap: 0.85rem;
@@ -341,6 +342,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   border-radius: 6px;
   background: var(--surface);
 }
+.visitor-live-panel { grid-area: visitor; }
 .settings-panel { grid-area: settings; }
 .live-panel { grid-area: camera; }
 .logs-panel { grid-area: logs; }
@@ -379,6 +381,32 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .settings-disclosure .dense-form { padding: 0.85rem 0.9rem; }
 .settings-save-bar { padding: 0.75rem 0.9rem; border-top: 1px solid var(--border); text-align: right; }
 .auth-controls { padding: 0.75rem 0.9rem; display: grid; grid-template-columns: 1fr auto; gap: 0.65rem; align-items: end; border-bottom: 1px solid var(--border); background: #fff7e7; }
+
+.visitor-monitor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.55rem; flex-wrap: wrap; }
+.visitor-monitor-grid { display: grid; grid-template-columns: minmax(24rem, 1.25fr) minmax(20rem, 1fr) minmax(18rem, 0.8fr); }
+.visitor-monitor-grid > section { min-width: 0; padding: 0.75rem 0.9rem; }
+.visitor-monitor-grid > section + section { border-left: 1px solid var(--border); }
+.visitor-monitor-grid .section-heading { margin-bottom: 0.45rem; }
+.visitor-monitor-grid h2 { margin: 0; font-size: 0.88rem; }
+.visitor-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 5px; }
+.visitor-summary-grid div { min-width: 0; padding: 0.48rem 0.58rem; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.visitor-summary-grid div:nth-child(3n) { border-right: 0; }
+.visitor-summary-grid div:nth-last-child(-n+3) { border-bottom: 0; }
+.visitor-summary-grid span, .visitor-summary-grid strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.visitor-summary-grid span { color: var(--muted); font-size: 0.62rem; text-transform: uppercase; }
+.visitor-summary-grid strong { margin-top: 0.12rem; font-size: 0.78rem; }
+.mini-readiness-list { margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem 0.75rem; list-style: none; }
+.mini-readiness-list li { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.69rem; }
+.mini-readiness-list li::before { content: ""; flex: 0 0 0.42rem; width: 0.42rem; height: 0.42rem; border-radius: 50%; background: var(--accent); }
+.mini-readiness-list li.readiness-degraded::before, .mini-readiness-list li.readiness-pending::before { background: var(--warning); }
+.mini-readiness-list li.readiness-unavailable::before, .mini-readiness-list li.readiness-unsupported::before { background: var(--danger); }
+.mini-readiness-list span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-readiness-list strong { font-size: 0.64rem; }
+.visitor-help-detail { min-height: 2.1rem; margin: 0; color: var(--muted); font-size: 0.72rem; }
+.visitor-assistance .compact-actions { margin-top: 0.35rem; }
+.visitor-simulation-label { margin-top: 0.45rem; display: inline-grid; width: calc(100% - 7.2rem); vertical-align: bottom; }
+.visitor-simulation-label select { min-height: 2.15rem; padding: 0.32rem 0.45rem; }
+#btn-visitor-simulate { margin-left: 0.35rem; vertical-align: bottom; }
 
 .camera-badges { display: flex; gap: 0.45rem; flex-wrap: wrap; justify-content: flex-end; }
 .vision-workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 4fr) minmax(12rem, 1.6fr); background: #111719; }
@@ -421,8 +449,10 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   .ops-header-metrics { order: 3; width: 100%; max-width: none; border-top: 1px solid var(--border); }
   .ops-dashboard {
     grid-template-columns: 1fr;
-    grid-template-areas: "camera" "settings" "operations" "logs";
+    grid-template-areas: "visitor" "camera" "settings" "operations" "logs";
   }
+  .visitor-monitor-grid { grid-template-columns: 1fr; }
+  .visitor-monitor-grid > section + section { border-left: 0; border-top: 1px solid var(--border); }
   .settings-scroll { max-height: none; }
 }
 
@@ -430,6 +460,10 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   .ops-header-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ops-header-metrics div { border-bottom: 1px solid var(--border); }
   .dense-form.three-columns, .dense-form.four-columns, .operations-grid, .log-grid { grid-template-columns: 1fr; }
+  .visitor-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .visitor-summary-grid div, .visitor-summary-grid div:nth-child(3n) { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .visitor-summary-grid div:nth-child(even) { border-right: 0; }
+  .visitor-summary-grid div:nth-last-child(-n+2) { border-bottom: 0; }
   .vision-workspace { grid-template-columns: 1fr; }
   .vision-telemetry { border-top: 1px solid var(--border); border-left: 0; }
   .operations-grid .control-section, .operations-grid .control-section:nth-child(even) { border-left: 0; border-top: 1px solid var(--border); }
@@ -443,14 +477,16 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   .ops-header { height: 4.25rem; }
   .ops-dashboard {
     height: calc(100vh - 4.25rem);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(10rem, 0.58fr) repeat(2, minmax(0, 1fr));
     overflow: hidden;
   }
   .ops-panel { min-height: 0; height: 100%; }
-  .settings-panel, .operations-panel, .logs-panel, .live-panel {
+  .settings-panel, .operations-panel, .logs-panel, .live-panel, .visitor-live-panel {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
   }
+  .visitor-monitor-grid { min-height: 0; overflow: hidden; }
+  .visitor-monitor-grid > section { overflow: hidden; }
   .settings-scroll { height: 100%; max-height: none; overflow: auto; }
   .live-panel { grid-template-rows: auto minmax(0, 1fr) auto; }
   .vision-workspace { height: 100%; overflow: hidden; }
