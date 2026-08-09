@@ -36,7 +36,13 @@ audio-cloud = [
     "websockets>=14",
 ]
 llm = ["google-genai>=1.0"]
-dev = ["pytest>=8.0", "ruff>=0.4", "httpx>=0.28"]  # httpx: FastAPI TestClient
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "httpx>=0.28",  # FastAPI TestClient
+    "numpy>=1.26",
+    "opencv-python-headless>=4.10",
+]
 # Convenience: everything except board-specific drivers.
 all = [
     "chromadb>=0.5",

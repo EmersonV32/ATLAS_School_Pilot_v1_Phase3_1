@@ -5,6 +5,9 @@ const $ = (id) => document.getElementById(id);
 let authRequired = true;
 let adminUnlocked = false;
 let cameraTimer = null;
+let currentHelpRequestId = null;
+let lastAlertedHelpRequestId = null;
+let helpAlertsEnabled = false;
 
 function token() {
   return $("inp-token").value.trim();
@@ -46,6 +49,99 @@ function appendStatus(list, name, value, bad = false) {
   state.className = bad ? "bad" : "ok";
   item.append(label, state);
   list.append(item);
+}
+
+function titleCase(value) {
+  return String(value || "--")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatAgeGuidance(value) {
+  return { under_13: "Under 13", "13_17": "13–17", "18_plus": "18+" }[value]
+    || "Not provided";
+}
+
+function playHelpTone() {
+  if (!helpAlertsEnabled) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const context = new AudioContext();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(523.25, context.currentTime);
+  oscillator.frequency.setValueAtTime(659.25, context.currentTime + 0.14);
+  gain.gain.setValueAtTime(0.0001, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.34);
+  oscillator.connect(gain).connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.36);
+  oscillator.addEventListener("ended", () => context.close());
+}
+
+function renderVisitorStatus(payload) {
+  const state = payload.state;
+  const readiness = payload.readiness;
+  const help = payload.help_request;
+  const connected = state.connection === "online";
+  $("visitor-live-state").textContent = connected ? titleCase(state.phase) : "Disconnected";
+  $("visitor-live-state").className = `status-pill ${connected ? (state.phase === "in_use" ? "ok" : "neutral") : "danger"}`;
+  $("visitor-unit").textContent = state.unit_id;
+  $("visitor-phase").textContent = titleCase(state.phase);
+  $("visitor-step").textContent = titleCase(state.step);
+  $("visitor-language").textContent = state.language ? state.language.toUpperCase() : "Not chosen";
+  $("visitor-age-guidance").textContent = formatAgeGuidance(state.profile.age_guidance);
+  $("visitor-interests").textContent = state.profile.interests.length
+    ? state.profile.interests.map(titleCase).join(", ") : "None";
+  $("visitor-updated").textContent = new Date(state.updated_at)
+    .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  $("visitor-readiness-state").textContent = readiness.ready ? "Ready" : "Needs attention";
+  $("visitor-readiness-state").className = `status-pill ${readiness.ready ? "ok" : "warning"}`;
+
+  const readinessList = $("visitor-readiness-list");
+  readinessList.replaceChildren();
+  readiness.items.forEach((item) => {
+    const row = document.createElement("li");
+    row.className = `readiness-${item.status}`;
+    const label = document.createElement("span");
+    const status = document.createElement("strong");
+    label.textContent = item.label;
+    status.textContent = titleCase(item.status);
+    row.append(label, status);
+    readinessList.append(row);
+  });
+
+  currentHelpRequestId = help && help.status === "requested" ? help.request_id : null;
+  $("btn-ack-help").disabled = !currentHelpRequestId;
+  if (help) {
+    $("visitor-help-badge").textContent = titleCase(help.status);
+    $("visitor-help-badge").className = `status-pill ${help.status === "requested" ? "warning" : "ok"}`;
+    $("visitor-help-detail").textContent = `${titleCase(help.context)} request · ${new Date(help.requested_at).toLocaleTimeString()}`;
+    if (help.status === "requested" && help.request_id !== lastAlertedHelpRequestId) {
+      playHelpTone();
+      if (helpAlertsEnabled) lastAlertedHelpRequestId = help.request_id;
+    }
+  } else {
+    $("visitor-help-badge").textContent = "No request";
+    $("visitor-help-badge").className = "status-pill neutral";
+    $("visitor-help-detail").textContent = "No visitor assistance request is active.";
+  }
+}
+
+async function refreshVisitorStatus() {
+  if (authRequired && !token()) {
+    $("visitor-live-state").textContent = "Unlock required";
+    $("visitor-live-state").className = "status-pill warning";
+    return;
+  }
+  try {
+    renderVisitorStatus(await api("/api/admin/live-status", {}, true));
+  } catch (_) {
+    $("visitor-live-state").textContent = "Unavailable";
+    $("visitor-live-state").className = "status-pill danger";
+  }
 }
 
 async function refreshStatus() {
@@ -178,6 +274,7 @@ async function loadConfig() {
   fillConfig(payload);
   adminUnlocked = true;
   if (authRequired) window.sessionStorage.setItem("atlasAdminToken", token());
+  await refreshVisitorStatus();
 }
 
 function numberValue(id) {
@@ -293,7 +390,9 @@ $("config-form").addEventListener("submit", async (event) => {
   } catch (error) { notice(error.message, true); }
 });
 
-$("btn-refresh").addEventListener("click", () => Promise.all([refreshStatus(), refreshHealth(), refreshLogs(true)]));
+$("btn-refresh").addEventListener("click", () => Promise.all([
+  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(),
+]));
 $("btn-start").addEventListener("click", async () => {
   try { await applyExperience(); await api("/session/start", { method: "POST" }); await refreshStatus(); }
   catch (error) { notice(error.message, true); }
@@ -314,6 +413,39 @@ document.querySelectorAll("[data-sim]").forEach((button) => {
   button.addEventListener("click", () => api("/demo/simulate", { method: "POST", body: JSON.stringify({ scenario: button.dataset.sim }) }, true).then((result) => { renderObject("content-result", result); refreshLogs(true); }).catch((error) => notice(error.message, true)));
 });
 
+$("btn-enable-help-alerts").addEventListener("click", () => {
+  helpAlertsEnabled = true;
+  $("btn-enable-help-alerts").textContent = "Help sound enabled";
+  $("btn-enable-help-alerts").disabled = true;
+  notice("One quiet tone will play for each new help request.");
+});
+$("btn-ack-help").addEventListener("click", async () => {
+  if (!currentHelpRequestId) return;
+  try {
+    await api(`/api/admin/help/${currentHelpRequestId}/acknowledge`, { method: "POST" }, true);
+    notice("Visitor help request acknowledged.");
+    await refreshVisitorStatus();
+  } catch (error) { notice(error.message, true); }
+});
+$("btn-visitor-stop").addEventListener("click", async () => {
+  if (!window.confirm("Stop the visitor experience and clear its temporary profile?")) return;
+  try {
+    await api("/api/admin/session/stop", { method: "POST" }, true);
+    notice("Visitor experience stopped and profile cleared.");
+    await refreshVisitorStatus();
+  } catch (error) { notice(error.message, true); }
+});
+$("btn-visitor-simulate").addEventListener("click", async () => {
+  try {
+    await api("/api/admin/visitor/simulate", {
+      method: "POST",
+      body: JSON.stringify({ scenario: $("sel-visitor-simulation").value }),
+    }, true);
+    await refreshVisitorStatus();
+    notice("Visitor mock scenario applied.");
+  } catch (error) { notice(error.message, true); }
+});
+
 async function initialize() {
   const access = await api("/admin/access");
   authRequired = Boolean(access.auth_required);
@@ -324,7 +456,9 @@ async function initialize() {
   } else {
     $("local-mode").classList.remove("hidden");
   }
-  await Promise.all([refreshStatus(), refreshHealth(), refreshContentChoices()]);
+  await Promise.all([
+    refreshStatus(), refreshHealth(), refreshContentChoices(), refreshVisitorStatus(),
+  ]);
   if (!authRequired || token()) {
     try { await loadConfig(); } catch (error) { if (!authRequired) throw error; }
   }
@@ -336,3 +470,4 @@ initialize().catch((error) => notice(error.message, true));
 window.setInterval(refreshStatus, 2000);
 window.setInterval(refreshHealth, 12000);
 window.setInterval(refreshLogs, 1500);
+window.setInterval(refreshVisitorStatus, 1000);

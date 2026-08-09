@@ -4,9 +4,13 @@
 
 - Product, information architecture, API, privacy, localization, asset, test,
   and iPad review contracts: specified.
-- Visitor onboarding UI and Visitor Live monitor: mock-backed implementation
-  in progress.
-- Existing runtime/API compatibility: required and covered by regression tests.
+- Visitor onboarding UI and Visitor Live monitor: mock-backed Pass 1 complete.
+- Existing runtime/API compatibility: covered by the complete automated suite.
+- Desktop browser review at an explicit 1024x768 viewport: complete, including
+  the full journey, help lifecycle, operator stop, reset, reload recovery, and
+  Arabic RTL preview.
+- Static-shell service worker: complete with a versioned allowlist and no API
+  response caching.
 
 ## Pass 2 required
 
@@ -27,4 +31,3 @@
 
 No Pass 1 result proves real Jetson, Shokz, XIAO camera, router, cloud
 provider, EV3, or iPad behavior. Those gates remain explicitly pending.
-

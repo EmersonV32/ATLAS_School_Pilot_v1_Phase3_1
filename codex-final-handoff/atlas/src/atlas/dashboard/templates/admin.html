@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
-  <link rel="stylesheet" href="/static/style.css?v=6">
+  <link rel="stylesheet" href="/static/style.css?v=7">
 </head>
 <body class="admin-page">
   <header class="app-header ops-header">
@@ -27,6 +27,52 @@
   </header>
 
   <main class="ops-dashboard">
+    <section class="ops-panel visitor-live-panel" aria-labelledby="visitor-live-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Visitor experience</p><h1 id="visitor-live-title">Onboarding live monitor</h1></div>
+        <div class="visitor-monitor-actions">
+          <span id="visitor-live-state" class="status-pill neutral">Waiting</span>
+          <button id="btn-enable-help-alerts" type="button" class="secondary compact-button">Enable help sound</button>
+        </div>
+      </div>
+      <div class="visitor-monitor-grid">
+        <section class="visitor-journey" aria-labelledby="visitor-journey-title">
+          <div class="section-heading"><h2 id="visitor-journey-title">Current journey</h2><span id="visitor-updated" class="metric">--</span></div>
+          <div class="visitor-summary-grid">
+            <div><span>Unit</span><strong id="visitor-unit">--</strong></div>
+            <div><span>Phase</span><strong id="visitor-phase">Idle</strong></div>
+            <div><span>Step</span><strong id="visitor-step">Welcome</strong></div>
+            <div><span>Language</span><strong id="visitor-language">Not chosen</strong></div>
+            <div><span>Age guidance</span><strong id="visitor-age-guidance">Not provided</strong></div>
+            <div><span>Interests</span><strong id="visitor-interests">None</strong></div>
+          </div>
+        </section>
+        <section class="visitor-readiness" aria-labelledby="visitor-readiness-title">
+          <div class="section-heading"><h2 id="visitor-readiness-title">Readiness</h2><span id="visitor-readiness-state" class="status-pill neutral">Checking</span></div>
+          <ul id="visitor-readiness-list" class="mini-readiness-list"></ul>
+        </section>
+        <section class="visitor-assistance" aria-labelledby="visitor-assistance-title">
+          <div class="section-heading"><h2 id="visitor-assistance-title">Assistance</h2><span id="visitor-help-badge" class="status-pill neutral">No request</span></div>
+          <p id="visitor-help-detail" class="visitor-help-detail">No visitor assistance request is active.</p>
+          <div class="command-group compact-actions">
+            <button id="btn-ack-help" type="button" disabled>Acknowledge</button>
+            <button id="btn-visitor-stop" type="button" class="danger">Stop &amp; clear</button>
+          </div>
+          <label class="visitor-simulation-label">Mock scenario
+            <select id="sel-visitor-simulation">
+              <option value="ready">Ready</option>
+              <option value="unit_unavailable">Unit unavailable</option>
+              <option value="headset_attention">Headset attention</option>
+              <option value="connection_lost">Connection lost</option>
+              <option value="transfer_failure">Transfer failure</option>
+              <option value="reset">Clear simulation</option>
+            </select>
+          </label>
+          <button id="btn-visitor-simulate" type="button" class="secondary compact-button">Apply scenario</button>
+        </section>
+      </div>
+    </section>
+
     <section class="ops-panel settings-panel" aria-labelledby="settings-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Configuration</p><h1 id="settings-title">Settings</h1></div>
@@ -203,6 +249,6 @@
   </main>
 
   <p id="admin-notice" class="notice hidden" role="status"></p>
-  <script src="/static/admin.js?v=7"></script>
+  <script src="/static/admin.js?v=8"></script>
 </body>
 </html>

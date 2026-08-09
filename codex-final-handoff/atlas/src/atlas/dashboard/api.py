@@ -13,7 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from atlas.app.dependency_container import Container, build_container
@@ -28,6 +28,12 @@ from atlas.dashboard.schemas import (
     ManualArtworkRequest,
     SessionProfileRequest,
 )
+from atlas.dashboard.visitor_schemas import (
+    VisitorHelpRequest,
+    VisitorProgressRequest,
+    VisitorSimulationRequest,
+)
+from atlas.dashboard.visitor_service import VisitorService
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -36,6 +42,7 @@ _TEMPLATES_DIR = Path(__file__).parent / "templates"
 def create_app(
     container: Container | None = None,
     capture_request: Callable[[], None] | None = None,
+    visitor_service: VisitorService | None = None,
 ) -> FastAPI:
     container = container or build_container()
     service = RuntimeService(container, capture_request=capture_request)
@@ -58,6 +65,7 @@ def create_app(
         version="1.1.0",
     )
     app.state.service = service
+    app.state.visitor_service = visitor_service or VisitorService()
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
     # -- pages --------------------------------------------------------------
@@ -69,9 +77,74 @@ def create_app(
     def admin() -> str:
         return (_TEMPLATES_DIR / "admin.html").read_text(encoding="utf-8")
 
+    @app.get("/service-worker.js", response_class=FileResponse)
+    def service_worker() -> FileResponse:
+        return FileResponse(
+            _STATIC_DIR / "service-worker.js",
+            media_type="application/javascript",
+            headers={
+                "Cache-Control": "no-cache",
+                "Service-Worker-Allowed": "/",
+            },
+        )
+
     @app.get("/admin/access")
     def admin_access() -> dict:
         return {"auth_required": dashboard_settings.admin_auth_required}
+
+    # -- visitor onboarding (mock-backed Pass 1) ---------------------------
+    @app.get("/api/visitor/bootstrap")
+    def visitor_bootstrap() -> dict:
+        return app.state.visitor_service.bootstrap()
+
+    @app.post("/api/visitor/onboarding/progress")
+    def visitor_progress(req: VisitorProgressRequest) -> dict:
+        try:
+            return app.state.visitor_service.progress(req)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/visitor/readiness")
+    def visitor_readiness() -> dict:
+        return app.state.visitor_service.readiness()
+
+    @app.post("/api/visitor/onboarding/start")
+    def visitor_start() -> dict:
+        try:
+            return app.state.visitor_service.start()
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/api/visitor/help")
+    def visitor_help(req: VisitorHelpRequest) -> dict:
+        return app.state.visitor_service.request_help(req)
+
+    @app.post("/api/visitor/reset")
+    def visitor_reset() -> dict:
+        return app.state.visitor_service.reset()
+
+    # -- privacy-bounded visitor monitoring (operator only) ----------------
+    @app.get("/api/admin/live-status", dependencies=[Depends(require_admin)])
+    def visitor_live_status() -> dict:
+        return app.state.visitor_service.live_status()
+
+    @app.post(
+        "/api/admin/help/{request_id}/acknowledge",
+        dependencies=[Depends(require_admin)],
+    )
+    def acknowledge_visitor_help(request_id: str) -> dict:
+        try:
+            return app.state.visitor_service.acknowledge_help(request_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/api/admin/session/stop", dependencies=[Depends(require_admin)])
+    def stop_visitor_session() -> dict:
+        return app.state.visitor_service.stop()
+
+    @app.post("/api/admin/visitor/simulate", dependencies=[Depends(require_admin)])
+    def simulate_visitor(req: VisitorSimulationRequest) -> dict:
+        return app.state.visitor_service.simulate(req.scenario)
 
     # -- health / status ----------------------------------------------------
     @app.get("/health")
