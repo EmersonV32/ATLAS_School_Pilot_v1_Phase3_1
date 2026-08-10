@@ -54,6 +54,21 @@ UNGROUNDED_FALLBACK = {
         "Je n'ai pas encore cette information vérifiée dans mon guide, mais "
         "je peux expliquer ce qui est confirmé sur cette œuvre."
     ),
+    "es": (
+        "Todavía no tengo ese detalle verificado en mi guía, pero puedo "
+        "explicarte lo que está confirmado sobre esta obra."
+    ),
+    "it": (
+        "Non ho ancora quel dettaglio verificato nella mia guida, ma posso "
+        "spiegarti ciò che è confermato su quest'opera."
+    ),
+}
+
+LLM_ERROR_FALLBACK = {
+    "en": "I'm sorry, I can't generate a response right now.",
+    "fr": "Je suis désolé, je ne peux pas répondre en ce moment.",
+    "es": "Lo siento, no puedo generar una respuesta en este momento.",
+    "it": "Mi dispiace, non posso generare una risposta in questo momento.",
 }
 
 
@@ -148,11 +163,7 @@ class DialogueEngine:
             raw_response = self._llm.generate(messages)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("LLM generation failed: %s", exc)
-            fallback = (
-                "Je suis désolé, je ne peux pas répondre en ce moment."
-                if language == "fr"
-                else "I'm sorry, I can't generate a response right now."
-            )
+            fallback = LLM_ERROR_FALLBACK.get(language, LLM_ERROR_FALLBACK["en"])
             return DialogueResult(
                 response=fallback,
                 language=language,
@@ -322,10 +333,8 @@ class DialogueEngine:
                 grounding_reason = "llm_error"
                 if not accepted:
                     fallback_used = True
-                    fallback = (
-                        "Je suis desole, je ne peux pas repondre en ce moment."
-                        if language == "fr"
-                        else "I'm sorry, I can't generate a response right now."
+                    fallback = LLM_ERROR_FALLBACK.get(
+                        language, LLM_ERROR_FALLBACK["en"]
                     )
                     accepted.append(fallback)
                     events.put(("sentence", fallback))

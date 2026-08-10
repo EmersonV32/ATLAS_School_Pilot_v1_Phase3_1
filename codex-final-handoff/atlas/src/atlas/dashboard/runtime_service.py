@@ -28,6 +28,87 @@ logger = logging.getLogger(__name__)
 _DEFAULT_PROFILE = EducationalLevel.ADULT_BEGINNER.value
 
 
+def _human_runtime_line(line: str) -> str:
+    """Turn one raw process-log line into a readable operator timeline."""
+    cleaned = re.sub(r"^\d{4}-\d{2}-\d{2}[^ ]*\s+\w+\s+[^:]+:\s+", "", line)
+    cleaned = cleaned.strip()
+    if "[STT live]" in cleaned:
+        speech = cleaned.split("[STT live]", 1)[1].strip()
+        speech = re.sub(r"\s+\[language=[^\]]+\]$", "", speech)
+        return "Visitor is speaking: " + speech
+    if "[STT final]" in cleaned:
+        speech = cleaned.split("[STT final]", 1)[1].strip()
+        speech = re.sub(r"\s+\[language=[^\]]+\]$", "", speech)
+        return "Visitor said: " + speech
+    if "[STT] Preparing to listen" in cleaned:
+        language = re.search(r"language=([a-z]+)", cleaned)
+        timeout = re.search(r"timeout=([\d.]+s)", cleaned)
+        language_name = {"en": "English", "fr": "French", "es": "Spanish", "it": "Italian"}.get(
+            language.group(1) if language else "", "the selected language"
+        )
+        duration = timeout.group(1) if timeout else "the configured listening window"
+        return f"ATLAS is listening in {language_name} for up to {duration}."
+    if "[Deepgram] Listening" in cleaned:
+        return "Microphone opened with Deepgram and Silero voice detection."
+    if "[Silero VAD] Speech started" in cleaned:
+        return "Speech detected. ATLAS is recording the question."
+    if "[STT] No transcript" in cleaned:
+        return "No usable speech was received before listening ended."
+    if "[STT] Provider used:" in cleaned:
+        return "Speech recognition used " + cleaned.split(":", 1)[1].strip() + "."
+    if "[STT]" in cleaned and ("failed" in cleaned.lower() or "unavailable" in cleaned.lower()):
+        return "Warning: speech recognition could not complete. " + cleaned.split("[STT]", 1)[1].strip()
+    if "[RAG] Retrieved" in cleaned:
+        return "Knowledge search completed: " + cleaned.split("[RAG]", 1)[1].strip()
+    if "[LLM final]" in cleaned:
+        return "ATLAS answer: " + cleaned.split("[LLM final]", 1)[1].strip()
+    if "[LLM sentence" in cleaned:
+        return "ATLAS is saying: " + re.sub(r"^\[LLM sentence \d+\]\s*", "", cleaned)
+    if "[Gemini]" in cleaned:
+        return "Gemini: " + cleaned.split("[Gemini]", 1)[1].strip()
+    if "[LLM]" in cleaned:
+        return "ATLAS is preparing an answer: " + cleaned.split("[LLM]", 1)[1].strip()
+    if "[Cartesia] Continuous synthesis started" in cleaned:
+        return "ATLAS started speaking with Cartesia. " + cleaned.split("started", 1)[1].strip()
+    if "[Cartesia] Continuous context opened" in cleaned:
+        return "Cartesia locked one voice for this response. " + cleaned.split("opened", 1)[1].strip()
+    if "[Cartesia] First audio received" in cleaned:
+        return "Cartesia began audible speech. " + cleaned.split("received", 1)[1].strip()
+    if "[Cartesia] Continuous synthesis complete" in cleaned:
+        return "Cartesia finished the response. " + cleaned.split("complete", 1)[1].strip()
+    if "[TTS] Response voice locked" in cleaned:
+        return "Voice locked for this response. " + cleaned.split("locked", 1)[1].strip()
+    if "[TTS] Continuous segment" in cleaned:
+        return "Voice stream: " + cleaned.split("[TTS]", 1)[1].strip()
+    if "[TTS]" in cleaned or "[Cartesia]" in cleaned:
+        return "Voice: " + re.sub(r"^\[(TTS|Cartesia)\]\s*", "", cleaned)
+    if "[Vision]" in cleaned:
+        return "Vision: " + cleaned.split("[Vision]", 1)[1].strip()
+    if "ERROR" in line or "WARNING" in line or "failed" in cleaned.lower():
+        return "Warning: " + cleaned
+    if "Camera" in cleaned:
+        return "Camera: " + re.sub(r"^\[?Camera\]?\s*", "", cleaned)
+    if "[Timing]" in cleaned:
+        return "Timing: " + cleaned.split("[Timing]", 1)[1].strip()
+    return cleaned
+
+
+def _human_event(event: dict[str, Any]) -> dict[str, Any]:
+    """Summarize a structured event without exposing log formatting."""
+    name = str(event.get("event") or "event").replace("_", " ")
+    state = str(event.get("state") or "system")
+    details = []
+    for key, value in sorted(event.items()):
+        if key in {"event_id", "session_id", "timestamp", "state", "event"}:
+            continue
+        details.append(f"{key.replace('_', ' ')}: {value}")
+    return {
+        "timestamp": event.get("timestamp", ""),
+        "summary": f"{state.title()}: {name}.",
+        "details": "; ".join(details) or "No additional fields.",
+    }
+
+
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     merged = dict(base)
     for key, value in override.items():
@@ -200,7 +281,7 @@ class RuntimeService:
             )
 
         ok, encoded = cv2.imencode(
-            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 82]
+            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90]
         )
         if not ok:
             raise RuntimeError("camera frame encoding failed")
@@ -237,11 +318,13 @@ class RuntimeService:
         artwork_id = artwork.get("artwork_id")
 
         if "llm_timeout" in self.demo_flags:
-            fallback = (
-                "Je suis désolé, je ne peux pas répondre en ce moment."
-                if lang == Language.FR
-                else "I'm sorry, I can't generate a response right now."
-            )
+            timeout_fallbacks = {
+                Language.EN: "I'm sorry, I can't generate a response right now.",
+                Language.FR: "Je suis désolé, je ne peux pas répondre en ce moment.",
+                Language.ES: "Lo siento, no puedo generar una respuesta en este momento.",
+                Language.IT: "Mi dispiace, non posso generare una risposta in questo momento.",
+            }
+            fallback = timeout_fallbacks[lang]
             return {
                 "answer": fallback,
                 "language": lang.value,
@@ -406,6 +489,10 @@ class RuntimeService:
             },
             "hardware": {
                 "yolo_backend": hardware.yolo_backend,
+                "camera_width": hardware.camera_width,
+                "camera_height": hardware.camera_height,
+                "camera_fps": hardware.camera_fps,
+                "camera_reconnect_s": hardware.camera_reconnect_s,
                 "vision_conf_threshold": hardware.vision_conf_threshold,
                 "vision_mask_conf_threshold": hardware.vision_mask_conf_threshold,
                 "vision_center_weight": hardware.vision_center_weight,
@@ -558,6 +645,7 @@ class RuntimeService:
             "session_active": self.session_id is not None,
             "experience": self.experience_settings(),
             "artwork": self.artwork_status(),
+            "camera": self.container.camera_source.status(),
             "last_answer": last,
             "demo_flags": sorted(self.demo_flags),
             "privacy": {
@@ -578,6 +666,9 @@ class RuntimeService:
 
     def recent_logs(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.container.logger.read_recent(limit=limit)
+
+    def human_recent_logs(self, limit: int = 50) -> list[dict[str, Any]]:
+        return [_human_event(event) for event in self.recent_logs(limit=limit)]
 
     def runtime_logs(self, limit: int = 250) -> dict[str, Any]:
         """Return the testing-mode tail of the device process log."""
@@ -606,4 +697,11 @@ class RuntimeService:
         return {
             "available": True,
             "lines": [ansi.sub("", line.rstrip()) for line in lines[-limit:]],
+        }
+
+    def human_runtime_logs(self, limit: int = 250) -> dict[str, Any]:
+        raw = self.runtime_logs(limit=limit)
+        return {
+            "available": raw["available"],
+            "lines": [_human_runtime_line(line) for line in raw["lines"]],
         }

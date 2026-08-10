@@ -32,12 +32,15 @@ rag:
   fallback_language: en
 
 llm:
-  provider: mock        # mock | gemini
+  provider: mock        # mock | gemini | openai | kimi
   model: gemini-2.5-flash
   timeout_s: 8.0
   max_regenerations: 1
   cloud_llm_enabled: false   # must be true before any cloud LLM call is made
-  api_key_env: GEMINI_API_KEY
+  gemini_api_key_env: GEMINI_API_KEY
+  openai_api_key_env: OPENAI_API_KEY
+  kimi_api_key_env: MOONSHOT_API_KEY
+  kimi_base_url: https://api.moonshot.cn/v1
   streaming_enabled: true
   sentence_tts_enabled: true
 

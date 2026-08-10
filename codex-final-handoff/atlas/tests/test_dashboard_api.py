@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from atlas.app.dependency_container import Container
 from atlas.config.settings import DashboardSettings, PathsSettings, RunMode, Settings
 from atlas.dashboard.api import create_app
+from atlas.rag.ingest import load_content_pack
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PACKS_DIR = REPO_ROOT / "data" / "content_packs"
@@ -62,11 +63,10 @@ class TestHealthAndStatus:
         assert body["privacy"]["store_raw_audio"] is False
         assert body["privacy"]["cloud_llm_enabled"] is False
 
-    def test_index_serves_html(self, client):
-        res = client.get("/")
-        assert res.status_code == 200
-        assert "ATLAS" in res.text
-        assert "every story deserves a listener" in res.text
+    def test_index_redirects_to_admin(self, client):
+        res = client.get("/", follow_redirects=False)
+        assert res.status_code == 307
+        assert res.headers["location"] == "/admin"
 
     def test_admin_page_serves_html(self, client):
         res = client.get("/admin")
@@ -75,6 +75,8 @@ class TestHealthAndStatus:
         assert "Live camera" in res.text
         assert "Live logs" in res.text
         assert "Current state" in res.text
+        assert "Apply camera" not in res.text
+        assert "sel-camera-profile" not in res.text
 
 
 class TestSession:
@@ -179,6 +181,22 @@ class TestContent:
         packs = client.get("/content/packs").json()
         assert any(p["pack_id"] == "demo_pack" for p in packs)
 
+    def test_demo_pack_contains_expanded_bilingual_fact_chunks(self, client):
+        pack = load_content_pack(PACKS_DIR / "demo_pack")
+        chunks = {chunk.chunk_id: chunk for artwork in pack.artworks for chunk in artwork.chunks}
+
+        assert pack.manifest.version == "0.3.0"
+        assert "gpe_earring_uncertain_en_adult" in chunks
+        assert "gpe_earring_uncertain_fr_adult" in chunks
+        assert "wave_forty_six_en_adult" in chunks
+        assert "wave_forty_six_fr_adult" in chunks
+        assert "ml_royal_collection_en_adult" in chunks
+        assert "ml_royal_collection_fr_adult" in chunks
+        assert "sf_series_detail_fr_adult" in chunks
+        assert "sf_signature_fr_adult" in chunks
+        assert "tut_spell_en_adult" in chunks
+        assert "tut_spell_fr_adult" in chunks
+
     def test_artworks_lists_three(self, client):
         artworks = client.get("/artworks").json()
         ids = {a["artwork_id"] for a in artworks}
@@ -196,6 +214,41 @@ class TestContent:
             "available": True,
             "lines": ["second", "third"],
         }
+
+    def test_human_runtime_log_explains_live_speech(self, client):
+        logs_dir = client.app.state.service.container.settings.paths.logs_dir
+        (logs_dir / "atlas-runtime.log").write_text(
+            "[STT live] who painted the Mona Lisa [language=en final=False]\n",
+            encoding="utf-8",
+        )
+        response = client.get("/logs/runtime/human", headers=_admin(client))
+        assert response.status_code == 200
+        assert response.json()["lines"] == [
+            "Visitor is speaking: who painted the Mona Lisa"
+        ]
+
+    def test_human_runtime_log_removes_log_metadata_from_listening_event(self, client):
+        logs_dir = client.app.state.service.container.settings.paths.logs_dir
+        (logs_dir / "atlas-runtime.log").write_text(
+            "2026-08-09 10:00:00 INFO atlas.pipeline: "
+            "[STT] Preparing to listen [language=fr timeout=8.0s]\n",
+            encoding="utf-8",
+        )
+
+        response = client.get("/logs/runtime/human", headers=_admin(client))
+
+        assert response.json()["lines"] == [
+            "ATLAS is listening in French for up to 8.0s."
+        ]
+
+    def test_human_event_log_summarizes_structured_events(self, client):
+        service = client.app.state.service
+        service.container.logger.log(
+            session_id="test", state="session", event="session_start"
+        )
+        response = client.get("/logs/recent/human")
+        assert response.status_code == 200
+        assert response.json()[-1]["summary"] == "Session: session start."
 
     def test_ingest_requires_token(self, client):
         res = client.post("/content/ingest", json={"pack_id": "demo_pack"})
@@ -279,6 +332,15 @@ class TestAdminConfig:
         assert "silero_threshold: 0.55" in persisted
         assert "log_llm_responses: true" in persisted
         assert "api_key" not in persisted
+
+    def test_llm_provider_switch_accepts_openai_and_kimi(self, client):
+        response = client.put(
+            "/admin/config",
+            headers=_admin(client),
+            json={"llm": {"provider": "openai", "model": "gpt-5"}},
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["config"]["llm"]["provider"] == "openai"
 
     def test_config_rejects_unknown_or_out_of_range_values(self, client):
         unknown = client.put(

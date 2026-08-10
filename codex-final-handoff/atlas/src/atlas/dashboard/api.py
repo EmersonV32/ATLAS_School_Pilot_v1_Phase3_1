@@ -13,7 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from atlas.app.dependency_container import Container, build_container
@@ -53,17 +53,18 @@ def create_app(
         require_admin = make_admin_guard(dashboard_settings.admin_token_env)
 
     app = FastAPI(
-        title="ATLAS Dashboards",
-        description="Local visitor and operator controls for ATLAS.",
+        title="ATLAS Operations Console",
+        description="Local operator controls for ATLAS.",
         version="1.1.0",
     )
     app.state.service = service
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
     # -- pages --------------------------------------------------------------
-    @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        return (_TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
+    @app.get("/", include_in_schema=False)
+    def index() -> RedirectResponse:
+        """The prototype visitor page is retired; keep old links useful."""
+        return RedirectResponse(url="/admin", status_code=307)
 
     @app.get("/admin", response_class=HTMLResponse)
     def admin() -> str:
@@ -179,6 +180,14 @@ def create_app(
     @app.get("/logs/runtime", dependencies=[Depends(require_admin)])
     def logs_runtime(limit: int = 250) -> dict:
         return service.runtime_logs(limit=min(max(limit, 1), 1000))
+
+    @app.get("/logs/runtime/human", dependencies=[Depends(require_admin)])
+    def logs_runtime_human(limit: int = 250) -> dict:
+        return service.human_runtime_logs(limit=min(max(limit, 1), 1000))
+
+    @app.get("/logs/recent/human")
+    def logs_recent_human(limit: int = 50) -> list[dict]:
+        return service.human_recent_logs(limit=min(max(limit, 1), 200))
 
     # -- hardware -----------------------------------------------------------
     @app.post("/hardware/emergency-stop")

@@ -5,6 +5,10 @@ const $ = (id) => document.getElementById(id);
 let authRequired = true;
 let adminUnlocked = false;
 let cameraTimer = null;
+let cameraRequestInFlight = false;
+let cameraObjectUrl = null;
+let experienceDirty = false;
+const logFormats = { runtime: "human", events: "human" };
 
 function token() {
   return $("inp-token").value.trim();
@@ -48,6 +52,19 @@ function appendStatus(list, name, value, bad = false) {
   list.append(item);
 }
 
+function markExperienceDirty() {
+  experienceDirty = true;
+  $("experience-state").textContent = "Unsaved changes";
+}
+
+function syncExperienceForm(experience) {
+  if (experienceDirty) return;
+  $("sel-language").value = experience.language || "en";
+  $("sel-profile").value = experience.profile || "adult_beginner";
+  $("chk-accessibility").checked = Boolean(experience.accessibility_mode);
+  if (experience.pack_id) $("sel-pack").value = experience.pack_id;
+}
+
 async function refreshStatus() {
   try {
     const status = await api("/status");
@@ -69,15 +86,14 @@ async function refreshStatus() {
       ? status.last_answer.answer : "No answer yet.";
     $("btn-start").disabled = status.session_active;
     $("btn-stop").disabled = !status.session_active;
-    $("experience-state").textContent = status.session_active ? "Session active" : "Session idle";
+    if (!experienceDirty) {
+      $("experience-state").textContent = status.session_active ? "Session active" : "Session idle";
+    }
     $("estop-status").textContent = status.emergency_stopped ? "STOP ACTIVE" : "Safety clear";
     $("estop-status").className = `status-pill ${status.emergency_stopped ? "danger" : "ok"}`;
 
     const experience = status.experience || {};
-    $("sel-language").value = experience.language || "en";
-    $("sel-profile").value = experience.profile || "adult_beginner";
-    $("chk-accessibility").checked = Boolean(experience.accessibility_mode);
-    if (experience.pack_id) $("sel-pack").value = experience.pack_id;
+    syncExperienceForm(experience);
 
     const artwork = status.artwork || {};
     const confidence = artwork.confidence == null ? null : Number(artwork.confidence);
@@ -86,6 +102,12 @@ async function refreshStatus() {
     $("camera-confidence").textContent = confidence == null ? "--" : `${Math.round(confidence * 100)}%`;
     $("camera-source").textContent = artwork.artwork_id
       ? `${artwork.stable ? "Stable" : "Detecting"} / ${artwork.source}` : "Camera stream";
+    const camera = status.camera || {};
+    $("vision-camera-fps").textContent = camera.observed_fps != null
+      ? `${Number(camera.observed_fps).toFixed(1)} fps` : "--";
+    if (camera.last_error) {
+      $("camera-source").textContent = `Recovering: ${camera.last_error}`;
+    }
   } catch (_) {
     $("admin-state").textContent = "Offline";
     $("admin-state").className = "status-pill danger";
@@ -243,13 +265,23 @@ async function refreshLogs(force = false) {
   if ($("chk-pause-logs").checked && !force) return;
   try {
     const [runtime, events] = await Promise.all([
-      api("/logs/runtime?limit=500", {}, true),
-      api("/logs/recent?limit=200"),
+      api(`/logs/runtime${logFormats.runtime === "human" ? "/human" : ""}?limit=500`, {}, true),
+      api(`/logs/recent${logFormats.events === "human" ? "/human" : ""}?limit=200`),
     ]);
-    keepLogPosition($("runtime-log-view"), runtime.lines.join("\n") || "No runtime output yet.");
-    keepLogPosition($("event-log-view"), JSON.stringify(events, null, 2));
+    const runtimeNode = $("runtime-log-view");
+    const eventNode = $("event-log-view");
+    const guidedRuntime = logFormats.runtime === "human";
+    const guidedEvents = logFormats.events === "human";
+    runtimeNode.classList.toggle("guided-log", guidedRuntime);
+    eventNode.classList.toggle("guided-log", guidedEvents);
+    keepLogPosition(runtimeNode, runtime.lines.join(guidedRuntime ? "\n\n" : "\n") || "No runtime output yet.");
+    const eventText = logFormats.events === "human"
+      ? events.map((event) => `${event.summary}\n${event.details}`).join("\n\n")
+      : JSON.stringify(events, null, 2);
+    keepLogPosition(eventNode, eventText || "No events loaded.");
     $("runtime-log-state").textContent = runtime.available ? "Live" : "Unavailable";
     $("runtime-log-state").className = runtime.available ? "ok" : "bad";
+    $("event-log-state").textContent = logFormats.events === "human" ? "Guided" : "Raw";
   } catch (error) {
     $("runtime-log-state").textContent = "Error";
     keepLogPosition($("runtime-log-view"), error.message);
@@ -263,23 +295,52 @@ async function applyExperience() {
     pack_id: $("sel-pack").value,
     accessibility_mode: $("chk-accessibility").checked,
   }) });
+  experienceDirty = false;
 }
 
-function refreshCamera() {
+function scheduleCameraRefresh(delayMs) {
   window.clearTimeout(cameraTimer);
-  $("admin-camera").src = `/camera/frame.jpg?t=${Date.now()}`;
+  cameraTimer = window.setTimeout(refreshCamera, delayMs);
 }
 
-$("admin-camera").addEventListener("load", () => {
-  $("camera-state").textContent = "Live";
-  $("camera-state").className = "status-pill ok";
-  cameraTimer = window.setTimeout(refreshCamera, 200);
-});
-$("admin-camera").addEventListener("error", () => {
-  $("camera-state").textContent = "Unavailable";
-  $("camera-state").className = "status-pill danger";
-  cameraTimer = window.setTimeout(refreshCamera, 1000);
-});
+function showCameraImage(image, source) {
+  return new Promise((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("camera image could not be displayed"));
+    image.src = source;
+  });
+}
+
+async function refreshCamera() {
+  if (cameraRequestInFlight) return;
+  cameraRequestInFlight = true;
+  try {
+    const response = await fetch(`/camera/frame.jpg?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`camera returned ${response.status}`);
+    const nextUrl = URL.createObjectURL(await response.blob());
+    const image = $("admin-camera");
+    const previousUrl = cameraObjectUrl;
+    cameraObjectUrl = nextUrl;
+    await showCameraImage(image, nextUrl);
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    $("camera-state").textContent = "Live";
+    $("camera-state").className = "status-pill ok";
+    scheduleCameraRefresh(120);
+  } catch (_) {
+    if (cameraObjectUrl) {
+      URL.revokeObjectURL(cameraObjectUrl);
+      cameraObjectUrl = null;
+    }
+    $("admin-camera").removeAttribute("src");
+    $("camera-state").textContent = "Unavailable";
+    $("camera-state").className = "status-pill danger";
+    scheduleCameraRefresh(1000);
+  } finally {
+    cameraRequestInFlight = false;
+  }
+}
 
 $("btn-unlock").addEventListener("click", () => loadConfig()
   .then(() => notice("Admin controls unlocked"))
@@ -300,6 +361,28 @@ $("btn-start").addEventListener("click", async () => {
 });
 $("btn-stop").addEventListener("click", () => api("/session/stop", { method: "POST" }).then(refreshStatus).catch((error) => notice(error.message, true)));
 $("btn-apply-experience").addEventListener("click", () => applyExperience().then(() => { notice("Experience settings applied"); refreshStatus(); }).catch((error) => notice(error.message, true)));
+
+["sel-language", "sel-profile", "sel-pack", "chk-accessibility"].forEach((id) => {
+  $(id).addEventListener("change", markExperienceDirty);
+});
+document.querySelectorAll("[data-log-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    logFormats[button.dataset.logView] = button.dataset.logFormat;
+    document.querySelectorAll(`[data-log-view="${button.dataset.logView}"]`).forEach((peer) => {
+      peer.setAttribute("aria-pressed", String(peer === button));
+      peer.classList.toggle("active", peer === button);
+    });
+    refreshLogs(true);
+  });
+});
+$("cfg-llm-provider").addEventListener("change", () => {
+  const defaults = { gemini: "gemini-2.5-flash", openai: "gpt-5", kimi: "kimi-k2.5" };
+  const provider = $("cfg-llm-provider").value;
+  const model = $("cfg-llm-model");
+  if (defaults[provider] && Object.values(defaults).includes(model.value.trim())) {
+    model.value = defaults[provider];
+  }
+});
 
 $("btn-override").addEventListener("click", () => api("/session/manual-artwork", { method: "POST", body: JSON.stringify({ artwork_id: $("sel-artwork").value }) }).then(refreshStatus).catch((error) => notice(error.message, true)));
 $("btn-clear-override").addEventListener("click", () => api("/session/manual-artwork", { method: "DELETE" }).then(refreshStatus).catch((error) => notice(error.message, true)));

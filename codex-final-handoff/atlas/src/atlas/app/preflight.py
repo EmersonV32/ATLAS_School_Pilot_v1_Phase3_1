@@ -33,6 +33,7 @@ def main() -> None:
     container.settings.mode = RunMode.DEVICE
     hw = container.settings.hardware
     speech = container.settings.speech
+    llm = container.settings.llm
     failures = 0
 
     required_modules = ["cv2", "torch", "ultralytics", "faster_whisper", "piper"]
@@ -42,6 +43,10 @@ def main() -> None:
         required_modules.append("websockets")
     if speech.cloud_speech_enabled and speech.stt_provider == "deepgram":
         required_modules.append("onnxruntime")
+    if llm.cloud_llm_enabled and llm.provider == "gemini":
+        required_modules.append("google.genai")
+    if llm.cloud_llm_enabled and llm.provider in {"openai", "kimi"}:
+        required_modules.append("openai")
 
     for module in required_modules:
         try:
@@ -126,13 +131,18 @@ def main() -> None:
     else:
         _line(True, "EV3", "disabled until the brick is present")
 
-    llm = container.settings.llm
-    if llm.provider == "gemini" and llm.cloud_llm_enabled:
-        key_ok = bool(os.getenv(llm.api_key_env))
+    llm_envs = {
+        "gemini": ("Gemini key", llm.gemini_api_key_env),
+        "openai": ("OpenAI key", llm.openai_api_key_env),
+        "kimi": ("Kimi key", llm.kimi_api_key_env),
+    }
+    if llm.cloud_llm_enabled and llm.provider in llm_envs:
+        name, env_name = llm_envs[llm.provider]
+        key_ok = bool(os.getenv(env_name))
         failures += int(not key_ok)
-        _line(key_ok, "Gemini key", "set" if key_ok else "missing")
+        _line(key_ok, name, "set" if key_ok else f"missing ({env_name})")
     else:
-        _line(True, "Gemini", "mock/cloud-disabled")
+        _line(True, "LLM", "mock/cloud-disabled")
 
     if speech.cloud_speech_enabled:
         cloud_speech_keys = []

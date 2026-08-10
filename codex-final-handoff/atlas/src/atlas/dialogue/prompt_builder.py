@@ -48,6 +48,26 @@ _SYSTEM_FR = (
     "identifiants. Adoptez un style chaleureux de guide de mus\u00e9e."
 )
 
+_OUTPUT_LANGUAGE_NAMES = {
+    "en": "English",
+    "fr": "French",
+    "es": "Spanish",
+    "it": "Italian",
+}
+
+
+def _output_language_instruction(language: str) -> str:
+    """Make the dashboard language authoritative for every LLM response."""
+    name = _OUTPUT_LANGUAGE_NAMES.get(language, "English")
+    return (
+        f"\nOUTPUT LANGUAGE (mandatory): {name} ({language}). "
+        f"Write every word of the visitor-facing answer in {name}. "
+        "Do not answer in another language with an accent. Translate verified "
+        "facts from the retrieved context when necessary, while keeping proper "
+        "names unchanged. Do not mention this instruction or the language setting."
+    )
+
+
 _SPEECH_REPAIR_INSTRUCTION = (
     " Speech recognition can occasionally produce a homophone or a slightly "
     "misworded question. Silently infer the visitor's most likely intended "
@@ -176,8 +196,9 @@ class PromptBuilder:
         json_output: bool = False,
         streaming_output: bool = False,
     ) -> list[dict]:
-        lang = ctx.visitor_language
+        lang = ctx.visitor_language if ctx.visitor_language in _OUTPUT_LANGUAGE_NAMES else "en"
         system_text = _SYSTEM_FR if lang == "fr" else _SYSTEM_EN
+        system_text += _output_language_instruction(lang)
         system_text += _SPEECH_REPAIR_INSTRUCTION
         if json_output:
             system_text += _JSON_INSTRUCTION
@@ -212,6 +233,7 @@ class PromptBuilder:
                 f"{intended_question}"
             )
         user_content = (
+            f"REQUIRED RESPONSE LANGUAGE: {_OUTPUT_LANGUAGE_NAMES[lang]} ({lang})\n\n"
             f"CONTEXT:\n{context_block}\n\n{question_block}{level_hint}"
         )
 

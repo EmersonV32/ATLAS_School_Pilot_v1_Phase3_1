@@ -45,14 +45,18 @@ class RagSettings(BaseModel):
 class LLMSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    provider: str = "mock"  # "mock" | "gemini"
-    model: str = "gemini-2.5-flash"  # Gemini model name when provider=gemini
+    provider: Literal["mock", "gemini", "openai", "kimi"] = "mock"
+    model: str = "gemini-2.5-flash"
     timeout_s: float = 8.0
     max_regenerations: int = 1
     # Explicit disclosure switch: cloud LLM calls happen only when True.
     cloud_llm_enabled: bool = False
-    # The API key env var NAME (not the key itself).
-    api_key_env: str = "GEMINI_API_KEY"
+    # API key environment variable NAMES (never the keys themselves).
+    gemini_api_key_env: str = "GEMINI_API_KEY"
+    openai_api_key_env: str = "OPENAI_API_KEY"
+    kimi_api_key_env: str = "MOONSHOT_API_KEY"
+    # Kimi exposes an OpenAI-compatible Chat Completions endpoint.
+    kimi_base_url: str = "https://api.moonshot.cn/v1"
     streaming_enabled: bool = True
     sentence_tts_enabled: bool = True
 

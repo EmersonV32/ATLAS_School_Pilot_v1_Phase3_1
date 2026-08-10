@@ -25,9 +25,11 @@ class GeminiClient:
         self,
         model: str = "gemini-2.5-flash",
         api_key: str | None = None,
+        api_key_env: str = "GEMINI_API_KEY",
     ) -> None:
         self.model_name = model
-        self._api_key = api_key or os.getenv("GEMINI_API_KEY", "")
+        self._api_key_env = api_key_env
+        self._api_key = api_key or os.getenv(api_key_env, "")
         self._client = None  # lazy-loaded
 
     # ------------------------------------------------------------------
@@ -48,8 +50,8 @@ class GeminiClient:
 
         if not self._api_key:
             raise RuntimeError(
-                "GEMINI_API_KEY is not set.\n"
-                "Set it with:  $env:GEMINI_API_KEY='your-key'  (PowerShell)\n"
+                f"{self._api_key_env} is not set.\n"
+                f"Set it with:  $env:{self._api_key_env}='your-key'  (PowerShell)\n"
                 "Or use MockLLMClient for dev mode."
             )
 
@@ -74,6 +76,20 @@ class GeminiClient:
         if thinking_config is not None:
             options["thinking_config"] = thinking_config(thinking_budget=0)
         return types.GenerateContentConfig(**options)
+
+    def _log_usage(self, response) -> None:
+        """Record provider usage metadata when Gemini supplies it, never prompts."""
+        usage = getattr(response, "usage_metadata", None)
+        prompt_tokens = getattr(usage, "prompt_token_count", None)
+        output_tokens = getattr(usage, "candidates_token_count", None)
+        total_tokens = getattr(usage, "total_token_count", None)
+        logger.info(
+            "[Gemini] Usage [model=%s input_tokens=%s output_tokens=%s total_tokens=%s]",
+            self.model_name,
+            prompt_tokens if prompt_tokens is not None else "n/a",
+            output_tokens if output_tokens is not None else "n/a",
+            total_tokens if total_tokens is not None else "n/a",
+        )
 
     def generate(self, messages: list[dict], max_tokens: int = 300) -> str:
         self._ensure_client()
@@ -106,6 +122,7 @@ class GeminiClient:
             (time.perf_counter() - started) * 1000.0,
             len(text.strip()),
         )
+        self._log_usage(response)
         return text.strip()
 
     def generate_stream(
@@ -137,7 +154,9 @@ class GeminiClient:
             config=generation_config,
         )
         produced_text = False
+        last_response = None
         for response in response_stream:
+            last_response = response
             text = response.text or ""
             if text:
                 produced_text = True
@@ -156,6 +175,8 @@ class GeminiClient:
             (time.perf_counter() - started) * 1000.0,
             produced_chars,
         )
+        if last_response is not None:
+            self._log_usage(last_response)
 
     def identify_artwork(
         self,

@@ -35,7 +35,7 @@ audio-cloud = [
     "sounddevice>=0.4",
     "websockets>=14",
 ]
-llm = ["google-genai>=1.0"]
+llm = ["google-genai>=1.0", "openai>=1.0"]
 dev = ["pytest>=8.0", "ruff>=0.4", "httpx>=0.28"]  # httpx: FastAPI TestClient
 # Convenience: everything except board-specific drivers.
 all = [
@@ -49,6 +49,7 @@ all = [
     "sounddevice>=0.4",
     "websockets>=14",
     "google-genai>=1.0",
+    "openai>=1.0",
     "pytest>=8.0",
     "ruff>=0.4",
 ]
