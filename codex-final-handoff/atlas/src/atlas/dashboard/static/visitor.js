@@ -147,7 +147,7 @@ async function goNext() {
     if (current === "language") updateDirection();
     showScreen(next);
     if (current === "language" && visitor.language !== "en") {
-      notice("Language preview selected. Interface copy remains in English for Pass 1.");
+      notice("Your ATLAS guide will speak in your selected language. Interface copy remains in English for now.");
     }
     if (next === "readiness") await refreshReadiness();
   } catch (error) {
@@ -348,9 +348,14 @@ async function initialize() {
   await loadInterests();
   const bootstrap = await api("/api/visitor/bootstrap");
   visitor.timeoutSeconds = bootstrap.inactivity_timeout_seconds;
-  if (bootstrap.mode !== "mock") {
-    document.querySelectorAll(".language-tile.is-preview").forEach((tile) => tile.classList.add("hidden"));
-  }
+  const publicLanguages = new Set(bootstrap.public_languages || []);
+  document.querySelectorAll(".language-tile").forEach((tile) => {
+    const input = tile.querySelector('input[name="language"]');
+    const available = Boolean(input && publicLanguages.has(input.value));
+    tile.classList.toggle("hidden", !available);
+    const status = tile.querySelector("small");
+    if (status && available) status.textContent = "Available today";
+  });
   if (bootstrap.state.phase === "in_use") {
     clearSensitiveBrowserState();
     showScreen("in_use");

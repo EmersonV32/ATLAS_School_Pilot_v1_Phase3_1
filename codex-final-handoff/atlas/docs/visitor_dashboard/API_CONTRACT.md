@@ -8,7 +8,9 @@ Pydantic models reject unknown fields.
 ### `GET /api/visitor/bootstrap`
 
 Returns kiosk/unit identifiers, public locale availability, onboarding steps,
-interest manifest, current public state, and whether the adapter is mock.
+interest manifest, current public state, and whether the adapter is mock or
+connected to the local device runtime. Device mode exposes only safe readiness
+states, never diagnostic/provider details.
 
 ### `POST /api/visitor/onboarding/progress`
 
@@ -41,8 +43,10 @@ Returns each requirement as `ready`, `pending`, `unavailable`, `degraded`, or
 ### `POST /api/visitor/onboarding/start`
 
 Atomically validates language, transfer state, and all required readiness
-items. Pass 1 creates an in-memory mock session. Failure returns a safe error
-category and does not create a partial session.
+items. In device mode, it transfers only the selected language plus a coarse
+explanation profile, then starts the existing local ATLAS runtime session.
+Failure returns a safe error category and does not create a partial session.
+Dev/laptop mode creates an in-memory mock session.
 
 ### `POST /api/visitor/help`
 
@@ -50,7 +54,8 @@ Creates or returns the single open help request for this kiosk/unit.
 
 ### `POST /api/visitor/reset`
 
-Clears all onboarding and help state and returns the kiosk to idle.
+Stops the linked runtime session when one exists, clears all onboarding and
+help state, and returns the kiosk to idle.
 
 ## Protected admin routes
 

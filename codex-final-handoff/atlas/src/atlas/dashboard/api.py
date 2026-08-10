@@ -65,7 +65,11 @@ def create_app(
         version="1.1.0",
     )
     app.state.service = service
-    app.state.visitor_service = visitor_service or VisitorService()
+    # Laptop/dev mode remains mock-backed. On the Jetson, the visitor flow and
+    # DeviceRuntime share this exact RuntimeService instance and session ID.
+    app.state.visitor_service = visitor_service or VisitorService(
+        runtime_service=(service if container.settings.mode.value == "device" else None)
+    )
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
     # -- pages --------------------------------------------------------------
@@ -92,7 +96,7 @@ def create_app(
     def admin_access() -> dict:
         return {"auth_required": dashboard_settings.admin_auth_required}
 
-    # -- visitor onboarding (mock-backed Pass 1) ---------------------------
+    # -- visitor onboarding (mock in dev, runtime-backed on device) --------
     @app.get("/api/visitor/bootstrap")
     def visitor_bootstrap() -> dict:
         return app.state.visitor_service.bootstrap()

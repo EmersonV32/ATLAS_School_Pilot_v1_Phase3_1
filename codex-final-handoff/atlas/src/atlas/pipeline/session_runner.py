@@ -205,6 +205,7 @@ class SessionRunner:
         self._log_llm_responses = log_llm_responses
         self._last_language = "en"
         self._preferred_language = "en"
+        self._preferred_profile = "adult_beginner"
 
     def set_preferred_language(self, language: str) -> None:
         normalized = str(language).split("-", 1)[0].lower()
@@ -213,9 +214,27 @@ class SessionRunner:
         self._preferred_language = normalized
         self._last_language = normalized
 
+    def set_preferred_profile(self, profile: str) -> None:
+        """Apply the privacy-bounded dashboard profile to spoken answers."""
+        allowed = {
+            "child",
+            "teen",
+            "adult_beginner",
+            "expert",
+            "visual_impairment",
+            "simple_language",
+        }
+        self._preferred_profile = (
+            str(profile) if str(profile) in allowed else "adult_beginner"
+        )
+
     @property
     def preferred_language(self) -> str:
         return self._preferred_language
+
+    @property
+    def preferred_profile(self) -> str:
+        return self._preferred_profile
 
     def _listen(self, *, play_cue: bool = True) -> TranscriptResult | None:
         listen_started = time.perf_counter()
@@ -516,6 +535,7 @@ class SessionRunner:
                     on_sentence=speak_sentence,
                     language=transcript.language,
                     visitor_age=_age_hint_to_number(transcript.age_hint),
+                    profile=self._preferred_profile,
                 )
             except Exception:
                 if continuous_tts:
@@ -527,6 +547,7 @@ class SessionRunner:
                 artwork_chunks=chunks,
                 language=transcript.language,
                 visitor_age=_age_hint_to_number(transcript.age_hint),
+                profile=self._preferred_profile,
             )
 
         if continuous_tts:
@@ -779,6 +800,7 @@ class SessionRunner:
                     on_sentence=speak_sentence,
                     language=transcript.language,
                     visitor_age=_age_hint_to_number(transcript.age_hint),
+                    profile=self._preferred_profile,
                 )
             except Exception:
                 if continuous_tts:
@@ -790,6 +812,7 @@ class SessionRunner:
                 artwork_chunks=chunks,
                 language=transcript.language,
                 visitor_age=_age_hint_to_number(transcript.age_hint),
+                profile=self._preferred_profile,
             )
 
         if continuous_tts:

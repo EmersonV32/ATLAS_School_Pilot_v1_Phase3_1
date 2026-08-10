@@ -7,7 +7,7 @@ import pytest
 from atlas.audio.mock_stt import MockSTT
 from atlas.audio.mock_tts import MockTTS
 from atlas.audio.stt import TranscriptResult
-from atlas.dialogue.dialogue_engine import DialogueEngine
+from atlas.dialogue.dialogue_engine import DialogueEngine, DialogueResult
 from atlas.dialogue.mock_llm_client import MockLLMClient
 from atlas.hardware.mock_hardware import MockHardware
 from atlas.pipeline.session_runner import (
@@ -159,6 +159,42 @@ def test_preferred_language_is_applied_to_stt_and_transcript():
     assert result.success
     assert stt.language == "fr"
     assert result.transcript.language == "fr"
+
+
+def test_preferred_profile_is_forwarded_to_dialogue_engine():
+    class RecordingEngine:
+        def __init__(self):
+            self.profile = None
+
+        def respond(self, **kwargs):
+            self.profile = kwargs["profile"]
+            return DialogueResult(
+                response="A verified response.",
+                language=kwargs["language"],
+                grounded=True,
+                grounding_reason="test",
+                filtered=False,
+            )
+
+    engine = RecordingEngine()
+    runner = _make_runner(dialogue_engine=engine)
+    runner.set_preferred_profile("teen")
+    result = runner.respond_to_transcript(
+        TranscriptResult("Tell me more", "en"),
+        detection=ArtworkDetection(
+            artwork_id="mona_lisa",
+            label="Mona Lisa",
+            confidence=1.0,
+            source="test",
+        ),
+    )
+
+    assert result.success
+    assert runner.preferred_profile == "teen"
+    assert engine.profile == "teen"
+
+    runner.set_preferred_profile("not-a-profile")
+    assert runner.preferred_profile == "adult_beginner"
 
 
 @pytest.mark.parametrize(

@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 from atlas.app.dependency_container import Container
 from atlas.config.settings import DashboardSettings, PathsSettings, Settings
 from atlas.dashboard.api import create_app
+from atlas.dashboard.visitor_schemas import VisitorProgressRequest
+from atlas.dashboard.visitor_service import VisitorService
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATIC_DIR = REPO_ROOT / "src" / "atlas" / "dashboard" / "static"
@@ -53,6 +55,45 @@ def _progress(**updates) -> dict:
     }
     payload.update(updates)
     return payload
+
+
+class _FakeRuntime:
+    def __init__(self, *, camera_ready: bool = True) -> None:
+        self.camera_ready = camera_ready
+        self.profile_calls: list[dict] = []
+        self.started = 0
+        self.stopped = 0
+
+    def health(self) -> dict:
+        return {
+            "status": "ok",
+            "components": {
+                "stt": "DeepgramSTT",
+                "tts": "CartesiaTTS",
+                "llm": "GeminiClient",
+                "vector_store": "ok",
+                "fts_store": "ok (fts5)",
+                "retriever": "HybridRetriever",
+            },
+        }
+
+    def status(self) -> dict:
+        return {
+            "camera": {"ready": self.camera_ready},
+            "emergency_stopped": False,
+        }
+
+    def set_profile(self, **kwargs) -> dict:
+        self.profile_calls.append(kwargs)
+        return kwargs
+
+    def start_session(self) -> dict:
+        self.started += 1
+        return {"session_id": "anonymous-session"}
+
+    def stop_session(self) -> dict:
+        self.stopped += 1
+        return {"stopped_session_id": "anonymous-session"}
 
 
 class TestVisitorShell:
@@ -260,3 +301,61 @@ class TestVisitorLifecycle:
         live = visitor_client.get("/api/admin/live-status", headers=_admin()).json()
         assert live["state"]["phase"] == "ready"
         assert live["state"]["transfer"] == "failed"
+
+
+class TestRuntimeBridge:
+    def test_runtime_bridge_transfers_coarse_profile_and_controls_session(self):
+        runtime = _FakeRuntime()
+        service = VisitorService(runtime_service=runtime)
+        service.progress(
+            VisitorProgressRequest(
+                **_progress(
+                    step="privacy",
+                    language="fr",
+                    age_guidance="13_17",
+                    expertise="enthusiast",
+                    interests=["technique"],
+                )
+            )
+        )
+
+        bootstrap = service.bootstrap()
+        assert bootstrap["mode"] == "runtime"
+        assert bootstrap["public_languages"] == ["en", "fr", "es", "it"]
+        assert bootstrap["readiness"]["ready"] is True
+
+        started = service.start()
+        assert started["phase"] == "in_use"
+        assert runtime.started == 1
+        assert runtime.profile_calls == [
+            {
+                "language": "fr",
+                "profile": "teen",
+                "accessibility_mode": False,
+            }
+        ]
+
+        stopped = service.stop()
+        assert stopped["stopped"] is True
+        assert runtime.stopped == 1
+
+    def test_runtime_bridge_blocks_start_without_a_fresh_camera(self):
+        service = VisitorService(runtime_service=_FakeRuntime(camera_ready=False))
+        service.progress(VisitorProgressRequest(**_progress(step="privacy")))
+
+        readiness = service.readiness()
+        camera = next(item for item in readiness["items"] if item["id"] == "camera")
+        assert camera["status"] == "unavailable"
+        with pytest.raises(RuntimeError, match="Camera"):
+            service.start()
+
+    def test_runtime_bridge_blocks_preview_only_language(self):
+        service = VisitorService(runtime_service=_FakeRuntime())
+        service.progress(
+            VisitorProgressRequest(**_progress(step="privacy", language="ar"))
+        )
+
+        language = next(
+            item for item in service.readiness()["items"] if item["id"] == "language"
+        )
+        assert language["status"] == "unsupported"

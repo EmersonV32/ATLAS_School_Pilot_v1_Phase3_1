@@ -349,7 +349,10 @@ class DeviceRuntime:
         if wait_for_terminal:
             input("\nATLAS is fully loaded. Press Enter to begin listening... ")
         self._start_terminal_capture_listener()
-        print("\n[Ready] Start a dashboard session and speak at any time. Ctrl+C stops.")
+        print(
+            "\n[Ready] Start a dashboard session and speak at any time. "
+            "Ctrl+C stops."
+        )
         if self.settings.manual_capture_keyboard_enabled:
             print(
                 "[Ready] Type c then Enter to identify the centered artwork manually."
@@ -405,6 +408,7 @@ class DeviceRuntime:
 
                 if self._dashboard_service is not None:
                     runner.set_preferred_language(self._dashboard_service.language)
+                    runner.set_preferred_profile(self._dashboard_service.profile)
 
                 if dashboard_session_id != active_session_id:
                     active_session_id = dashboard_session_id
