@@ -74,6 +74,7 @@ const ENGLISH_STRINGS = {
   "age_pad.aria": "Numeric keypad",
   "age_pad.clear": "Clear",
   "age_pad.delete": "Delete last digit",
+  "age_pad.range": "Enter an age from 5 to 120.",
   "age_pad.invalid": "Enter an age from 5 to 120, or choose Cancel.",
   "expertise.kicker": "Set the depth",
   "expertise.title": "How familiar are you with art?",
@@ -90,9 +91,9 @@ const ENGLISH_STRINGS = {
   "expertise.enthusiast_art": "The Ambassadors",
   "interests.kicker": "Choose your lens",
   "interests.title": "What draws you into an artwork?",
-  "interests.lead": "Select up to three, or continue without choosing.",
-  "interests.legend": "Choose up to three interests",
-  "interests.count": "{count} of 3 selected",
+  "interests.lead": "Choose any that interest you, or continue without choosing.",
+  "interests.legend": "Choose any interests",
+  "interests.count": "{count} selected",
   "interest.stories.title": "Stories",
   "interest.stories.desc": "People, myths, and dramatic moments",
   "interest.technique.title": "Technique",
@@ -186,6 +187,7 @@ let navigationInFlight = false;
 let interestManifest = null;
 let keypadValue = "";
 let connectionState = "connecting";
+let readinessSnapshot = null;
 
 function format(template, values = {}) {
   return String(template).replace(/\{(\w+)\}/g, (_, key) => (
@@ -300,6 +302,7 @@ function applyTranslations() {
   updateDirection();
   updateConnectionStatus();
   if (interestManifest) renderInterests();
+  if (readinessSnapshot) renderReadiness(readinessSnapshot);
   updateChoiceStyles();
   if (steps[visitor.step]) updateJourneyCopy(steps[visitor.step]);
 }
@@ -401,11 +404,8 @@ function readinessDetail(item, label) {
   });
 }
 
-async function refreshReadiness() {
-  const list = $("readiness-list");
-  list.innerHTML = `<li class="readiness-loading"><span class="readiness-icon">…</span><div><strong>${t("readiness.loading_title")}</strong><small>${t("readiness.loading_detail")}</small></div></li>`;
-  try {
-    const readiness = await api("/api/visitor/readiness");
+function renderReadiness(readiness) {
+    const list = $("readiness-list");
     list.replaceChildren();
     readiness.items.forEach((item) => {
       const row = document.createElement("li");
@@ -427,6 +427,15 @@ async function refreshReadiness() {
     const blocker = $("readiness-blocker");
     blocker.classList.toggle("hidden", readiness.blockers.length === 0);
     blocker.textContent = readiness.blockers.length ? t("readiness.blocker") : "";
+}
+
+async function refreshReadiness() {
+  const list = $("readiness-list");
+  list.innerHTML = `<li class="readiness-loading"><span class="readiness-icon">…</span><div><strong>${t("readiness.loading_title")}</strong><small>${t("readiness.loading_detail")}</small></div></li>`;
+  try {
+    const readiness = await api("/api/visitor/readiness");
+    readinessSnapshot = readiness;
+    renderReadiness(readiness);
   } catch (error) {
     $("readiness-summary").textContent = t("readiness.unavailable");
     $("readiness-summary").className = "readiness-summary is-blocked";
@@ -502,9 +511,7 @@ function updateChoiceStyles() {
   if ($("interest-count")) {
     $("interest-count").textContent = format(t("interests.count"), { count: interests.length });
   }
-  document.querySelectorAll('input[name="interest"]:not(:checked)').forEach((input) => {
-    input.disabled = interests.length >= 3;
-  });
+  document.querySelectorAll('input[name="interest"]').forEach((input) => { input.disabled = false; });
 }
 
 function bindChoiceControls() {
@@ -571,6 +578,11 @@ function openAgeKeypad() {
 
 function updateKeypadDisplay() {
   $("age-keypad-value").textContent = keypadValue || "—";
+  const warning = $("age-keypad-warning");
+  const age = Number(keypadValue);
+  const invalid = Boolean(keypadValue) && (!Number.isInteger(age) || age < 5 || age > 120);
+  warning.classList.toggle("is-invalid", invalid);
+  warning.textContent = invalid ? t("age_pad.invalid") : t("age_pad.range");
 }
 
 function appendAgeDigit(digit) {

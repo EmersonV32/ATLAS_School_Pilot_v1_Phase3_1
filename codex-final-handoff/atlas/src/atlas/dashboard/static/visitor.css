@@ -1,8 +1,8 @@
 :root {
   --marble: #fbfbf9;
   --marble-shadow: #d7d9d4;
-  --surface: rgba(255, 255, 253, 0.96);
-  --surface-solid: #ffffff;
+  --surface: rgba(255, 255, 253, 0.94);
+  --surface-solid: #fffefa;
   --ink: #11191c;
   --muted: #5d6668;
   --line: #c8cbc5;
@@ -28,9 +28,10 @@ body {
   color: var(--ink);
   background-color: var(--marble);
   background-image:
-    linear-gradient(118deg, transparent 0 35%, rgba(118, 126, 126, 0.13) 35.2%, transparent 35.7%),
-    linear-gradient(63deg, transparent 0 63%, rgba(202, 171, 95, 0.11) 63.1%, transparent 63.7%),
-    linear-gradient(145deg, #ffffff 0%, #f2f3ef 47%, #ffffff 100%);
+    linear-gradient(151deg, transparent 0 23%, rgba(126, 130, 127, 0.16) 23.15%, transparent 23.55%),
+    linear-gradient(28deg, transparent 0 58%, rgba(126, 130, 127, 0.13) 58.12%, transparent 58.5%),
+    linear-gradient(118deg, transparent 0 76%, rgba(212, 183, 112, 0.15) 76.12%, transparent 76.42%),
+    linear-gradient(145deg, #fffefa 0%, #eef0ec 46%, #fffefa 100%);
   background-attachment: fixed;
   font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
   line-height: 1.45;
@@ -184,8 +185,8 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .large-field input::placeholder { color: #81888a; opacity: 1; }
 
 .expertise-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.artwork-choice { min-height: 20rem; overflow: hidden; display: grid; grid-template-rows: 11.5rem 1fr; }
-.artwork-thumb { display: block; width: 100%; height: 100%; background-image: url("/static/visitor/assets/expertise-triptych.png"); background-repeat: no-repeat; background-size: 300% 100%; }
+.artwork-choice { min-height: 20rem; overflow: hidden; display: grid; grid-template-rows: minmax(9rem, 11.5rem) 1fr; }
+.artwork-thumb { display: block; width: 100%; height: 100%; min-height: 0; background-image: url("/static/visitor/assets/expertise-triptych.png"); background-repeat: no-repeat; background-size: 300% auto; background-color: #e7e3d9; }
 .art-mona { background-position: 0 50%; }
 .art-wave { background-position: 50% 50%; }
 .art-ambassadors { background-position: 100% 50%; }
@@ -195,7 +196,7 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .choice-copy em { display: block; margin-top: 0.65rem; color: var(--gold-dark); font-family: Georgia, serif; font-size: 0.75rem; font-style: italic; }
 
 .interest-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.interest-card { min-height: 8.5rem; overflow: hidden; display: grid; grid-template-columns: 7.2rem minmax(0, 1fr); align-items: center; }
+.interest-card { min-height: 7.2rem; overflow: hidden; display: grid; grid-template-columns: 6.2rem minmax(0, 1fr); align-items: center; }
 .interest-card img { width: 100%; height: 100%; object-fit: cover; border-right: 1px solid var(--line); }
 .interest-card > span { padding: 0.8rem; }
 .interest-card strong { font-size: 0.94rem; }
@@ -286,6 +287,8 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .keypad-dialog { width: min(26rem, calc(100% - 2rem)); }
 .keypad-heading { text-align: center; }
 .keypad-heading output { min-height: 4.4rem; padding: 0.5rem 1rem; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; background: #f6f7f4; direction: ltr; font-size: 2rem; font-weight: 900; }
+.keypad-warning { min-height: 1.35rem; margin: 0.55rem 0 0; color: var(--gold-dark); font-size: 0.82rem; font-weight: 750; }
+.keypad-warning.is-invalid { color: var(--danger); }
 .number-pad { margin-top: 0.9rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; direction: ltr; }
 .number-pad button { min-height: 3.9rem; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font-size: 1.25rem; font-weight: 800; }
 .number-pad button:hover { border-color: var(--gold); background: var(--gold-soft); }
@@ -333,6 +336,11 @@ body.is-rtl-language .dialog-close { right: auto; left: 0.55rem; }
   .step-actions { grid-template-columns: auto 1fr; }
   .step-actions > span { display: none; }
   .help-button, .in-journey .help-button { position: relative; float: right; margin: 0 0.75rem 1rem; }
+}
+
+@media (min-width: 51rem) {
+  #screen-interests .interest-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  #screen-interests .interest-card { min-height: 6.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

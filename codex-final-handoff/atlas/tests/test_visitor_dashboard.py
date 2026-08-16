@@ -133,8 +133,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v11"' in response.text
-        assert '"/static/visitor.js?v=11"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v12"' in response.text
+        assert '"/static/visitor.js?v=12"' in response.text
         assert '"/static/visitor/assets/expertise-triptych.png"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
         assert '"/api/' not in response.text
@@ -144,8 +144,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=11" in html
-        assert "/static/visitor.js?v=11" in html
+        assert "/static/visitor.css?v=12" in html
+        assert "/static/visitor.js?v=12" in html
 
     def test_language_selection_localizes_without_mirroring_navigation(
         self, visitor_client

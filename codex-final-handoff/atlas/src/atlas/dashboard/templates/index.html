@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>ATLAS Museum Guide</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
-  <link rel="stylesheet" href="/static/visitor.css?v=11">
+  <link rel="stylesheet" href="/static/visitor.css?v=12">
 </head>
 <body class="visitor-page">
   <header class="visitor-header">
@@ -70,7 +70,7 @@
           <label class="choice-tile language-tile"><input type="radio" name="language" value="es"><img class="language-flag" src="/static/visitor/assets/flag-es.svg" alt=""><strong>Español</strong></label>
           <label class="choice-tile language-tile"><input type="radio" name="language" value="it"><img class="language-flag" src="/static/visitor/assets/flag-it.svg" alt=""><strong>Italiano</strong></label>
           <label class="choice-tile language-tile"><input type="radio" name="language" value="ar"><img class="language-flag" src="/static/visitor/assets/flag-ar.svg" alt=""><strong>العربية</strong></label>
-          <label class="choice-tile language-tile"><input type="radio" name="language" value="zh-Hant"><img class="language-flag" src="/static/visitor/assets/flag-zh-hant.svg" alt=""><strong>繁體中文</strong></label>
+          <label class="choice-tile language-tile"><input type="radio" name="language" value="zh-Hant"><img class="language-flag" src="/static/visitor/assets/flag-zh.svg" alt=""><strong>繁體中文</strong></label>
         </fieldset>
       </div>
 
@@ -96,9 +96,9 @@
       </div>
 
       <div id="screen-interests" class="onboarding-screen" data-screen="interests">
-        <div class="split-heading localized-copy"><div><p class="kicker" data-i18n="interests.kicker">Choose your lens</p><h1 data-i18n="interests.title">What draws you into an artwork?</h1></div><p data-i18n="interests.lead">Select up to three, or continue without choosing.</p></div>
-        <fieldset><legend class="sr-only" data-i18n="interests.legend">Choose up to three interests</legend><div id="interest-grid" class="interest-grid"></div></fieldset>
-        <p id="interest-count" class="selection-count">0 of 3 selected</p>
+        <div class="split-heading localized-copy"><div><p class="kicker" data-i18n="interests.kicker">Choose your lens</p><h1 data-i18n="interests.title">What draws you into an artwork?</h1></div><p data-i18n="interests.lead">Choose any that interest you, or continue without choosing.</p></div>
+        <fieldset><legend class="sr-only" data-i18n="interests.legend">Choose any interests</legend><div id="interest-grid" class="interest-grid"></div></fieldset>
+        <p id="interest-count" class="selection-count">0 selected</p>
       </div>
 
       <div id="screen-accessibility" class="onboarding-screen" data-screen="accessibility">
@@ -171,7 +171,7 @@
   <p id="visitor-notice" class="visitor-notice hidden" role="status"></p>
 
   <dialog id="age-keypad" class="visitor-dialog keypad-dialog">
-    <div class="keypad-heading localized-copy"><p class="kicker" data-i18n="age_pad.kicker">Age guidance</p><h2 data-i18n="age_pad.title">Enter your age</h2><output id="age-keypad-value" aria-live="polite">—</output></div>
+    <div class="keypad-heading localized-copy"><p class="kicker" data-i18n="age_pad.kicker">Age guidance</p><h2 data-i18n="age_pad.title">Enter your age</h2><output id="age-keypad-value" aria-live="polite">—</output><p id="age-keypad-warning" class="keypad-warning" data-i18n="age_pad.range">Enter an age from 5 to 120.</p></div>
     <div class="number-pad" aria-label="Numeric keypad" data-i18n-aria-label="age_pad.aria">
       <button type="button" data-digit="1">1</button><button type="button" data-digit="2">2</button><button type="button" data-digit="3">3</button>
       <button type="button" data-digit="4">4</button><button type="button" data-digit="5">5</button><button type="button" data-digit="6">6</button>
@@ -197,6 +197,6 @@
   </dialog>
 
   <noscript><p class="noscript-message">JavaScript is required for the ATLAS setup experience. Please ask a museum team member for help.</p></noscript>
-  <script src="/static/visitor.js?v=11" defer></script>
+  <script src="/static/visitor.js?v=12" defer></script>
 </body>
 </html>
