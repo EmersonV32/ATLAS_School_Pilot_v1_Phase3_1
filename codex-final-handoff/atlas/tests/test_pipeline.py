@@ -288,6 +288,17 @@ def test_make_retriever_adapter():
     assert result[0]["chunk_id"] == "c1"
 
 
+def test_make_retriever_does_not_guess_an_artwork_for_a_deictic_question():
+    """A collection search must not make 'it' refer to an arbitrary artwork."""
+    from atlas.pipeline.session_runner import make_retriever
+
+    class FakeRetriever:
+        def retrieve(self, query, filters=None):
+            pytest.fail("ambiguous questions without vision context must not retrieve")
+
+    assert make_retriever(FakeRetriever())(None, "Who created it?") == []
+
+
 def test_continuous_question_without_artwork_searches_full_collection():
     calls = []
 

@@ -54,7 +54,10 @@ class LLMSettings(BaseModel):
     # The API key env var NAME (not the key itself).
     api_key_env: str = "GEMINI_API_KEY"
     streaming_enabled: bool = True
-    sentence_tts_enabled: bool = True
+    # Segmenting one answer into multiple TTS requests can change timbre or
+    # trigger a fallback voice between sentences. ATLAS speaks each complete
+    # answer in one request instead.
+    sentence_tts_enabled: bool = False
 
 
 class LoggingSettings(BaseModel):

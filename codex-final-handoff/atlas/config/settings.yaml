@@ -39,7 +39,8 @@ llm:
   cloud_llm_enabled: false   # must be true before any cloud LLM call is made
   api_key_env: GEMINI_API_KEY
   streaming_enabled: true
-  sentence_tts_enabled: true
+  # One TTS request per complete answer keeps Cartesia's voice consistent.
+  sentence_tts_enabled: false
 
 logging:
   level: INFO

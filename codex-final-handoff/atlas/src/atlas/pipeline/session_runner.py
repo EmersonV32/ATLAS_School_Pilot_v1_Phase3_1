@@ -92,6 +92,11 @@ _LANGUAGE_QUESTION_WORDS = {
     "quale",
 }
 
+_DEICTIC_ARTWORK_REFERENCE = re.compile(
+    r"\b(?:it|this|that|one|ceci|cela|ca|cette|esta|esto|questa|questo)\b",
+    re.IGNORECASE,
+)
+
 
 def requested_language(text: str) -> str | None:
     """Return a direct spoken language-switch target, without using the LLM."""
@@ -108,6 +113,13 @@ def requested_language(text: str) -> str | None:
             if remaining.intersection(names):
                 return language
     return None
+
+
+def _needs_identified_artwork(query: str) -> bool:
+    """Return True when a deictic question has no named artwork to resolve it."""
+    normalized = unicodedata.normalize("NFKD", str(query).casefold())
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return bool(_DEICTIC_ARTWORK_REFERENCE.search(normalized))
 
 
 @dataclass
@@ -154,6 +166,12 @@ def make_retriever(phase2_retriever) -> RetrieverFn:
         query: str,
         language: str = "en",
     ) -> list[dict]:
+        # Never let a collection-wide search turn "Who created it?" into an
+        # answer about an arbitrary high-ranking artwork. The dialogue prompt
+        # will ask for the artwork when vision has not identified one.
+        if artwork_id is None and _needs_identified_artwork(query):
+            logger.info("[RAG] Skipped ambiguous deictic query without artwork context")
+            return []
         try:
             rq = RetrievalQuery(
                 text=query,
@@ -536,6 +554,7 @@ class SessionRunner:
                     language=transcript.language,
                     visitor_age=_age_hint_to_number(transcript.age_hint),
                     profile=self._preferred_profile,
+                    artwork_id=detection.artwork_id,
                 )
             except Exception:
                 if continuous_tts:
@@ -548,6 +567,7 @@ class SessionRunner:
                 language=transcript.language,
                 visitor_age=_age_hint_to_number(transcript.age_hint),
                 profile=self._preferred_profile,
+                artwork_id=detection.artwork_id,
             )
 
         if continuous_tts:
@@ -801,6 +821,7 @@ class SessionRunner:
                     language=transcript.language,
                     visitor_age=_age_hint_to_number(transcript.age_hint),
                     profile=self._preferred_profile,
+                    artwork_id=artwork_id,
                 )
             except Exception:
                 if continuous_tts:
@@ -813,6 +834,7 @@ class SessionRunner:
                 language=transcript.language,
                 visitor_age=_age_hint_to_number(transcript.age_hint),
                 profile=self._preferred_profile,
+                artwork_id=artwork_id,
             )
 
         if continuous_tts:

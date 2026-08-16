@@ -366,10 +366,11 @@ class Container:
                 retriever=make_retriever(self.retriever),
                 manual_capture=self.manual_artwork_capture,
                 listen_duration_s=self.settings.speech.listen_duration_s,
-                stream_responses=(
-                    self.settings.llm.streaming_enabled
-                    and self.settings.llm.sentence_tts_enabled
-                ),
+                # Never split one visitor response over multiple synthesis
+                # requests. A continuous Cartesia stream can fall back or
+                # shift timbre between segments, which is worse than waiting
+                # briefly for Gemini's short complete answer.
+                stream_responses=False,
                 log_transcripts=self.settings.logging.log_transcripts,
                 log_llm_responses=(
                     self.settings.logging.log_llm_responses

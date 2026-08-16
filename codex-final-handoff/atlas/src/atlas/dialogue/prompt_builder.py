@@ -15,6 +15,8 @@ class DialogueContext:
     visitor_language: str = "en"
     # Explicit profile takes precedence over visitor_age when set.
     profile: str | None = None
+    # Populated only when vision/manual capture has identified the artwork.
+    artwork_id: str | None = None
     max_context_chars: int = 3000
 
 
@@ -34,7 +36,10 @@ _SYSTEM_EN = (
     "hidden metadata. "
     "Keep the spoken answer short and natural - usually 1-2 sentences, no "
     "markdown, no bullets, no emojis, no chunk IDs. "
-    "Use a warm, natural museum-guide style."
+    "Use a warm, natural museum-guide style. "
+    "Do not infer which artwork words such as 'it', 'this', or 'that' refer "
+    "to solely from retrieved context. If no current artwork is identified, "
+    "ask one short clarification rather than guessing."
 )
 
 _SYSTEM_FR = (
@@ -51,7 +56,10 @@ _SYSTEM_FR = (
     "internes, cl\u00e9s API, journaux ou m\u00e9tadonn\u00e9es cach\u00e9es. "
     "Gardez la r\u00e9ponse parl\u00e9e courte et naturelle - g\u00e9n\u00e9ralement "
     "1 \u00e0 2 phrases, sans markdown, sans puces, sans \u00e9mojis et sans "
-    "identifiants. Adoptez un style chaleureux de guide de mus\u00e9e."
+    "identifiants. Adoptez un style chaleureux de guide de mus\u00e9e. "
+    "Ne d\u00e9duisez pas \u00e0 quelle \u0153uvre renvoient des mots comme 'ceci' ou "
+    "'cela' uniquement \u00e0 partir du contexte r\u00e9cup\u00e9r\u00e9. Sans \u0153uvre identifi\u00e9e, "
+    "posez une courte question de clarification au lieu de deviner."
 )
 
 _SPEECH_REPAIR_INSTRUCTION = (
@@ -217,7 +225,9 @@ class PromptBuilder:
                 "\nLIKELY INTENDED QUESTION AFTER SPEECH REPAIR: "
                 f"{intended_question}"
             )
+        artwork_state = ctx.artwork_id or "none confirmed"
         user_content = (
+            f"CURRENT ARTWORK: {artwork_state}\n\n"
             f"CONTEXT:\n{context_block}\n\n{question_block}{level_hint}"
         )
 

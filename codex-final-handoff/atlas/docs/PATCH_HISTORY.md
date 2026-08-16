@@ -186,6 +186,24 @@ preview-only instead of falsely reporting them as ready.
 
 ## Earlier visitor dashboard work in this branch
 
+## 2026-08-16 - Response voice stability and ambiguity guard
+
+**Changed:**
+
+- Disabled sentence-by-sentence TTS at the device runtime boundary. One complete
+  Gemini response is now synthesized in one Cartesia request, so a second
+  sentence cannot move to another voice or a fallback provider mid-answer.
+- Kept RAG as supporting context but stopped collection-wide retrieval for
+  deictic questions such as "Who created it?" when no artwork is identified.
+  ATLAS now asks which artwork the visitor means instead of guessing the
+  first high-ranking result.
+- Added the current vision/manual-capture artwork ID to the dialogue prompt,
+  so Gemini can distinguish a confirmed work from merely retrieved text.
+
+**Validation planned:** the deployment script runs dialogue and pipeline tests
+on the Jetson before it restarts ATLAS. Speech speed is unchanged: Cartesia
+Sonic 3.5 does not currently accept a reliable speed control.
+
 - `8de293c` - initial visitor dashboard redesign.
 - `6c23d3c` - onboarding-flow refinements.
 - `fe6132b` - visitor branding and preference-flow refinements.

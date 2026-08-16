@@ -162,6 +162,27 @@ class TestPromptBuilder:
         messages = PromptBuilder().build(ctx)
         assert "no artwork context" in messages[1]["content"].lower()
 
+    def test_prompt_marks_when_no_artwork_has_been_identified(self):
+        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+
+        messages = PromptBuilder().build(
+            DialogueContext(question="Who created it?", artwork_chunks=[])
+        )
+        assert "CURRENT ARTWORK: none confirmed" in messages[1]["content"]
+        assert "rather than guessing" in messages[0]["content"]
+
+    def test_prompt_marks_the_current_identified_artwork(self):
+        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+
+        messages = PromptBuilder().build(
+            DialogueContext(
+                question="Who created it?",
+                artwork_chunks=_STARRY_NIGHT_CHUNKS,
+                artwork_id="starry_night",
+            )
+        )
+        assert "CURRENT ARTWORK: starry_night" in messages[1]["content"]
+
 
 # ---------------------------------------------------------------------------
 # GroundingValidator

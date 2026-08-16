@@ -119,6 +119,7 @@ class DialogueEngine:
         visitor_age: int | None = None,
         language: str = "en",
         profile: str | None = None,
+        artwork_id: str | None = None,
     ) -> DialogueResult:
         # 0. Prompt-injection guard — refuse before any LLM call.
         if self._injection.is_injection(question):
@@ -140,6 +141,7 @@ class DialogueEngine:
             visitor_age=visitor_age,
             visitor_language=language,
             profile=profile,
+            artwork_id=artwork_id,
         )
         messages = self._prompt_builder.build(ctx, json_output=self._expect_json)
 
@@ -226,6 +228,7 @@ class DialogueEngine:
         visitor_age: int | None = None,
         language: str = "en",
         profile: str | None = None,
+        artwork_id: str | None = None,
     ) -> DialogueResult:
         """Generate and validate in one thread while TTS consumes sentences.
 
@@ -252,6 +255,7 @@ class DialogueEngine:
             visitor_age=visitor_age,
             visitor_language=language,
             profile=profile,
+            artwork_id=artwork_id,
         )
         messages = self._prompt_builder.build(ctx, streaming_output=True)
         events: queue.Queue[tuple[str, object]] = queue.Queue()
