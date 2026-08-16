@@ -7,15 +7,22 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>ATLAS Museum Guide</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
-  <link rel="stylesheet" href="/static/visitor.css?v=19">
+  <link rel="preload" as="image" href="/static/visitor/assets/atlas-logo-v2.webp" type="image/webp" fetchpriority="high">
+  <link rel="preload" as="image" href="/static/visitor/assets/expertise-mona.webp" type="image/webp" fetchpriority="high">
+  <link rel="preload" as="image" href="/static/visitor/assets/expertise-wave.webp" type="image/webp" fetchpriority="high">
+  <link rel="preload" as="image" href="/static/visitor/assets/expertise-ambassadors.webp" type="image/webp" fetchpriority="high">
+  <link rel="stylesheet" href="/static/visitor.css?v=20">
 </head>
 <body class="visitor-page">
   <header class="visitor-header">
     <div class="visitor-brand" aria-label="ATLAS museum guide">
-      <img class="atlas-brand-logo" src="/static/visitor/assets/atlas-logo-v2.png" alt="ATLAS">
+      <img class="atlas-brand-logo" src="/static/visitor/assets/atlas-logo-v2.webp" alt="ATLAS">
       <small data-i18n="brand.subtitle">Museum guide</small>
     </div>
-    <span id="connection-status" class="visitor-status" role="status"><i></i><span data-i18n="status.connecting">Connecting to your guide</span></span>
+    <div class="visitor-header-actions">
+      <span id="connection-status" class="visitor-status" role="status"><i></i><span data-i18n="status.connecting">Connecting to your guide</span></span>
+      <button type="button" class="help-button" data-help="onboarding" aria-label="Need help" data-i18n-aria-label="actions.help"><span aria-hidden="true">?</span><span class="help-button-label" data-i18n="actions.help">Need help</span></button>
+    </div>
   </header>
 
   <main id="visitor-app" class="kiosk-shell">
@@ -124,7 +131,7 @@
       </div>
 
       <div id="screen-in-use" class="onboarding-screen" data-screen="in_use">
-        <div class="completion-state localized-copy"><img class="completion-logo-image" src="/static/visitor/assets/atlas-logo-v2.png" alt="ATLAS"><p class="kicker" data-i18n="in_use.kicker">Profile transferred</p><h1 data-i18n="in_use.title">You are ready to explore.</h1><p data-i18n="in_use.lead">Put on your ATLAS unit and follow the museum team’s direction. This kiosk will clear itself.</p><button type="button" class="quiet-action" data-reset data-i18n="actions.next_visitor">Set up for the next visitor</button></div>
+      <div class="completion-state localized-copy"><img class="completion-logo-image" src="/static/visitor/assets/atlas-logo-v2.webp" alt="ATLAS"><p class="kicker" data-i18n="in_use.kicker">Profile transferred</p><h1 data-i18n="in_use.title">You are ready to explore.</h1><p data-i18n="in_use.lead">Put on your ATLAS unit and follow the museum team’s direction. This kiosk will clear itself.</p><button type="button" class="quiet-action" data-reset data-i18n="actions.next_visitor">Set up for the next visitor</button></div>
       </div>
 
       <div id="screen-thank-you" class="onboarding-screen" data-screen="thank_you">
@@ -139,7 +146,6 @@
     </section>
   </main>
 
-  <button type="button" class="help-button" data-help="onboarding"><span aria-hidden="true">?</span><span data-i18n="actions.help">Need help</span></button>
   <p id="visitor-notice" class="visitor-notice hidden" role="status"></p>
 
   <dialog id="age-keypad" class="visitor-dialog keypad-dialog">
@@ -169,6 +175,6 @@
   </dialog>
 
   <noscript><p class="noscript-message">JavaScript is required for the ATLAS setup experience. Please ask a museum team member for help.</p></noscript>
-  <script src="/static/visitor.js?v=19" defer></script>
+  <script src="/static/visitor.js?v=20" defer></script>
 </body>
 </html>

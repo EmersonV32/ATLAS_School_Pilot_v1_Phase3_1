@@ -4,6 +4,36 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-16 - Visitor artwork loading and kiosk-layout correction
+
+**Changed:**
+
+- Replaced the 2.9 MB combined expertise artwork sprite with three independently
+  compressed WebP artwork panels (about 390 KB total). Each card now reads only
+  its own panel, preventing the neighboring artwork sliver visible at the card
+  edge.
+- Replaced the 1.6 MB PNG brand image used by the visitor shell with a 38 KB
+  WebP version and preloads the initial logo and three immediate artwork assets.
+- Bumped the visitor shell to `v20` so an existing kiosk cache is replaced.
+  The service worker now caches the lightweight WebP files instead of the old
+  multi-megabyte artwork and logo assets.
+- Kept the page frame fixed to the usable kiosk viewport. Long screens now
+  scroll within their current step instead of pushing titles, the progress rail,
+  or the action bar outside the browser window. Switching steps resets that
+  inner scroll position.
+- Moved the onboarding Help control into the header, eliminating its overlap
+  with Continue buttons and choice cards. The action bar no longer wraps long
+  labels such as Review privacy.
+
+**Validation:** Pending local static checks and focused Jetson visitor-suite
+validation via `DEPLOY_ATLAS_VISITOR_IMPROVEMENTS.ps1`.
+
+**Deployment result:** Pending deployment.
+
+**Remaining limitation:** The interest tiles still use the existing local SVG
+illustrations. Replacing them with licensed artwork imagery is a separate
+content-design decision, not part of this loading and layout correction.
+
 ## 2026-08-16 - Admin controls and visitor presentation restoration
 
 **Changed:**

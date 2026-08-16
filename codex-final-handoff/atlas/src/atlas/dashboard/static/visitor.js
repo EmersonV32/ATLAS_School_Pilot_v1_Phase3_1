@@ -332,7 +332,9 @@ function updateJourneyCopy(name) {
 
 function showScreen(name) {
   document.querySelectorAll("[data-screen]").forEach((screen) => {
-    screen.classList.toggle("is-active", screen.dataset.screen === name);
+    const isActive = screen.dataset.screen === name;
+    screen.classList.toggle("is-active", isActive);
+    if (isActive) screen.scrollTop = 0;
   });
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => window.scrollTo(0, 0));
