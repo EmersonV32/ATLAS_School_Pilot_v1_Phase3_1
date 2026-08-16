@@ -4,6 +4,34 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-16 - Visitor asset deployment and administrator lock gate
+
+**Changed:**
+
+- The visitor deployment now includes every local visitor asset, locale, and
+  manifest file. This corrects the missing ATLAS logo, hero image, expertise
+  artwork, flags, and interest graphics on the Jetson.
+- Bumped the visitor static cache to `v17` so a browser refresh installs a
+  complete replacement shell instead of retaining the earlier missing-file
+  responses.
+- Replaced the buried administrator-token control with a full-page unlock gate.
+  Until a valid token is accepted, the operation panels, visitor data, logs,
+  camera, and controls are hidden. Server-side token checks remain unchanged.
+
+**Validation:** `247 passed` locally on 2026-08-16. The Jetson ran `34 passed`
+for the focused visitor suite, restarted the shared ATLAS service, and served
+the new visitor shell plus the logo, expertise image, and interest artwork
+assets with HTTP `200` responses.
+
+**Deployment result:** Deployed to the Jetson shared service on port `8765`.
+The initial deployment wrapper reported a false failure because it used an HTTP
+`HEAD` check against a static route; the assets themselves had already deployed
+and were verified with normal HTTP `GET` requests. The wrapper now uses that
+supported check for future deployments.
+
+**Remaining limitation:** The browser may need one normal refresh after the
+service restart to activate the new service worker cache.
+
 ## 2026-08-16 - Visitor dashboard unified-service refinement
 
 **Scope:** Visitor onboarding at `/` and the existing administrator dashboard at

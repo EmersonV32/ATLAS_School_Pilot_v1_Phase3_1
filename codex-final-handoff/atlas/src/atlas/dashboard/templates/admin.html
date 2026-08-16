@@ -4,9 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
-  <link rel="stylesheet" href="/static/style.css?v=7">
+  <link rel="stylesheet" href="/static/style.css?v=8">
 </head>
-<body class="admin-page">
+<body class="admin-page admin-locked">
+  <section id="admin-unlock-gate" class="admin-unlock-gate" aria-labelledby="admin-unlock-title">
+    <div class="admin-unlock-card">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <p class="eyebrow">ATLAS operations</p>
+      <h1 id="admin-unlock-title">Admin access</h1>
+      <p>Enter the local administrator token to view or control ATLAS.</p>
+      <label for="inp-token">Admin token<input id="inp-token" type="password" autocomplete="current-password"></label>
+      <button id="btn-unlock" type="button">Unlock dashboard</button>
+      <p id="admin-unlock-message" class="admin-unlock-message" role="status"></p>
+    </div>
+  </section>
+
+  <div id="admin-workspace" class="admin-workspace">
   <header class="app-header ops-header">
     <div class="brand-block">
       <span class="brand-mark" aria-hidden="true">A</span>
@@ -77,10 +90,6 @@
       <div class="ops-panel-header">
         <div><p class="eyebrow">Configuration</p><h1 id="settings-title">Settings</h1></div>
         <span id="restart-badge" class="status-pill warning hidden">Restart required</span>
-      </div>
-      <div id="auth-controls" class="auth-controls hidden">
-        <label>Admin token<input id="inp-token" type="password" autocomplete="current-password"></label>
-        <button id="btn-unlock" type="button">Unlock</button>
       </div>
       <div class="settings-scroll">
         <section class="control-section">
@@ -247,8 +256,9 @@
       </div>
     </section>
   </main>
+  </div>
 
   <p id="admin-notice" class="notice hidden" role="status"></p>
-  <script src="/static/admin.js?v=8"></script>
+  <script src="/static/admin.js?v=9"></script>
 </body>
 </html>

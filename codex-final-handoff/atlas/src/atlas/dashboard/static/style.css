@@ -265,6 +265,30 @@ h2 { margin-bottom: 0.75rem; font-size: 1.05rem; letter-spacing: 0; }
 }
 .notice.bad { border-color: #ecc6c8; background: var(--soft-danger); color: var(--danger); }
 .hidden { display: none !important; }
+.admin-unlock-gate {
+  display: none;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.5rem;
+  background: #f4f7f7;
+}
+.admin-unlock-card {
+  width: min(100%, 26rem);
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 1rem 2.5rem rgba(12, 31, 35, 0.12);
+}
+.admin-unlock-card .brand-mark { margin-bottom: 1rem; }
+.admin-unlock-card h1 { margin: 0.2rem 0 0.65rem; font-size: 1.45rem; }
+.admin-unlock-card p { color: var(--muted); }
+.admin-unlock-card label { display: grid; gap: 0.35rem; margin: 1.25rem 0 0.75rem; color: var(--ink); font-size: 0.82rem; font-weight: 700; }
+.admin-unlock-card input { min-height: 2.55rem; padding: 0.5rem 0.65rem; }
+.admin-unlock-card button { width: 100%; min-height: 2.6rem; }
+.admin-unlock-message { min-height: 1.3rem; margin: 0.75rem 0 0; color: var(--danger) !important; font-size: 0.8rem; }
+body.admin-locked #admin-workspace { display: none; }
+body.admin-locked .admin-unlock-gate { display: grid; }
 footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75rem; }
 
 @media (max-width: 52rem) {
@@ -384,8 +408,6 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .settings-disclosure[open] summary { border-bottom: 1px solid var(--border); background: #f7f9f9; }
 .settings-disclosure .dense-form { padding: 0.85rem 0.9rem; }
 .settings-save-bar { padding: 0.75rem 0.9rem; border-top: 1px solid var(--border); text-align: right; }
-.auth-controls { padding: 0.75rem 0.9rem; display: grid; grid-template-columns: 1fr auto; gap: 0.65rem; align-items: end; border-bottom: 1px solid var(--border); background: #fff7e7; }
-
 .visitor-monitor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.55rem; flex-wrap: wrap; }
 .visitor-monitor-grid { display: grid; grid-template-columns: minmax(24rem, 1.25fr) minmax(20rem, 1fr) minmax(18rem, 0.8fr); }
 .visitor-monitor-grid > section { min-width: 0; padding: 0.75rem 0.9rem; }

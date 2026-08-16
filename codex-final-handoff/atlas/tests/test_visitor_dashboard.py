@@ -124,6 +124,10 @@ class TestVisitorShell:
         assert "Live camera" in response.text
         assert "Live logs" in response.text
         assert "Stop &amp; clear" in response.text
+        assert 'id="admin-unlock-gate"' in response.text
+        assert 'id="admin-workspace"' in response.text
+        assert 'class="admin-page admin-locked"' in response.text
+        assert "/static/style.css?v=8" in response.text
 
     def test_shell_has_accessibility_and_pwa_hooks(self, visitor_client):
         html = visitor_client.get("/").text
@@ -140,8 +144,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v16"' in response.text
-        assert '"/static/visitor.js?v=16"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v17"' in response.text
+        assert '"/static/visitor.js?v=17"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.png"' in response.text
         assert '"/static/visitor/assets/expertise-triptych.png"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
@@ -152,8 +156,19 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=16" in html
-        assert "/static/visitor.js?v=16" in html
+        assert "/static/visitor.css?v=17" in html
+        assert "/static/visitor.js?v=17" in html
+
+    def test_visitor_images_are_served_by_the_shared_dashboard_service(self, visitor_client):
+        for asset in (
+            "atlas-logo-v2.png",
+            "expertise-triptych.png",
+            "stories.svg",
+            "flag-en.svg",
+        ):
+            response = visitor_client.get(f"/static/visitor/assets/{asset}")
+            assert response.status_code == 200
+            assert response.content
 
     def test_language_selection_localizes_without_mirroring_navigation(
         self, visitor_client

@@ -8,9 +8,18 @@ let cameraTimer = null;
 let currentHelpRequestId = null;
 let lastAlertedHelpRequestId = null;
 let helpAlertsEnabled = false;
+let refreshIntervals = [];
 
 function token() {
   return $("inp-token").value.trim();
+}
+
+function setAdminLocked(locked, message = "") {
+  document.body.classList.toggle("admin-locked", locked);
+  document.body.classList.toggle("admin-unlocked", !locked);
+  $("admin-unlock-gate").setAttribute("aria-hidden", String(!locked));
+  $("admin-unlock-message").textContent = message;
+  if (locked) window.setTimeout(() => $("inp-token").focus(), 0);
 }
 
 async function api(path, options = {}, protectedRoute = false) {
@@ -22,6 +31,10 @@ async function api(path, options = {}, protectedRoute = false) {
   try { body = await response.json(); } catch (_) { /* no response body */ }
   if (!response.ok) {
     const detail = body && body.detail ? body.detail : response.statusText;
+    if (protectedRoute && response.status === 401 && authRequired) {
+      window.sessionStorage.removeItem("atlasAdminToken");
+      setAdminLocked(true, "This token was not accepted. Try again.");
+    }
     throw new Error(String(detail));
   }
   return body;
@@ -282,6 +295,33 @@ async function loadConfig() {
   await refreshVisitorStatus();
 }
 
+function startRefreshLoops() {
+  if (refreshIntervals.length) return;
+  refreshIntervals = [
+    window.setInterval(refreshStatus, 2000),
+    window.setInterval(refreshHealth, 12000),
+    window.setInterval(refreshLogs, 1500),
+    window.setInterval(refreshVisitorStatus, 1000),
+  ];
+}
+
+async function unlockAdmin({ quiet = false } = {}) {
+  try {
+    await loadConfig();
+    setAdminLocked(false);
+    await Promise.all([refreshStatus(), refreshHealth(), refreshContentChoices(), refreshLogs(true)]);
+    refreshCamera();
+    startRefreshLoops();
+    if (!quiet) notice("Admin dashboard unlocked");
+  } catch (error) {
+    if (authRequired) {
+      window.sessionStorage.removeItem("atlasAdminToken");
+      setAdminLocked(true, "Token not accepted. Check it and try again.");
+    }
+    throw error;
+  }
+}
+
 function numberValue(id) {
   return Number($(id).value);
 }
@@ -383,9 +423,14 @@ $("admin-camera").addEventListener("error", () => {
   cameraTimer = window.setTimeout(refreshCamera, 1000);
 });
 
-$("btn-unlock").addEventListener("click", () => loadConfig()
-  .then(() => notice("Admin controls unlocked"))
+$("btn-unlock").addEventListener("click", () => unlockAdmin()
   .catch((error) => notice(error.message, true)));
+$("inp-token").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    $("btn-unlock").click();
+  }
+});
 $("config-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -455,24 +500,21 @@ async function initialize() {
   const access = await api("/admin/access");
   authRequired = Boolean(access.auth_required);
   if (authRequired) {
-    $("auth-controls").classList.remove("hidden");
     const remembered = window.sessionStorage.getItem("atlasAdminToken");
-    if (remembered) $("inp-token").value = remembered;
+    if (!remembered) {
+      setAdminLocked(true, "Enter the administrator token to continue.");
+      return;
+    }
+    $("inp-token").value = remembered;
+    try {
+      await unlockAdmin({ quiet: true });
+    } catch (_) {
+      // The gate now explains the failed remembered token without exposing controls.
+    }
   } else {
     $("local-mode").classList.remove("hidden");
+    await unlockAdmin({ quiet: true });
   }
-  await Promise.all([
-    refreshStatus(), refreshHealth(), refreshContentChoices(), refreshVisitorStatus(),
-  ]);
-  if (!authRequired || token()) {
-    try { await loadConfig(); } catch (error) { if (!authRequired) throw error; }
-  }
-  await refreshLogs(true);
-  refreshCamera();
 }
 
 initialize().catch((error) => notice(error.message, true));
-window.setInterval(refreshStatus, 2000);
-window.setInterval(refreshHealth, 12000);
-window.setInterval(refreshLogs, 1500);
-window.setInterval(refreshVisitorStatus, 1000);

@@ -29,13 +29,14 @@ $files = @(
     "src/atlas/dashboard/static/service-worker.js",
     "src/atlas/dashboard/static/admin.js",
     "src/atlas/dashboard/static/style.css",
+    "src/atlas/dashboard/static/manifest.webmanifest",
     "src/atlas/dashboard/visitor_service.py",
     "src/atlas/dashboard/visitor_schemas.py",
     "tests/test_visitor_dashboard.py",
     "docs/PATCH_HISTORY.md"
 )
-$files += Get-ChildItem -LiteralPath (Join-Path $repoRoot "src/atlas/dashboard/static/visitor/locales") -File |
-    ForEach-Object { "src/atlas/dashboard/static/visitor/locales/$($_.Name)" }
+$files += Get-ChildItem -LiteralPath (Join-Path $repoRoot "src/atlas/dashboard/static/visitor") -File -Recurse |
+    ForEach-Object { $_.FullName.Substring($repoRoot.Length + 1).Replace("\", "/") }
 
 New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
 try {
@@ -54,7 +55,7 @@ try {
     scp -i $key $archive "$RemoteUser@$HostName`:$remoteArchive"
     if ($LASTEXITCODE -ne 0) { throw "Upload to the Jetson failed." }
 
-    $remoteCommand = "set -euo pipefail; root='$RemoteRoot'; archive='$remoteArchive'; backup='/tmp/atlas_visitor_backup_$timestamp'; rollback() { cp -a `"`$backup/dashboard/.`" `"`$root/src/atlas/dashboard/`"; cp -a `"`$backup/test_visitor_dashboard.py`" `"`$root/tests/test_visitor_dashboard.py`"; if [ -f `"`$backup/docs/PATCH_HISTORY.md`" ]; then cp -a `"`$backup/docs/PATCH_HISTORY.md`" `"`$root/docs/PATCH_HISTORY.md`"; fi; systemctl --user restart atlas.service || true; }; mkdir -p `"`$backup`"; cp -a `"`$root/src/atlas/dashboard`" `"`$backup/dashboard`"; cp -a `"`$root/tests/test_visitor_dashboard.py`" `"`$backup/test_visitor_dashboard.py`"; mkdir -p `"`$backup/docs`"; cp -a `"`$root/docs/PATCH_HISTORY.md`" `"`$backup/docs/PATCH_HISTORY.md`" 2>/dev/null || true; tar -xzf `"`$archive`" -C `"`$root`"; cd `"`$root`"; if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest tests/test_visitor_dashboard.py; then rollback; exit 1; fi; if ! systemctl --user restart atlas.service; then rollback; exit 1; fi; ready=0; for attempt in `$(seq 1 25); do if curl -fsS http://127.0.0.1:8765/health > /dev/null; then ready=1; break; fi; sleep 2; done; if [ `"`$ready`" -ne 1 ]; then rollback; exit 1; fi; echo Visitor patch deployed. Backup retained at: `$backup"
+    $remoteCommand = "set -euo pipefail; root='$RemoteRoot'; archive='$remoteArchive'; backup='/tmp/atlas_visitor_backup_$timestamp'; rollback() { cp -a `"`$backup/dashboard/.`" `"`$root/src/atlas/dashboard/`"; cp -a `"`$backup/test_visitor_dashboard.py`" `"`$root/tests/test_visitor_dashboard.py`"; if [ -f `"`$backup/docs/PATCH_HISTORY.md`" ]; then cp -a `"`$backup/docs/PATCH_HISTORY.md`" `"`$root/docs/PATCH_HISTORY.md`"; fi; systemctl --user restart atlas.service || true; }; mkdir -p `"`$backup`"; cp -a `"`$root/src/atlas/dashboard`" `"`$backup/dashboard`"; cp -a `"`$root/tests/test_visitor_dashboard.py`" `"`$backup/test_visitor_dashboard.py`"; mkdir -p `"`$backup/docs`"; cp -a `"`$root/docs/PATCH_HISTORY.md`" `"`$backup/docs/PATCH_HISTORY.md`" 2>/dev/null || true; tar -xzf `"`$archive`" -C `"`$root`"; cd `"`$root`"; if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest tests/test_visitor_dashboard.py; then rollback; exit 1; fi; if ! systemctl --user restart atlas.service; then rollback; exit 1; fi; ready=0; for attempt in `$(seq 1 25); do if curl -fsS http://127.0.0.1:8765/health > /dev/null; then ready=1; break; fi; sleep 2; done; if [ `"`$ready`" -ne 1 ]; then rollback; exit 1; fi; for asset in /static/visitor/assets/atlas-logo-v2.png /static/visitor/assets/expertise-triptych.png /static/visitor/assets/stories.svg; do curl -fsS -o /dev/null `"http://127.0.0.1:8765`$asset`" || { rollback; exit 1; }; done; echo Visitor patch deployed. Backup retained at: `$backup"
     ssh -i $key "$RemoteUser@$HostName" $remoteCommand
     if ($LASTEXITCODE -ne 0) { throw "Jetson validation or restart failed. The remote backup remains available." }
 
