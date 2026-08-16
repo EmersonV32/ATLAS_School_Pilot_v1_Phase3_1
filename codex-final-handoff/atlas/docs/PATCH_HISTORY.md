@@ -28,6 +28,9 @@ The first Jetson deployment attempt exposed a Python 3.10 `datetime.UTC`
 compatibility failure before the service restarted. The patch now uses
 `timezone.utc`, and the deployment script rolls back automatically if its
 focused validation or restart fails.
+The second attempt found an older Jetson admin template and visitor schema. The
+deployment now uploads those dashboard dependencies together, rather than
+lowering the validation standard.
 
 **Remaining limitation:** This patch does not claim Arabic or Mandarin speech
 recognition/synthesis support on the Jetson. It leaves those languages visibly

@@ -23,10 +23,14 @@ if (-not $key) {
 
 $files = @(
     "src/atlas/dashboard/templates/index.html",
+    "src/atlas/dashboard/templates/admin.html",
     "src/atlas/dashboard/static/visitor.js",
     "src/atlas/dashboard/static/visitor.css",
     "src/atlas/dashboard/static/service-worker.js",
+    "src/atlas/dashboard/static/admin.js",
+    "src/atlas/dashboard/static/style.css",
     "src/atlas/dashboard/visitor_service.py",
+    "src/atlas/dashboard/visitor_schemas.py",
     "tests/test_visitor_dashboard.py",
     "docs/PATCH_HISTORY.md"
 )
