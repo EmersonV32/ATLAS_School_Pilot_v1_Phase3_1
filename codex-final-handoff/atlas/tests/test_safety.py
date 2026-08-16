@@ -1,7 +1,7 @@
 """Tests for prompt-injection filtering and dialogue refusal behaviour."""
 from __future__ import annotations
 
-from atlas.dialogue.dialogue_engine import UNGROUNDED_FALLBACK, DialogueEngine
+from atlas.dialogue.dialogue_engine import DialogueEngine
 from atlas.dialogue.mock_llm_client import MockLLMClient
 from atlas.safety.prompt_injection_filter import PromptInjectionFilter
 
@@ -72,7 +72,7 @@ class TestDialogueRefusals:
         )
         assert "musée" in result.response
 
-    def test_ungrounded_answer_replaced_with_fallback(self):
+    def test_ungrounded_answer_is_retained_as_general_knowledge(self):
         class OffTopicLLM:
             def generate(self, messages, max_tokens=300):
                 return (
@@ -83,10 +83,10 @@ class TestDialogueRefusals:
         engine = DialogueEngine(llm_client=OffTopicLLM())
         result = engine.respond(question="Who painted this?", artwork_chunks=_CHUNKS)
         assert result.grounded is False
-        assert result.fallback_used is True
-        assert result.response == UNGROUNDED_FALLBACK["en"]
+        assert result.fallback_used is False
+        assert result.response.startswith("Quantum computing")
 
-    def test_ungrounded_fallback_french(self):
+    def test_ungrounded_french_answer_is_retained(self):
         class OffTopicLLM:
             def generate(self, messages, max_tokens=300):
                 return (
@@ -98,7 +98,7 @@ class TestDialogueRefusals:
         result = engine.respond(
             question="Qui a peint ceci?", artwork_chunks=_CHUNKS, language="fr"
         )
-        assert result.response == UNGROUNDED_FALLBACK["fr"]
+        assert result.response.startswith("Quantum computing")
 
     def test_structured_json_parsed_and_chunk_ids_validated(self):
         class JsonLLM:
@@ -117,7 +117,7 @@ class TestDialogueRefusals:
         assert result.confidence == "high"
         assert result.grounded is True
 
-    def test_unsupported_claims_force_fallback(self):
+    def test_unsupported_claims_are_observability_not_a_refusal(self):
         class ClaimyLLM:
             def generate(self, messages, max_tokens=300):
                 return (
@@ -131,8 +131,8 @@ class TestDialogueRefusals:
         engine = DialogueEngine(llm_client=ClaimyLLM(), expect_json=True)
         result = engine.respond(question="What is it worth?", artwork_chunks=_CHUNKS)
         assert result.grounded is False
-        assert result.fallback_used is True
-        assert result.response == UNGROUNDED_FALLBACK["en"]
+        assert result.fallback_used is False
+        assert "one billion dollars" in result.response
 
     def test_llm_error_returns_fallback(self):
         class BrokenLLM:

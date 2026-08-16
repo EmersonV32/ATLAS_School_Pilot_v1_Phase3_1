@@ -4,6 +4,26 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-16 - Gemini general-knowledge response policy
+
+**Changed:**
+
+- Made museum retrieval supporting context rather than a hard answer gate.
+  Gemini may now answer normal visitor questions from its own knowledge when
+  RAG is missing, incomplete, or off-topic.
+- Removed the prompt instruction to claim a missing fact is absent from a
+  verified guide or database. The selected visitor language remains mandatory.
+- Removed the response and streaming paths that replaced a normal Gemini answer
+  with the old verified-context fallback after a token-overlap mismatch.
+- Kept prompt-injection and content-safety protections in place.
+
+**Validation:** Pending focused dialogue and streaming tests plus deployment.
+
+**Deployment result:** Pending deployment.
+
+**Remaining limitation:** Gemini still cannot guarantee every answer is correct;
+it should state uncertainty for genuinely uncertain or disputed facts.
+
 ## 2026-08-16 - Visitor artwork loading and kiosk-layout correction
 
 **Changed:**

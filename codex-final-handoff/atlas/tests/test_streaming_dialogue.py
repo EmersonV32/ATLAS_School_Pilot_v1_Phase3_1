@@ -54,7 +54,7 @@ def test_llm_generation_continues_while_first_sentence_is_spoken():
     assert result.response == " ".join(spoken)
 
 
-def test_ungrounded_stream_is_replaced_before_speech():
+def test_ungrounded_stream_uses_general_knowledge_without_refusal():
     class OffTopicLLM:
         def generate_stream(self, _messages):
             yield "Quantum processors use entanglement for calculations."
@@ -66,6 +66,6 @@ def test_ungrounded_stream_is_replaced_before_speech():
         on_sentence=spoken.append,
     )
     assert not result.grounded
-    assert result.fallback_used
+    assert not result.fallback_used
     assert len(spoken) == 1
-    assert "verified" in spoken[0]
+    assert "Quantum processors" in spoken[0]

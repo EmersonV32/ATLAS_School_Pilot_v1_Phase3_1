@@ -44,7 +44,8 @@ from atlas.safety.prompt_injection_filter import PromptInjectionFilter
 
 logger = logging.getLogger(__name__)
 
-# Spoken refusal used when an answer is not grounded in verified context.
+# Retained only for backwards compatibility with older integrations. RAG is
+# supporting context, never a gate that suppresses Gemini's normal knowledge.
 UNGROUNDED_FALLBACK = {
     "en": (
         "I don't have that detail verified in my guide yet, but I can tell "
@@ -187,7 +188,8 @@ class DialogueEngine:
                 if invalid:
                     logger.warning("LLM cited unknown chunk ids: %s", invalid)
 
-        # 3. Grounding check (+ unsupported-claims check from the contract).
+        # 3. Record retrieval overlap for observability only. A mismatch must
+        # never replace a useful Gemini answer with a database-style refusal.
         is_grounded, grounding_reason = self._validator.validate(spoken, artwork_chunks)
         if unsupported_claims:
             is_grounded = False
@@ -195,12 +197,10 @@ class DialogueEngine:
         fallback_used = bool(structured and structured.get("fallback_used"))
         if not is_grounded:
             logger.warning(
-                "Grounding check failed (%s) — refusing with safe fallback.",
+                "Grounding check did not match retrieved context (%s); retaining Gemini answer.",
                 grounding_reason,
             )
-            spoken = UNGROUNDED_FALLBACK.get(language, UNGROUNDED_FALLBACK["en"])
-            fallback_used = True
-            confidence = "low"
+            fallback_used = False
 
         # 4. Safety filter (always speaks last).
         final_response, was_filtered = self._safety.filter(spoken, language)
@@ -280,10 +280,9 @@ class DialogueEngine:
                         if not ok:
                             grounded = False
                             grounding_reason = reason
-                            fallback_used = True
-                            sentence = UNGROUNDED_FALLBACK.get(
-                                language,
-                                UNGROUNDED_FALLBACK["en"],
+                            logger.warning(
+                                "Streaming sentence does not overlap retrieved context (%s); retaining Gemini sentence.",
+                                reason,
                             )
                         sentence, was_filtered = self._safety.filter(
                             sentence,
@@ -292,7 +291,7 @@ class DialogueEngine:
                         filtered = filtered or was_filtered
                         accepted.append(sentence)
                         events.put(("sentence", sentence))
-                        if not ok or was_filtered:
+                        if was_filtered:
                             raise StopIteration
 
                 remainder = assembler.flush()
@@ -301,10 +300,9 @@ class DialogueEngine:
                     if not ok:
                         grounded = False
                         grounding_reason = reason
-                        fallback_used = True
-                        remainder = UNGROUNDED_FALLBACK.get(
-                            language,
-                            UNGROUNDED_FALLBACK["en"],
+                        logger.warning(
+                            "Streaming remainder does not overlap retrieved context (%s); retaining Gemini answer.",
+                            reason,
                         )
                     remainder, was_filtered = self._safety.filter(
                         remainder,

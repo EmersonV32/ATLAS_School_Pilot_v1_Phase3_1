@@ -115,6 +115,17 @@ class TestPromptBuilder:
         messages = PromptBuilder().build(ctx)
         assert "Vous êtes ATLAS" in messages[0]["content"]
 
+    def test_system_prompt_allows_general_knowledge_when_rag_is_empty(self):
+        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+
+        messages = PromptBuilder().build(
+            DialogueContext(question="What is the capital of Japan?", artwork_chunks=[])
+        )
+        system = messages[0]["content"]
+        assert "not a limit" in system
+        assert "database" in system
+        assert "Answer ONLY from the verified context" not in system
+
     def test_system_prompt_repairs_only_clear_speech_errors(self):
         from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
 
