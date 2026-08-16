@@ -9,6 +9,9 @@ let currentHelpRequestId = null;
 let lastAlertedHelpRequestId = null;
 let helpAlertsEnabled = false;
 let refreshIntervals = [];
+let experienceDirty = false;
+let visitorMonitorCollapsed = false;
+const logFormats = { runtime: "human", events: "human" };
 
 function token() {
   return $("inp-token").value.trim();
@@ -183,15 +186,13 @@ async function refreshStatus() {
       ? status.last_answer.answer : "No answer yet.";
     $("btn-start").disabled = status.session_active;
     $("btn-stop").disabled = !status.session_active;
-    $("experience-state").textContent = status.session_active ? "Session active" : "Session idle";
+    if (!experienceDirty) {
+      $("experience-state").textContent = status.session_active ? "Session active" : "Session idle";
+    }
     $("estop-status").textContent = status.emergency_stopped ? "STOP ACTIVE" : "Safety clear";
     $("estop-status").className = `status-pill ${status.emergency_stopped ? "danger" : "ok"}`;
 
-    const experience = status.experience || {};
-    $("sel-language").value = experience.language || "en";
-    $("sel-profile").value = experience.profile || "adult_beginner";
-    $("chk-accessibility").checked = Boolean(experience.accessibility_mode);
-    if (experience.pack_id) $("sel-pack").value = experience.pack_id;
+    syncExperienceForm(status.experience || {});
 
     const artwork = status.artwork || {};
     const confidence = artwork.confidence == null ? null : Number(artwork.confidence);
@@ -295,6 +296,28 @@ async function loadConfig() {
   await refreshVisitorStatus();
 }
 
+function markExperienceDirty() {
+  experienceDirty = true;
+  $("experience-state").textContent = "Unsaved changes";
+}
+
+function syncExperienceForm(experience) {
+  if (experienceDirty) return;
+  $("sel-language").value = experience.language || "en";
+  $("sel-profile").value = experience.profile || "adult_beginner";
+  $("chk-accessibility").checked = Boolean(experience.accessibility_mode);
+  if (experience.pack_id) $("sel-pack").value = experience.pack_id;
+}
+
+function setVisitorMonitorCollapsed(collapsed, { persist = true } = {}) {
+  visitorMonitorCollapsed = collapsed;
+  document.body.classList.toggle("visitor-monitor-collapsed", collapsed);
+  $("visitor-live-panel").classList.toggle("is-collapsed", collapsed);
+  $("btn-toggle-visitor-monitor").textContent = collapsed ? "Show monitor" : "Hide monitor";
+  $("btn-toggle-visitor-monitor").setAttribute("aria-expanded", String(!collapsed));
+  if (persist) window.sessionStorage.setItem("atlasVisitorMonitorCollapsed", String(collapsed));
+}
+
 function startRefreshLoops() {
   if (refreshIntervals.length) return;
   refreshIntervals = [
@@ -385,13 +408,20 @@ async function refreshLogs(force = false) {
   if ($("chk-pause-logs").checked && !force) return;
   try {
     const [runtime, events] = await Promise.all([
-      api("/logs/runtime?limit=500", {}, true),
-      api("/logs/recent?limit=200"),
+      api(`/logs/runtime${logFormats.runtime === "human" ? "/human" : ""}?limit=500`, {}, true),
+      api(`/logs/recent${logFormats.events === "human" ? "/human" : ""}?limit=200`),
     ]);
-    keepLogPosition($("runtime-log-view"), runtime.lines.join("\n") || "No runtime output yet.");
-    keepLogPosition($("event-log-view"), JSON.stringify(events, null, 2));
+    const guidedRuntime = logFormats.runtime === "human";
+    const guidedEvents = logFormats.events === "human";
+    $("runtime-log-view").classList.toggle("guided-log", guidedRuntime);
+    $("event-log-view").classList.toggle("guided-log", guidedEvents);
+    keepLogPosition($("runtime-log-view"), runtime.lines.join(guidedRuntime ? "\n\n" : "\n") || "No runtime output yet.");
+    keepLogPosition($("event-log-view"), guidedEvents
+      ? events.map((event) => `${event.summary}\n${event.details}`).join("\n\n")
+      : JSON.stringify(events, null, 2));
     $("runtime-log-state").textContent = runtime.available ? "Live" : "Unavailable";
     $("runtime-log-state").className = runtime.available ? "ok" : "bad";
+    $("event-log-state").textContent = guidedEvents ? "Guided" : "Raw";
   } catch (error) {
     $("runtime-log-state").textContent = "Error";
     keepLogPosition($("runtime-log-view"), error.message);
@@ -405,6 +435,7 @@ async function applyExperience() {
     pack_id: $("sel-pack").value,
     accessibility_mode: $("chk-accessibility").checked,
   }) });
+  experienceDirty = false;
 }
 
 function refreshCamera() {
@@ -450,6 +481,20 @@ $("btn-start").addEventListener("click", async () => {
 $("btn-stop").addEventListener("click", () => api("/session/stop", { method: "POST" }).then(refreshStatus).catch((error) => notice(error.message, true)));
 $("btn-apply-experience").addEventListener("click", () => applyExperience().then(() => { notice("Experience settings applied"); refreshStatus(); }).catch((error) => notice(error.message, true)));
 
+["sel-language", "sel-profile", "sel-pack", "chk-accessibility"].forEach((id) => {
+  $(id).addEventListener("change", markExperienceDirty);
+});
+document.querySelectorAll("[data-log-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    logFormats[button.dataset.logView] = button.dataset.logFormat;
+    document.querySelectorAll(`[data-log-view="${button.dataset.logView}"]`).forEach((peer) => {
+      peer.setAttribute("aria-pressed", String(peer === button));
+      peer.classList.toggle("active", peer === button);
+    });
+    refreshLogs(true);
+  });
+});
+
 $("btn-override").addEventListener("click", () => api("/session/manual-artwork", { method: "POST", body: JSON.stringify({ artwork_id: $("sel-artwork").value }) }).then(refreshStatus).catch((error) => notice(error.message, true)));
 $("btn-clear-override").addEventListener("click", () => api("/session/manual-artwork", { method: "DELETE" }).then(refreshStatus).catch((error) => notice(error.message, true)));
 $("btn-capture").addEventListener("click", () => api("/session/capture", { method: "POST" }).then(() => notice("Artwork capture requested")).catch((error) => notice(error.message, true)));
@@ -468,6 +513,9 @@ $("btn-enable-help-alerts").addEventListener("click", () => {
   $("btn-enable-help-alerts").textContent = "Help sound enabled";
   $("btn-enable-help-alerts").disabled = true;
   notice("One quiet tone will play for each new help request.");
+});
+$("btn-toggle-visitor-monitor").addEventListener("click", () => {
+  setVisitorMonitorCollapsed(!visitorMonitorCollapsed);
 });
 $("btn-ack-help").addEventListener("click", async () => {
   if (!currentHelpRequestId) return;
@@ -497,6 +545,7 @@ $("btn-visitor-simulate").addEventListener("click", async () => {
 });
 
 async function initialize() {
+  setVisitorMonitorCollapsed(window.sessionStorage.getItem("atlasVisitorMonitorCollapsed") === "true", { persist: false });
   const access = await api("/admin/access");
   authRequired = Boolean(access.auth_required);
   if (authRequired) {

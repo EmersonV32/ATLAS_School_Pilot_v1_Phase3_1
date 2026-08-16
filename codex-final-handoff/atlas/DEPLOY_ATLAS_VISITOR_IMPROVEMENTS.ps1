@@ -32,6 +32,8 @@ $files = @(
     "src/atlas/dashboard/static/manifest.webmanifest",
     "src/atlas/dashboard/visitor_service.py",
     "src/atlas/dashboard/visitor_schemas.py",
+    "src/atlas/dashboard/api.py",
+    "src/atlas/dashboard/runtime_service.py",
     "tests/test_visitor_dashboard.py",
     "docs/PATCH_HISTORY.md"
 )

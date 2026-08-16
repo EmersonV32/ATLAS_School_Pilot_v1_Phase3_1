@@ -169,8 +169,8 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .large-field input[readonly] { cursor: pointer; background: linear-gradient(90deg, #fff, #fff8dc); }
 .large-field input::placeholder { color: #81888a; opacity: 1; }
 
-.expertise-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: start; }
-.artwork-choice { min-height: 0; overflow: hidden; display: grid; grid-template-rows: auto 1fr; background: #fffefa; }
+.expertise-grid { width: min(100%, 88rem); margin-inline: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1rem, 1.5vw, 1.5rem); align-items: stretch; }
+.artwork-choice { min-height: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(8.5rem, 1fr); background: #fffefa; }
 /* Each panel uses the original 724x636 third of the source artwork. */
 .artwork-thumb { display: block; width: 100%; min-height: 0; aspect-ratio: 724 / 636; background-image: url("/static/visitor/assets/expertise-triptych.png"); background-repeat: no-repeat; background-size: 300% 100%; background-color: #e7e3d9; border-bottom: 2px solid var(--gold); }
 .art-mona { background-position: 0 50%; }
@@ -181,13 +181,14 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .choice-copy small { margin-top: 0.35rem; }
 .choice-copy em { display: block; margin-top: 0.65rem; color: var(--gold-dark); font-family: Georgia, serif; font-size: 0.75rem; font-style: italic; }
 
-.interest-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.interest-card { min-height: 0; overflow: hidden; display: grid; grid-template-columns: 1fr; grid-template-rows: 7.1rem minmax(4rem, auto); align-items: stretch; background: #fffefa; }
-.interest-card img { width: 100%; height: 7.1rem; display: block; object-fit: cover; border-bottom: 2px solid var(--gold); }
-.interest-card > span { padding: 0.7rem 0.85rem 0.78rem; }
+.interest-grid { width: min(100%, 88rem); margin-inline: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 1.5vw, 1.5rem); }
+.interest-card { min-height: 0; overflow: hidden; display: grid; grid-template-columns: 1fr; grid-template-rows: clamp(8.25rem, 14vh, 10.5rem) minmax(4.6rem, auto); align-items: stretch; background: #fffefa; }
+.interest-card img { width: 100%; height: 100%; display: block; object-fit: cover; border-bottom: 2px solid var(--gold); }
+.interest-card > span { padding: 0.8rem 0.95rem 0.9rem; }
 .interest-card strong { font-size: 0.96rem; }
 .interest-card small { margin-top: 0.2rem; font-size: 0.74rem; line-height: 1.3; }
 .selection-count { margin: 0.85rem 0 0; color: var(--muted); text-align: right; font-size: 0.78rem; font-weight: 750; }
+#screen-expertise, #screen-interests { padding-inline: clamp(1.25rem, 3vw, 3.5rem); }
 #screen-interests { padding-block: 1.35rem; }
 #screen-interests .split-heading { margin-bottom: 1.2rem; }
 

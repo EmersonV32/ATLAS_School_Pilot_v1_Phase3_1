@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/style.css?v=9">
 </head>
 <body class="admin-page admin-locked">
   <section id="admin-unlock-gate" class="admin-unlock-gate" aria-labelledby="admin-unlock-title">
@@ -45,6 +45,7 @@
         <div><p class="eyebrow">Visitor experience</p><h1 id="visitor-live-title">Onboarding live monitor</h1></div>
         <div class="visitor-monitor-actions">
           <span id="visitor-live-state" class="status-pill neutral">Waiting</span>
+          <button id="btn-toggle-visitor-monitor" type="button" class="secondary compact-button" aria-expanded="true">Hide monitor</button>
           <button id="btn-enable-help-alerts" type="button" class="secondary compact-button">Enable help sound</button>
         </div>
       </div>
@@ -89,7 +90,10 @@
     <section class="ops-panel settings-panel" aria-labelledby="settings-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Configuration</p><h1 id="settings-title">Settings</h1></div>
-        <span id="restart-badge" class="status-pill warning hidden">Restart required</span>
+        <div class="settings-header-actions">
+          <span id="restart-badge" class="status-pill warning hidden">Restart required</span>
+          <button id="btn-save-config-top" type="submit" form="config-form" class="compact-button">Save settings</button>
+        </div>
       </div>
       <div class="settings-scroll">
         <section class="control-section">
@@ -212,8 +216,8 @@
         </div>
       </div>
       <div class="log-grid">
-        <div class="log-column"><div class="log-label"><span>Runtime</span><strong id="runtime-log-state">Waiting</strong></div><pre id="runtime-log-view" class="result-view live-log">No runtime logs loaded.</pre></div>
-        <div class="log-column"><div class="log-label"><span>Events</span><strong>Structured</strong></div><pre id="event-log-view" class="result-view live-log">No events loaded.</pre></div>
+        <div class="log-column"><div class="log-label"><span>Runtime</span><div class="segmented log-format-toggle"><button type="button" class="active" data-log-view="runtime" data-log-format="human" aria-pressed="true">Guided</button><button type="button" data-log-view="runtime" data-log-format="raw" aria-pressed="false">Raw</button></div><strong id="runtime-log-state">Waiting</strong></div><pre id="runtime-log-view" class="result-view live-log guided-log">No runtime logs loaded.</pre></div>
+        <div class="log-column"><div class="log-label"><span>Events</span><div class="segmented log-format-toggle"><button type="button" class="active" data-log-view="events" data-log-format="human" aria-pressed="true">Guided</button><button type="button" data-log-view="events" data-log-format="raw" aria-pressed="false">Raw</button></div><strong id="event-log-state">Guided</strong></div><pre id="event-log-view" class="result-view live-log guided-log">No events loaded.</pre></div>
       </div>
     </section>
 
@@ -259,6 +263,6 @@
   </div>
 
   <p id="admin-notice" class="notice hidden" role="status"></p>
-  <script src="/static/admin.js?v=9"></script>
+  <script src="/static/admin.js?v=10"></script>
 </body>
 </html>

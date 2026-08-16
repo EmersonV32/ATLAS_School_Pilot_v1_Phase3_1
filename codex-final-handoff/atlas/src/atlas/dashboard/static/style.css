@@ -387,6 +387,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 }
 .ops-panel-header h1 { margin: 0; font-size: 1.18rem; }
 .ops-panel-header .eyebrow { margin-bottom: 0.1rem; }
+.settings-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.55rem; flex-wrap: wrap; }
 
 .settings-scroll { max-height: 34rem; overflow: auto; }
 .control-section { min-width: 0; padding: 0.85rem 0.9rem; border-top: 1px solid var(--border); }
@@ -409,6 +410,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .settings-disclosure .dense-form { padding: 0.85rem 0.9rem; }
 .settings-save-bar { padding: 0.75rem 0.9rem; border-top: 1px solid var(--border); text-align: right; }
 .visitor-monitor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.55rem; flex-wrap: wrap; }
+.visitor-live-panel.is-collapsed .visitor-monitor-grid { display: none; }
 .visitor-monitor-grid { display: grid; grid-template-columns: minmax(24rem, 1.25fr) minmax(20rem, 1fr) minmax(18rem, 0.8fr); }
 .visitor-monitor-grid > section { min-width: 0; padding: 0.75rem 0.9rem; }
 .visitor-monitor-grid > section + section { border-left: 1px solid var(--border); }
@@ -471,6 +473,9 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .log-label strong { color: var(--accent-dark); }
 .log-label strong.bad { color: var(--danger); }
 .live-log { height: 26rem; min-height: 26rem; max-height: 26rem; margin: 0; border: 0; border-radius: 0; font-size: 0.72rem; line-height: 1.45; }
+.log-format-toggle { margin-left: auto; }
+.log-format-toggle button { min-height: 1.85rem; padding: 0.2rem 0.48rem; font-size: 0.68rem; }
+.guided-log { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: hidden; }
 
 .operations-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
 .operations-grid .control-section:nth-child(even) { border-left: 1px solid var(--border); }
@@ -518,6 +523,9 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
     height: calc(100vh - 4.25rem);
     grid-template-rows: minmax(10rem, 0.58fr) repeat(2, minmax(0, 1fr));
     overflow: hidden;
+  }
+  body.visitor-monitor-collapsed .ops-dashboard {
+    grid-template-rows: minmax(4rem, 0.22fr) repeat(2, minmax(0, 1fr));
   }
   .ops-panel { min-height: 0; height: 100%; }
   .settings-panel, .operations-panel, .logs-panel, .live-panel, .visitor-live-panel {

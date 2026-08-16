@@ -257,6 +257,14 @@ def create_app(
     def logs_runtime(limit: int = 250) -> dict:
         return service.runtime_logs(limit=min(max(limit, 1), 1000))
 
+    @app.get("/logs/runtime/human", dependencies=[Depends(require_admin)])
+    def logs_runtime_human(limit: int = 250) -> dict:
+        return service.human_runtime_logs(limit=min(max(limit, 1), 1000))
+
+    @app.get("/logs/recent/human")
+    def logs_recent_human(limit: int = 50) -> list[dict]:
+        return service.human_recent_logs(limit=min(max(limit, 1), 200))
+
     # -- hardware -----------------------------------------------------------
     @app.post("/hardware/emergency-stop")
     def emergency_stop() -> dict:

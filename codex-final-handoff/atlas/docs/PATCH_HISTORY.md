@@ -4,6 +4,38 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-16 - Admin controls and visitor presentation restoration
+
+**Changed:**
+
+- Restored the administrator dashboard's collapsible onboarding monitor. Its
+  collapsed state is retained only for the current browser session.
+- Restored Guided and Raw choices for both runtime and event logs. Guided mode
+  removes timestamps and formatter noise while retaining visitor speech,
+  speech-provider state, vision, response, voice, and timing events. Raw mode
+  remains available for exact diagnostics.
+- Protected unsaved Experience settings from the two-second dashboard refresh,
+  so a language or profile selection stays visible until the operator applies
+  it. Added a Save settings button to the Settings header while retaining the
+  existing form submit control.
+- Enlarged the visitor expertise and interest cards within their existing
+  three-column layouts without distorting the artwork source aspect ratio.
+- Bumped the visitor service-worker/static-shell version to `v18` so browsers
+  retrieve the current localized template and styling rather than an older
+  cached shell.
+- Expanded the visitor deployment script to upload the dashboard API and
+  runtime-service changes required by the restored Guided logs.
+
+**Validation:** Focused visitor/dashboard tests are required before deployment.
+The shared Jetson service must restart cleanly and serve `/`, `/admin`, the
+visitor assets, and the Guided runtime-log endpoint before this entry can be
+marked as deployed.
+
+**Deployment result:** Pending the focused Jetson validation run.
+
+**Remaining limitation:** The headset instructions are deliberately text-only
+until a real, approved OpenComm2 fitting video is supplied.
+
 ## 2026-08-16 - Visitor asset deployment and administrator lock gate
 
 **Changed:**

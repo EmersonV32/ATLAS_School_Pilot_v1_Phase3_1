@@ -127,7 +127,11 @@ class TestVisitorShell:
         assert 'id="admin-unlock-gate"' in response.text
         assert 'id="admin-workspace"' in response.text
         assert 'class="admin-page admin-locked"' in response.text
-        assert "/static/style.css?v=8" in response.text
+        assert "/static/style.css?v=9" in response.text
+        assert 'id="btn-toggle-visitor-monitor"' in response.text
+        assert 'id="btn-save-config-top"' in response.text
+        assert 'data-log-format="human"' in response.text
+        assert 'data-log-format="raw"' in response.text
 
     def test_shell_has_accessibility_and_pwa_hooks(self, visitor_client):
         html = visitor_client.get("/").text
@@ -144,8 +148,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v17"' in response.text
-        assert '"/static/visitor.js?v=17"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v18"' in response.text
+        assert '"/static/visitor.js?v=18"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.png"' in response.text
         assert '"/static/visitor/assets/expertise-triptych.png"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
@@ -156,8 +160,24 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=17" in html
-        assert "/static/visitor.js?v=17" in html
+        assert "/static/visitor.css?v=18" in html
+        assert "/static/visitor.js?v=18" in html
+
+    def test_admin_preserves_unsaved_experience_and_supports_log_views(self):
+        source = (STATIC_DIR / "admin.js").read_text(encoding="utf-8")
+        assert "let experienceDirty = false" in source
+        assert "if (experienceDirty) return;" in source
+        assert '"/logs/runtime/human"' not in source
+        assert 'logFormats.runtime === "human"' in source
+        assert "setVisitorMonitorCollapsed" in source
+
+    def test_guided_log_endpoints_keep_operator_text_readable(self, visitor_client):
+        runtime = visitor_client.get("/logs/runtime/human?limit=5", headers=_admin())
+        events = visitor_client.get("/logs/recent/human?limit=5")
+        assert runtime.status_code == 200
+        assert runtime.json()["available"] is False
+        assert events.status_code == 200
+        assert isinstance(events.json(), list)
 
     def test_visitor_images_are_served_by_the_shared_dashboard_service(self, visitor_client):
         for asset in (

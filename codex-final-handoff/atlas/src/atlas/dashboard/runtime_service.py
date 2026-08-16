@@ -28,6 +28,70 @@ logger = logging.getLogger(__name__)
 _DEFAULT_PROFILE = EducationalLevel.ADULT_BEGINNER.value
 
 
+def _human_runtime_line(line: str) -> str:
+    """Turn one process-log line into a readable operator update."""
+    cleaned = re.sub(r"^\d{4}-\d{2}-\d{2}[^ ]*\s+\w+\s+[^:]+:\s+", "", line).strip()
+    if "[STT live]" in cleaned:
+        speech = re.sub(r"\s+\[language=[^\]]+\]$", "", cleaned.split("[STT live]", 1)[1].strip())
+        return "Visitor is speaking: " + speech
+    if "[STT final]" in cleaned:
+        speech = re.sub(r"\s+\[language=[^\]]+\]$", "", cleaned.split("[STT final]", 1)[1].strip())
+        return "Visitor said: " + speech
+    if "[STT] Preparing to listen" in cleaned:
+        language = re.search(r"language=([a-z-]+)", cleaned)
+        timeout = re.search(r"timeout=([\d.]+s)", cleaned)
+        names = {"en": "English", "fr": "French", "es": "Spanish", "it": "Italian", "ar": "Arabic", "zh": "Mandarin"}
+        language_name = names.get((language.group(1) if language else "").split("-")[0], "the selected language")
+        return f"ATLAS is listening in {language_name} for up to {timeout.group(1) if timeout else 'the configured window'}."
+    if "[Deepgram] Listening" in cleaned:
+        return "Microphone opened with Deepgram and voice detection."
+    if "[Silero VAD] Speech started" in cleaned:
+        return "Speech detected. ATLAS is recording the question."
+    if "[STT] No transcript" in cleaned:
+        return "No usable speech was received before listening ended."
+    if "[STT] Provider used:" in cleaned:
+        return "Speech recognition used " + cleaned.split(":", 1)[1].strip() + "."
+    if "[STT]" in cleaned and ("failed" in cleaned.lower() or "unavailable" in cleaned.lower()):
+        return "Warning: speech recognition could not complete. " + cleaned.split("[STT]", 1)[1].strip()
+    if "[RAG] Retrieved" in cleaned:
+        return "Knowledge search completed: " + cleaned.split("[RAG]", 1)[1].strip()
+    if "[LLM final]" in cleaned:
+        return "ATLAS answer: " + cleaned.split("[LLM final]", 1)[1].strip()
+    if "[LLM sentence" in cleaned:
+        return "ATLAS is saying: " + re.sub(r"^\[LLM sentence \d+\]\s*", "", cleaned)
+    if "[Gemini]" in cleaned:
+        return "Gemini: " + cleaned.split("[Gemini]", 1)[1].strip()
+    if "[Cartesia] Continuous context opened" in cleaned:
+        return "Cartesia locked one voice for this response."
+    if "[Cartesia] First audio received" in cleaned:
+        return "Cartesia began audible speech."
+    if "[Cartesia] Continuous synthesis complete" in cleaned:
+        return "Cartesia finished the response."
+    if "[TTS] Response voice locked" in cleaned:
+        return "Voice locked for this response. " + cleaned.split("locked", 1)[1].strip()
+    if "[TTS]" in cleaned or "[Cartesia]" in cleaned:
+        return "Voice: " + re.sub(r"^\[(TTS|Cartesia)\]\s*", "", cleaned)
+    if "[Vision]" in cleaned:
+        return "Vision: " + cleaned.split("[Vision]", 1)[1].strip()
+    if "ERROR" in line or "WARNING" in line or "failed" in cleaned.lower():
+        return "Warning: " + cleaned
+    if "[Timing]" in cleaned:
+        return "Timing: " + cleaned.split("[Timing]", 1)[1].strip()
+    return cleaned
+
+
+def _human_event(event: dict[str, Any]) -> dict[str, Any]:
+    """Summarize one structured event without raw log formatting."""
+    name = str(event.get("event") or "event").replace("_", " ")
+    state = str(event.get("state") or "system")
+    details = [
+        f"{key.replace('_', ' ')}: {value}"
+        for key, value in sorted(event.items())
+        if key not in {"event_id", "session_id", "timestamp", "state", "event"}
+    ]
+    return {"summary": f"{state.title()}: {name}.", "details": "; ".join(details) or "No additional fields."}
+
+
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     merged = dict(base)
     for key, value in override.items():
@@ -588,6 +652,9 @@ class RuntimeService:
     def recent_logs(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.container.logger.read_recent(limit=limit)
 
+    def human_recent_logs(self, limit: int = 50) -> list[dict[str, Any]]:
+        return [_human_event(event) for event in self.recent_logs(limit=limit)]
+
     def runtime_logs(self, limit: int = 250) -> dict[str, Any]:
         """Return the testing-mode tail of the device process log."""
         path = Path(self.container.settings.paths.logs_dir) / "atlas-runtime.log"
@@ -615,4 +682,11 @@ class RuntimeService:
         return {
             "available": True,
             "lines": [ansi.sub("", line.rstrip()) for line in lines[-limit:]],
+        }
+
+    def human_runtime_logs(self, limit: int = 250) -> dict[str, Any]:
+        raw = self.runtime_logs(limit=limit)
+        return {
+            "available": raw["available"],
+            "lines": [_human_runtime_line(line) for line in raw["lines"]],
         }
