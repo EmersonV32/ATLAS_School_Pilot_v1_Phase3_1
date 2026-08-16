@@ -35,6 +35,11 @@ ATLAS preloads its camera, RAG, speech, and TensorRT model before binding the
 dashboard port. The deploy health check now waits up to 50 seconds for that
 normal startup sequence instead of rolling back after two seconds.
 
+**Deployment result:** Deployed to the Jetson on 2026-08-16. The Jetson ran
+`33 passed` for the focused visitor tests, then the shared service became
+healthy on `0.0.0.0:8765`. A final LAN check confirmed `200` responses for both
+the visitor page and the authenticated administrator page.
+
 **Remaining limitation:** This patch does not claim Arabic or Mandarin speech
 recognition/synthesis support on the Jetson. It leaves those languages visibly
 preview-only instead of falsely reporting them as ready.
