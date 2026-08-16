@@ -1,11 +1,11 @@
 /* Static shell only. API requests are deliberately never cached. */
 "use strict";
 
-const CACHE_NAME = "atlas-visitor-shell-v12";
+const CACHE_NAME = "atlas-visitor-shell-v15";
 const STATIC_ALLOWLIST = [
   "/",
-  "/static/visitor.css?v=12",
-  "/static/visitor.js?v=12",
+  "/static/visitor.css?v=15",
+  "/static/visitor.js?v=15",
   "/static/manifest.webmanifest",
   "/static/visitor/interests.json",
   "/static/visitor/assets/stories.svg",
@@ -15,6 +15,7 @@ const STATIC_ALLOWLIST = [
   "/static/visitor/assets/color-light.svg",
   "/static/visitor/assets/people-society.svg",
   "/static/visitor/assets/expertise-triptych.png",
+  "/static/visitor/assets/atlas-logo-v2.png",
   "/static/visitor/assets/flag-en.svg",
   "/static/visitor/assets/flag-fr.svg",
   "/static/visitor/assets/flag-es.svg",

@@ -25,6 +25,7 @@ _INTERESTS = {
     "people-society",
 }
 _RUNTIME_LANGUAGES = frozenset({"en", "fr", "es", "it"})
+_MAX_CAMERA_FRAME_AGE_S = 3.0
 
 
 class RuntimeBridge(Protocol):
@@ -396,7 +397,12 @@ class VisitorService:
             _component_is_ready(components.get(name))
             for name in ("vector_store", "fts_store", "retriever")
         )
-        camera_ready = camera.get("ready") is True
+        camera_age = camera.get("last_frame_age_s")
+        camera_ready = (
+            camera.get("ready") is True
+            and isinstance(camera_age, (int, float))
+            and 0 <= camera_age <= _MAX_CAMERA_FRAME_AGE_S
+        )
         emergency_stopped = bool(status.get("emergency_stopped"))
         self._state["connection"] = "online" if connection_ready else "offline"
 

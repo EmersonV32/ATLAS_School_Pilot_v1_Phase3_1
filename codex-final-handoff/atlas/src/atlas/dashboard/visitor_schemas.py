@@ -40,7 +40,7 @@ class VisitorProgressRequest(BaseModel):
     name_entered: bool = False
     age_guidance: AgeGuidance | None = None
     expertise: ExpertiseLevel | None = None
-    interests: list[str] = Field(default_factory=list, max_length=3)
+    interests: list[str] = Field(default_factory=list, max_length=6)
     accessibility: list[AccessibilityChoice] = Field(
         default_factory=list, max_length=3
     )

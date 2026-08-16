@@ -544,6 +544,14 @@ class RuntimeService:
 
     def status(self) -> dict[str, Any]:
         settings = self.container.settings
+        try:
+            camera_status = self.container.camera_source.status()
+        except Exception as exc:
+            camera_status = {
+                "ready": False,
+                "last_frame_age_s": None,
+                "last_error": f"{type(exc).__name__}: {exc}",
+            }
         last = None
         if self.last_answer:
             last = {
@@ -558,6 +566,7 @@ class RuntimeService:
             "session_active": self.session_id is not None,
             "experience": self.experience_settings(),
             "artwork": self.artwork_status(),
+            "camera": camera_status,
             "last_answer": last,
             "demo_flags": sorted(self.demo_flags),
             "privacy": {

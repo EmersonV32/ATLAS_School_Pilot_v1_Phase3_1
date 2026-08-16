@@ -7,18 +7,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>ATLAS Museum Guide</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
-  <link rel="stylesheet" href="/static/visitor.css?v=12">
+  <link rel="stylesheet" href="/static/visitor.css?v=15">
 </head>
 <body class="visitor-page">
   <header class="visitor-header">
     <div class="visitor-brand" aria-label="ATLAS museum guide">
-      <svg class="atlas-symbol" viewBox="0 0 64 64" aria-hidden="true">
-        <path class="atlas-symbol-frame" d="M32 3 57 17v30L32 61 7 47V17Z"/>
-        <path class="atlas-symbol-axis" d="M32 11v42M14 22h36M14 42h36"/>
-        <path class="atlas-symbol-a" d="m20 47 12-31 12 31M24 37h16"/>
-        <circle cx="32" cy="7" r="2.5"/><circle cx="55" cy="19" r="2.5"/><circle cx="9" cy="45" r="2.5"/>
-      </svg>
-      <span><strong>ATLAS</strong><small data-i18n="brand.subtitle">Museum guide</small></span>
+      <img class="atlas-brand-logo" src="/static/visitor/assets/atlas-logo-v2.png" alt="ATLAS">
+      <small data-i18n="brand.subtitle">Museum guide</small>
     </div>
     <span id="connection-status" class="visitor-status" role="status"><i></i><span data-i18n="status.connecting">Connecting to your guide</span></span>
   </header>
@@ -45,14 +40,7 @@
             </div>
           </div>
           <div class="atlas-hero-mark" aria-hidden="true">
-            <div class="atlas-scan-line"></div>
-            <svg viewBox="0 0 260 260">
-              <path class="hero-hex outer" d="M130 8 236 69v122l-106 61L24 191V69Z"/>
-              <path class="hero-hex inner" d="M130 38 210 84v92l-80 46-80-46V84Z"/>
-              <circle cx="130" cy="130" r="76" class="hero-ring"/>
-              <path class="hero-a" d="m82 184 48-123 48 123M99 143h62"/>
-              <path class="hero-grid" d="M130 8v45M130 207v45M24 69l39 23M197 168l39 23M24 191l39-23M197 92l39-23"/>
-            </svg>
+            <img class="atlas-hero-logo" src="/static/visitor/assets/atlas-logo-v2.png" alt="">
           </div>
         </div>
       </div>
@@ -152,7 +140,7 @@
       </div>
 
       <div id="screen-in-use" class="onboarding-screen" data-screen="in_use">
-        <div class="completion-state localized-copy"><svg class="completion-logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 3 57 17v30L32 61 7 47V17Z"/><path d="m19 48 13-33 13 33M24 37h16"/></svg><p class="kicker" data-i18n="in_use.kicker">Profile transferred</p><h1 data-i18n="in_use.title">You are ready to explore.</h1><p data-i18n="in_use.lead">Put on your ATLAS unit and follow the museum team’s direction. This kiosk will clear itself.</p><button type="button" class="quiet-action" data-reset data-i18n="actions.next_visitor">Set up for the next visitor</button></div>
+        <div class="completion-state localized-copy"><img class="completion-logo-image" src="/static/visitor/assets/atlas-logo-v2.png" alt="ATLAS"><p class="kicker" data-i18n="in_use.kicker">Profile transferred</p><h1 data-i18n="in_use.title">You are ready to explore.</h1><p data-i18n="in_use.lead">Put on your ATLAS unit and follow the museum team’s direction. This kiosk will clear itself.</p><button type="button" class="quiet-action" data-reset data-i18n="actions.next_visitor">Set up for the next visitor</button></div>
       </div>
 
       <div id="screen-thank-you" class="onboarding-screen" data-screen="thank_you">
@@ -197,6 +185,6 @@
   </dialog>
 
   <noscript><p class="noscript-message">JavaScript is required for the ATLAS setup experience. Please ask a museum team member for help.</p></noscript>
-  <script src="/static/visitor.js?v=12" defer></script>
+  <script src="/static/visitor.js?v=15" defer></script>
 </body>
 </html>

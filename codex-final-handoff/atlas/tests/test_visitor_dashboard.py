@@ -59,8 +59,11 @@ def _progress(**updates) -> dict:
 
 
 class _FakeRuntime:
-    def __init__(self, *, camera_ready: bool = True) -> None:
+    def __init__(
+        self, *, camera_ready: bool = True, camera_age_s: float | None = 0.1
+    ) -> None:
         self.camera_ready = camera_ready
+        self.camera_age_s = camera_age_s
         self.profile_calls: list[dict] = []
         self.started = 0
         self.stopped = 0
@@ -80,7 +83,10 @@ class _FakeRuntime:
 
     def status(self) -> dict:
         return {
-            "camera": {"ready": self.camera_ready},
+            "camera": {
+                "ready": self.camera_ready,
+                "last_frame_age_s": self.camera_age_s,
+            },
             "emergency_stopped": False,
         }
 
@@ -104,6 +110,7 @@ class TestVisitorShell:
         assert "Meet art through" in response.text
         assert "Start my experience" in response.text
         assert "OpenComm2" in response.text
+        assert 'src="/static/visitor/assets/atlas-logo-v2.png"' in response.text
         assert 'id="age-keypad"' in response.text
         assert "Available today" not in response.text
         assert "Onboarding live monitor" not in response.text
@@ -133,8 +140,9 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v12"' in response.text
-        assert '"/static/visitor.js?v=12"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v15"' in response.text
+        assert '"/static/visitor.js?v=15"' in response.text
+        assert '"/static/visitor/assets/atlas-logo-v2.png"' in response.text
         assert '"/static/visitor/assets/expertise-triptych.png"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
         assert '"/api/' not in response.text
@@ -144,8 +152,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=12" in html
-        assert "/static/visitor.js?v=12" in html
+        assert "/static/visitor.css?v=15" in html
+        assert "/static/visitor.js?v=15" in html
 
     def test_language_selection_localizes_without_mirroring_navigation(
         self, visitor_client
@@ -265,6 +273,23 @@ class TestVisitorContract:
             json=_progress(interests=["not-in-the-approved-manifest"]),
         )
         assert response.status_code == 400
+
+    def test_all_six_interests_can_be_selected(self, visitor_client):
+        interests = [
+            "stories",
+            "technique",
+            "symbols",
+            "history",
+            "color-light",
+            "people-society",
+        ]
+        response = visitor_client.post(
+            "/api/visitor/onboarding/progress",
+            json=_progress(step="accessibility", interests=interests),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["profile"]["interests"] == interests
 
     def test_projection_contains_no_name_or_exact_age_value(self, visitor_client):
         visitor_client.post(
@@ -413,6 +438,16 @@ class TestRuntimeBridge:
 
     def test_runtime_bridge_blocks_start_without_a_fresh_camera(self):
         service = VisitorService(runtime_service=_FakeRuntime(camera_ready=False))
+        service.progress(VisitorProgressRequest(**_progress(step="privacy")))
+
+        readiness = service.readiness()
+        camera = next(item for item in readiness["items"] if item["id"] == "camera")
+        assert camera["status"] == "unavailable"
+        with pytest.raises(RuntimeError, match="Camera"):
+            service.start()
+
+    def test_runtime_bridge_blocks_a_stale_camera_frame(self):
+        service = VisitorService(runtime_service=_FakeRuntime(camera_age_s=3.1))
         service.progress(VisitorProgressRequest(**_progress(step="privacy")))
 
         readiness = service.readiness()
