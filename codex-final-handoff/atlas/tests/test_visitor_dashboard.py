@@ -111,6 +111,7 @@ class TestVisitorShell:
         assert "Start my experience" in response.text
         assert "OpenComm2" in response.text
         assert 'src="/static/visitor/assets/atlas-logo-v2.png"' in response.text
+        assert 'class="welcome-gallery"' in response.text
         assert 'id="age-keypad"' in response.text
         assert "Available today" not in response.text
         assert "Onboarding live monitor" not in response.text
@@ -148,8 +149,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v18"' in response.text
-        assert '"/static/visitor.js?v=18"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v19"' in response.text
+        assert '"/static/visitor.js?v=19"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.png"' in response.text
         assert '"/static/visitor/assets/expertise-triptych.png"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
@@ -160,8 +161,14 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=18" in html
-        assert "/static/visitor.js?v=18" in html
+        assert "/static/visitor.css?v=19" in html
+        assert "/static/visitor.js?v=19" in html
+
+    def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
+        css = (STATIC_DIR / "visitor.css").read_text(encoding="utf-8")
+        assert ".welcome-gallery" in css
+        assert "welcome-gallery-panel--mona" in css
+        assert "visitor-screen-enter" in css
 
     def test_admin_preserves_unsaved_experience_and_supports_log_views(self):
         source = (STATIC_DIR / "admin.js").read_text(encoding="utf-8")

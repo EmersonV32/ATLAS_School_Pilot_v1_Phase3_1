@@ -26,15 +26,45 @@ result, and any remaining limitation. Do not remove older entries.
 - Expanded the visitor deployment script to upload the dashboard API and
   runtime-service changes required by the restored Guided logs.
 
-**Validation:** Focused visitor/dashboard tests are required before deployment.
-The shared Jetson service must restart cleanly and serve `/`, `/admin`, the
-visitor assets, and the Guided runtime-log endpoint before this entry can be
-marked as deployed.
+**Validation:** The Jetson ran `36 passed, 1 warning` for the focused visitor
+suite. The shared service restarted and served the visitor and administrator
+routes on port `8765`.
 
-**Deployment result:** Pending the focused Jetson validation run.
+**Deployment result:** Deployed to the Jetson on 2026-08-16. The remote backup
+path reported by the deployment wrapper was
+`/tmp/atlas_visitor_backup_20260816_150519`.
 
 **Remaining limitation:** The headset instructions are deliberately text-only
 until a real, approved OpenComm2 fitting video is supplied.
+
+## 2026-08-16 - Visitor visual hierarchy refinement
+
+**Changed:**
+
+- Replaced the duplicate welcome-page logo panel with an artwork-led gallery
+  made from the existing, locally served expertise artwork. The header keeps
+  the ATLAS brand mark, so the first screen now has one brand signal and one
+  museum signal instead of two competing logos.
+- Reduced the contrast of the page-wide marble veins, tightened the header and
+  progress rail, and widened the main kiosk canvas for clearer use on a museum
+  display or iPad.
+- Refined the gold action treatment into a flatter, more premium control;
+  enlarged image-led expertise and interest choices; and added a short,
+  reduced-motion-safe screen transition.
+- Kept the headset screen text-only until an approved fitting video exists.
+  The floating help action is now always fixed inside the viewport rather than
+  turning into a clipped, floating page element on narrow screens.
+- Bumped the visitor cache shell to `v19` so connected devices retrieve the
+  new template and visual rules.
+
+**Validation:** Focused visitor tests and responsive browser review are
+required before Jetson deployment.
+
+**Deployment result:** Pending focused Jetson validation.
+
+**Remaining limitation:** The welcome gallery reuses the existing local
+artwork source. It is intentionally not a claim that ATLAS has licensed new
+hero imagery.
 
 ## 2026-08-16 - Visitor asset deployment and administrator lock gate
 
