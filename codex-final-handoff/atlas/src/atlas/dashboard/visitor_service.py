@@ -102,18 +102,15 @@ class VisitorService:
 
     def bootstrap(self) -> dict:
         with self._lock:
-            runtime_active = self._runtime_service is not None
             return {
                 "mode": self.mode,
                 "inactivity_timeout_seconds": 120,
-                "public_languages": (
-                    ["en", "fr", "es", "it"] if runtime_active else ["en"]
-                ),
-                "preview_languages": (
-                    ["ar", "zh-Hant"]
-                    if runtime_active
-                    else ["fr", "es", "it", "ar", "zh-Hant"]
-                ),
+                # These languages are backed by the current ATLAS speech stack in
+                # both the device runtime and the local visitor preview.
+                "public_languages": ["en", "fr", "es", "it"],
+                # Arabic and Mandarin remain interface previews until their speech
+                # providers are configured and tested on the Jetson.
+                "preview_languages": ["ar", "zh-Hant"],
                 "interest_manifest_url": "/static/visitor/interests.json",
                 "state": self._projection(),
                 "readiness": self._readiness(),
@@ -352,7 +349,7 @@ class VisitorService:
                 "ready",
                 "The local content pack is available.",
             ),
-            self._language_item(language, supported={"en"}),
+            self._language_item(language, supported=_RUNTIME_LANGUAGES),
             self._item(
                 "safety", "Safety controls", "ready", "Emergency stop is clear."
             ),

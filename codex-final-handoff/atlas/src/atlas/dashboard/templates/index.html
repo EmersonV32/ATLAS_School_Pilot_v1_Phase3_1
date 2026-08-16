@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>ATLAS Museum Guide</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
-  <link rel="stylesheet" href="/static/visitor.css?v=15">
+  <link rel="stylesheet" href="/static/visitor.css?v=16">
 </head>
 <body class="visitor-page">
   <header class="visitor-header">
@@ -101,28 +101,10 @@
       </div>
 
       <div id="screen-headset" class="onboarding-screen" data-screen="headset">
-        <div class="headset-layout">
-          <div class="opencomm-demo" role="img" aria-label="Looping demonstration of a Shokz OpenComm2 headset being fitted and its controls">
-            <svg viewBox="0 0 520 390" aria-hidden="true">
-              <path class="profile-head" d="M210 70c67 0 110 49 110 112 0 56-24 76-43 98-17 20-24 40-24 71H120c5-43 7-70-10-104-13-26-18-51-12-82C109 108 155 70 210 70Z"/>
-              <path class="profile-ear" d="M286 165c25-8 37 12 28 36-6 17-18 27-35 28"/>
-              <g class="opencomm-headset">
-                <path class="headset-band" d="M75 215C41 153 74 82 153 55c86-30 177-4 219 61"/>
-                <path class="headset-wire" d="M90 222c-16 20-23 49-20 77M368 119c20 18 27 45 22 73"/>
-                <rect class="headset-pad pad-left" x="62" y="207" width="48" height="70" rx="20"/>
-                <rect class="headset-pad pad-right" x="362" y="181" width="48" height="70" rx="20"/>
-                <g class="mic-arm"><path d="M378 230c-2 75-44 91-104 88"/><circle cx="269" cy="318" r="10"/></g>
-                <g class="volume-buttons"><rect x="374" y="190" width="7" height="17" rx="3"/><rect x="390" y="190" width="7" height="17" rx="3"/></g>
-                <circle class="multi-button" cx="84" cy="241" r="9"/>
-              </g>
-              <g class="headset-callout callout-fit"><path d="M55 84h76"/><circle cx="139" cy="82" r="5"/><text x="10" y="70" data-i18n="headset.callout_fit">OPEN-EAR FIT</text></g>
-              <g class="headset-callout callout-volume"><path d="M397 116v61"/><circle cx="397" cy="183" r="5"/><text x="348" y="98" data-i18n="headset.callout_volume">VOLUME + / −</text></g>
-              <g class="headset-callout callout-capture"><path d="M66 309l17-58"/><circle cx="84" cy="243" r="5"/><text x="8" y="332" data-i18n="headset.callout_capture">2× CAPTURE</text></g>
-              <g class="headset-callout callout-mic"><path d="M334 348l-57-28"/><circle cx="270" cy="318" r="5"/><text x="338" y="367" data-i18n="headset.callout_mic">LOWER MIC</text></g>
-            </svg>
-            <div class="demo-timeline" aria-hidden="true"><span></span></div>
-          </div>
-          <div class="screen-copy localized-copy"><p class="kicker" data-i18n="headset.kicker">Your OpenComm2</p><h1 data-i18n="headset.title">Open ears. Clear voice. One capture button.</h1><ol class="instruction-list"><li><span>1</span><p data-i18n="headset.step1">Rest the pads just in front of your ears and keep the band behind your head.</p></li><li><span>2</span><p data-i18n="headset.step2">Lower the microphone toward your mouth. Use + and − to adjust volume.</p></li><li><span>3</span><p data-i18n="headset.step3">Double-press the multifunction button to manually capture the artwork in front of you.</p></li></ol><button type="button" class="quiet-action help-inline" data-help="headset" data-i18n="headset.help">I need help with the headset</button></div>
+        <div class="headset-layout headset-layout--instructions localized-copy">
+          <div class="screen-copy"><p class="kicker" data-i18n="headset.kicker">Your OpenComm2</p><h1 data-i18n="headset.title">Open ears. Clear voice. One capture button.</h1><p class="lead" data-i18n="headset.lead">A short fitting video will appear here before public use. For now, follow these three steps.</p></div>
+          <ol class="instruction-list"><li><span>1</span><p data-i18n="headset.step1">Rest the pads just in front of your ears and keep the band behind your head.</p></li><li><span>2</span><p data-i18n="headset.step2">Lower the microphone toward your mouth. Use + and − to adjust volume.</p></li><li><span>3</span><p data-i18n="headset.step3">Double-press the multifunction button to manually capture the artwork in front of you.</p></li></ol>
+          <button type="button" class="quiet-action help-inline" data-help="headset" data-i18n="headset.help">I need help with the headset</button>
         </div>
       </div>
 
@@ -159,7 +141,7 @@
   <p id="visitor-notice" class="visitor-notice hidden" role="status"></p>
 
   <dialog id="age-keypad" class="visitor-dialog keypad-dialog">
-    <div class="keypad-heading localized-copy"><p class="kicker" data-i18n="age_pad.kicker">Age guidance</p><h2 data-i18n="age_pad.title">Enter your age</h2><output id="age-keypad-value" aria-live="polite">—</output><p id="age-keypad-warning" class="keypad-warning" data-i18n="age_pad.range">Enter an age from 5 to 120.</p></div>
+    <div class="keypad-heading localized-copy"><p class="kicker" data-i18n="age_pad.kicker">Age guidance</p><h2 data-i18n="age_pad.title">Enter your age</h2><output id="age-keypad-value" aria-live="polite">—</output><p id="age-keypad-warning" class="keypad-warning" data-i18n="age_pad.range">Enter your age, or choose Cancel.</p></div>
     <div class="number-pad" aria-label="Numeric keypad" data-i18n-aria-label="age_pad.aria">
       <button type="button" data-digit="1">1</button><button type="button" data-digit="2">2</button><button type="button" data-digit="3">3</button>
       <button type="button" data-digit="4">4</button><button type="button" data-digit="5">5</button><button type="button" data-digit="6">6</button>
@@ -185,6 +167,6 @@
   </dialog>
 
   <noscript><p class="noscript-message">JavaScript is required for the ATLAS setup experience. Please ask a museum team member for help.</p></noscript>
-  <script src="/static/visitor.js?v=15" defer></script>
+  <script src="/static/visitor.js?v=16" defer></script>
 </body>
 </html>

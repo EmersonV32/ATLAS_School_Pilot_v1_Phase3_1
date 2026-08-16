@@ -140,8 +140,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v15"' in response.text
-        assert '"/static/visitor.js?v=15"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v16"' in response.text
+        assert '"/static/visitor.js?v=16"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.png"' in response.text
         assert '"/static/visitor/assets/expertise-triptych.png"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
@@ -152,8 +152,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=15" in html
-        assert "/static/visitor.js?v=15" in html
+        assert "/static/visitor.css?v=16" in html
+        assert "/static/visitor.js?v=16" in html
 
     def test_language_selection_localizes_without_mirroring_navigation(
         self, visitor_client
@@ -179,6 +179,8 @@ class TestVisitorShell:
         assert 'id="visitor-age" type="text" readonly inputmode="none"' in html
         assert html.count('data-digit="') == 10
         assert "ageGuidance = age < 13" in source
+        assert "keypadValue.length >=" not in source
+        assert "5 to 120" not in html
         assert '"age":' not in source
 
     def test_help_request_has_a_prominent_admin_state(self, visitor_client):
@@ -229,7 +231,7 @@ class TestVisitorContract:
         body = visitor_client.get("/api/visitor/bootstrap").json()
         assert body["mode"] == "mock"
         assert body["inactivity_timeout_seconds"] == 120
-        assert body["public_languages"] == ["en"]
+        assert body["public_languages"] == ["en", "fr", "es", "it"]
         assert body["state"]["phase"] == "idle"
         assert body["state"]["profile"]["name_entered"] is False
 
@@ -266,6 +268,22 @@ class TestVisitorContract:
         readiness = visitor_client.get("/api/visitor/readiness").json()
         assert readiness["ready"] is True
         assert readiness["blockers"] == []
+
+    @pytest.mark.parametrize("language", ["en", "fr", "es", "it"])
+    def test_mock_readiness_accepts_all_current_speech_languages(
+        self, visitor_client, language
+    ):
+        visitor_client.post(
+            "/api/visitor/onboarding/progress",
+            json=_progress(step="privacy", language=language),
+        )
+
+        language_item = next(
+            item
+            for item in visitor_client.get("/api/visitor/readiness").json()["items"]
+            if item["id"] == "language"
+        )
+        assert language_item["status"] == "ready"
 
     def test_unknown_interest_is_rejected(self, visitor_client):
         response = visitor_client.post(

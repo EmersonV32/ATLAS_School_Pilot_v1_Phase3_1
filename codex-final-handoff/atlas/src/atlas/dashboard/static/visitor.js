@@ -74,8 +74,8 @@ const ENGLISH_STRINGS = {
   "age_pad.aria": "Numeric keypad",
   "age_pad.clear": "Clear",
   "age_pad.delete": "Delete last digit",
-  "age_pad.range": "Enter an age from 5 to 120.",
-  "age_pad.invalid": "Enter an age from 5 to 120, or choose Cancel.",
+  "age_pad.range": "Enter your age, or choose Cancel.",
+  "age_pad.invalid": "Enter a whole-number age, or choose Cancel.",
   "expertise.kicker": "Set the depth",
   "expertise.title": "How familiar are you with art?",
   "expertise.lead": "Choose the artwork that best matches your comfort level.",
@@ -246,7 +246,7 @@ function reduceAge() {
   const input = $("visitor-age");
   if (!input.value) return;
   const age = Number(input.value);
-  if (Number.isFinite(age) && age >= 5 && age <= 120) {
+  if (Number.isInteger(age) && age >= 0) {
     visitor.ageGuidance = age < 13 ? "under_13" : age < 18 ? "13_17" : "18_plus";
   }
   input.value = "";
@@ -580,13 +580,12 @@ function updateKeypadDisplay() {
   $("age-keypad-value").textContent = keypadValue || "—";
   const warning = $("age-keypad-warning");
   const age = Number(keypadValue);
-  const invalid = Boolean(keypadValue) && (!Number.isInteger(age) || age < 5 || age > 120);
+  const invalid = Boolean(keypadValue) && (!Number.isInteger(age) || age < 0);
   warning.classList.toggle("is-invalid", invalid);
   warning.textContent = invalid ? t("age_pad.invalid") : t("age_pad.range");
 }
 
 function appendAgeDigit(digit) {
-  if (keypadValue.length >= 3) return;
   keypadValue = `${keypadValue}${digit}`.replace(/^0+(?=\d)/, "");
   updateKeypadDisplay();
 }
@@ -594,7 +593,7 @@ function appendAgeDigit(digit) {
 function closeAgeKeypad(commit) {
   if (commit && keypadValue) {
     const age = Number(keypadValue);
-    if (!Number.isInteger(age) || age < 5 || age > 120) {
+    if (!Number.isInteger(age) || age < 0) {
       notice(t("age_pad.invalid"), true);
       return;
     }

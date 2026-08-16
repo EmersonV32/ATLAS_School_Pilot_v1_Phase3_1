@@ -1,0 +1,63 @@
+[CmdletBinding()]
+param(
+    [string]$HostName = "10.0.0.238",
+    [string]$RemoteUser = "super-alex",
+    [string]$RemoteRoot = "/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated"
+)
+
+$ErrorActionPreference = "Stop"
+$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$stageRoot = Join-Path $env:TEMP "atlas_visitor_patch_$timestamp"
+$archive = Join-Path $env:TEMP "atlas_visitor_patch_$timestamp.tar.gz"
+$remoteArchive = "/tmp/atlas_visitor_patch_$timestamp.tar.gz"
+
+$keyCandidates = @(
+    "C:\Users\zhupo\Documents\Codex\2026-05-24\files-mentioned-by-the-user-atlas\ssh_key\atlas_codex_jetson",
+    "C:\Users\zhupo\Documents\Codex\2026-05-24\files-mentioned-by-the-user-atlas\.atlas_jetson_ed25519"
+)
+$key = $keyCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $key) {
+    throw "ATLAS SSH key not found. Add its path to `$keyCandidates before running this deployment."
+}
+
+$files = @(
+    "src/atlas/dashboard/templates/index.html",
+    "src/atlas/dashboard/static/visitor.js",
+    "src/atlas/dashboard/static/visitor.css",
+    "src/atlas/dashboard/static/service-worker.js",
+    "src/atlas/dashboard/visitor_service.py",
+    "tests/test_visitor_dashboard.py",
+    "docs/PATCH_HISTORY.md"
+)
+$files += Get-ChildItem -LiteralPath (Join-Path $repoRoot "src/atlas/dashboard/static/visitor/locales") -File |
+    ForEach-Object { "src/atlas/dashboard/static/visitor/locales/$($_.Name)" }
+
+New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
+try {
+    foreach ($relativePath in $files) {
+        $source = Join-Path $repoRoot $relativePath
+        if (-not (Test-Path -LiteralPath $source)) { throw "Required patch file is missing: $relativePath" }
+        $destination = Join-Path $stageRoot $relativePath
+        New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+        Copy-Item -LiteralPath $source -Destination $destination -Force
+    }
+
+    tar -czf $archive -C $stageRoot .
+    if ($LASTEXITCODE -ne 0) { throw "Could not build the deployment archive." }
+
+    Write-Host "Uploading the visitor dashboard patch to the existing ATLAS service..."
+    scp -i $key $archive "$RemoteUser@$HostName`:$remoteArchive"
+    if ($LASTEXITCODE -ne 0) { throw "Upload to the Jetson failed." }
+
+    $remoteCommand = "set -euo pipefail; root='$RemoteRoot'; archive='$remoteArchive'; backup='/tmp/atlas_visitor_backup_$timestamp'; mkdir -p `"`$backup`"; cp -a `"`$root/src/atlas/dashboard`" `"`$backup/dashboard`"; cp -a `"`$root/tests/test_visitor_dashboard.py`" `"`$backup/test_visitor_dashboard.py`"; mkdir -p `"`$backup/docs`"; cp -a `"`$root/docs/PATCH_HISTORY.md`" `"`$backup/docs/PATCH_HISTORY.md`" 2>/dev/null || true; tar -xzf `"`$archive`" -C `"`$root`"; cd `"`$root`"; /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest tests/test_visitor_dashboard.py; systemctl --user restart atlas.service; sleep 2; curl -fsS http://127.0.0.1:8765/health > /dev/null; echo Visitor patch deployed. Backup retained at: `$backup"
+    ssh -i $key "$RemoteUser@$HostName" $remoteCommand
+    if ($LASTEXITCODE -ne 0) { throw "Jetson validation or restart failed. The remote backup remains available." }
+
+    Write-Host "Done. Test visitor: http://$HostName`:8765/"
+    Write-Host "Done. Test admin:   http://$HostName`:8765/admin"
+}
+finally {
+    Remove-Item -LiteralPath $stageRoot -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+}
