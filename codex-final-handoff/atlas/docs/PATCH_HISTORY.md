@@ -31,6 +31,9 @@ focused validation or restart fails.
 The second attempt found an older Jetson admin template and visitor schema. The
 deployment now uploads those dashboard dependencies together, rather than
 lowering the validation standard.
+ATLAS preloads its camera, RAG, speech, and TensorRT model before binding the
+dashboard port. The deploy health check now waits up to 50 seconds for that
+normal startup sequence instead of rolling back after two seconds.
 
 **Remaining limitation:** This patch does not claim Arabic or Mandarin speech
 recognition/synthesis support on the Jetson. It leaves those languages visibly
