@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from threading import RLock
 from typing import Any, Protocol
 from uuid import uuid4
@@ -49,7 +49,7 @@ class RuntimeBridge(Protocol):
 
 
 def _now() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _component_is_ready(value: object) -> bool:

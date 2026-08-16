@@ -24,6 +24,10 @@ result, and any remaining limitation. Do not remove older entries.
   selective upload, focused tests, service restart, and same-port health check.
 
 **Validation:** `246 passed` locally with the full Python test suite on 2026-08-16.
+The first Jetson deployment attempt exposed a Python 3.10 `datetime.UTC`
+compatibility failure before the service restarted. The patch now uses
+`timezone.utc`, and the deployment script rolls back automatically if its
+focused validation or restart fails.
 
 **Remaining limitation:** This patch does not claim Arabic or Mandarin speech
 recognition/synthesis support on the Jetson. It leaves those languages visibly
