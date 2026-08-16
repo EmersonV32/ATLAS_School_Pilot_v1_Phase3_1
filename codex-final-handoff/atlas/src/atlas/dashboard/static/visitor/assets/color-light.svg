@@ -1,3 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Abstract color and light shapes">
-  <rect width="180" height="180" fill="#efe4c9"/><circle cx="58" cy="62" r="42" fill="#d69a45"/><circle cx="112" cy="65" r="42" fill="#477284" opacity=".85"/><circle cx="89" cy="112" r="42" fill="#a44f49" opacity=".82"/><path d="M18 153h144" stroke="#6b512f" stroke-width="5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Light passing through a prism into vivid colours">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#071418"/><stop offset="1" stop-color="#104b4a"/></linearGradient><linearGradient id="prism" x2="1" y2="1"><stop stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#9fded8" stop-opacity=".3"/></linearGradient></defs><rect width="180" height="180" fill="url(#bg)"/>
+  <path d="M12 54h65" stroke="#fff" stroke-width="8"/><path d="m77 33 52 87H48Z" fill="url(#prism)" stroke="#fff" stroke-width="3"/>
+  <path d="m105 78 63-43" stroke="#e84343" stroke-width="8"/><path d="m109 86 61-25" stroke="#f09b32" stroke-width="8"/><path d="m111 95 61-4" stroke="#f5dc4e" stroke-width="8"/><path d="m110 104 60 17" stroke="#49b76d" stroke-width="8"/><path d="m106 112 57 37" stroke="#4489d8" stroke-width="8"/>
+  <circle cx="31" cy="139" r="18" fill="none" stroke="#f5cb57" stroke-width="3"/><path d="M31 112v-13M31 179v-13M4 139H-9M71 139H58M12 120l-9-9M59 167l-9-9M12 158l-9 9M59 111l-9 9" stroke="#f5cb57" stroke-width="3"/>
 </svg>

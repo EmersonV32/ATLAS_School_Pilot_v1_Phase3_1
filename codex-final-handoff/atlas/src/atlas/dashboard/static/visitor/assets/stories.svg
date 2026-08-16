@@ -1,3 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Abstract overlapping story pages">
-  <rect width="180" height="180" fill="#d8b77f"/><path d="M34 38h73v104H34z" fill="#fff7e9" stroke="#6d4e2b" stroke-width="3"/><path d="M73 52h73v93H73z" fill="#9b7130" opacity=".82"/><path d="M50 65h40M50 82h36M50 99h28" stroke="#9b7130" stroke-width="5" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="An open storybook with theatrical figures">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#0b4442"/><stop offset="1" stop-color="#081b20"/></linearGradient><linearGradient id="gold" x2="0" y2="1"><stop stop-color="#ffe08a"/><stop offset="1" stop-color="#d59a16"/></linearGradient></defs>
+  <rect width="180" height="180" fill="url(#bg)"/><circle cx="142" cy="34" r="18" fill="none" stroke="#f5cb57" opacity=".35"/><path d="M17 139c29-18 53-17 73 1V56c-23-15-48-14-73 1Zm146 0c-29-18-53-17-73 1V56c23-15 48-14 73 1Z" fill="#fff" stroke="#e0ac28" stroke-width="4"/>
+  <path d="M90 60v80M32 77c15-8 29-8 43 0M105 77c15-8 29-8 43 0M34 118c15-11 29-11 41 0M106 118c14-11 27-11 40 0" fill="none" stroke="#b8bbb5" stroke-width="3"/>
+  <path d="M48 91c-7-9-18-4-16 5 2 11 12 17 18 19 6-4 16-12 16-22-1-9-13-10-18-2Zm83-4c-11 0-19 8-19 18 12 7 26 7 38 0 0-10-8-18-19-18Z" fill="url(#gold)"/><path d="M120 101c3 4 7 5 11 5s8-1 11-5" fill="none" stroke="#11191d" stroke-width="3"/>
 </svg>

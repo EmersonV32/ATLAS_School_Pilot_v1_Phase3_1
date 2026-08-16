@@ -343,6 +343,10 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   background: var(--surface);
 }
 .visitor-live-panel { grid-area: visitor; }
+.visitor-live-panel.has-help-request {
+  border-color: #bd7a00;
+  box-shadow: inset 0 0 0 2px #f2bc36, 0 0.45rem 1.25rem rgba(124, 76, 0, 0.18);
+}
 .settings-panel { grid-area: settings; }
 .live-panel { grid-area: camera; }
 .logs-panel { grid-area: logs; }
@@ -404,6 +408,19 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .mini-readiness-list strong { font-size: 0.64rem; }
 .visitor-help-detail { min-height: 2.1rem; margin: 0; color: var(--muted); font-size: 0.72rem; }
 .visitor-assistance .compact-actions { margin-top: 0.35rem; }
+.visitor-assistance.has-help-request {
+  background: #fff4cc;
+  color: #5f3b00;
+}
+.visitor-assistance.has-help-request .visitor-help-detail {
+  color: #5f3b00;
+  font-weight: 700;
+}
+.visitor-assistance.has-help-request #btn-ack-help {
+  border-color: #7b5200;
+  background: #7b5200;
+  color: #fff;
+}
 .visitor-simulation-label { margin-top: 0.45rem; display: inline-grid; width: calc(100% - 7.2rem); vertical-align: bottom; }
 .visitor-simulation-label select { min-height: 2.15rem; padding: 0.32rem 0.45rem; }
 #btn-visitor-simulate { margin-left: 0.35rem; vertical-align: bottom; }

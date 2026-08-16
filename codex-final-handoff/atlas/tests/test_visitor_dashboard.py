@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -100,8 +101,11 @@ class TestVisitorShell:
     def test_root_is_onboarding_only(self, visitor_client):
         response = visitor_client.get("/")
         assert response.status_code == 200
-        assert "Meet art with" in response.text
-        assert "Start My Experience" in response.text
+        assert "Meet art through" in response.text
+        assert "Start my experience" in response.text
+        assert "OpenComm2" in response.text
+        assert 'id="age-keypad"' in response.text
+        assert "Available today" not in response.text
         assert "Onboarding live monitor" not in response.text
         for prohibited in ("Live camera", "YOLO", "Provider", "Latency"):
             assert prohibited not in response.text
@@ -129,8 +133,55 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v11"' in response.text
+        assert '"/static/visitor.js?v=11"' in response.text
+        assert '"/static/visitor/assets/expertise-triptych.png"' in response.text
+        assert '"/static/visitor/locales/fr.json"' in response.text
         assert '"/api/' not in response.text
         assert 'request.method !== "GET"' in response.text
+
+    def test_visitor_shell_uses_the_current_service_worker_asset_version(
+        self, visitor_client
+    ):
+        html = visitor_client.get("/").text
+        assert "/static/visitor.css?v=11" in html
+        assert "/static/visitor.js?v=11" in html
+
+    def test_language_selection_localizes_without_mirroring_navigation(
+        self, visitor_client
+    ):
+        html = visitor_client.get("/").text
+        source = (STATIC_DIR / "visitor.js").read_text(encoding="utf-8")
+        html_keys = set(re.findall(r'data-i18n="([^"]+)"', html))
+
+        assert "document.documentElement.dir = \"ltr\"" in source
+        assert 'classList.toggle("is-rtl-language"' in source
+        assert "Interface copy remains in English" not in source
+        for locale_name in ("fr", "es", "it", "ar", "zh-Hant"):
+            locale = json.loads(
+                (STATIC_DIR / "visitor" / "locales" / f"{locale_name}.json")
+                .read_text(encoding="utf-8")
+            )
+            assert html_keys <= set(locale["strings"])
+
+    def test_age_is_entered_with_private_numeric_keypad(self, visitor_client):
+        html = visitor_client.get("/").text
+        source = (STATIC_DIR / "visitor.js").read_text(encoding="utf-8")
+
+        assert 'id="visitor-age" type="text" readonly inputmode="none"' in html
+        assert html.count('data-digit="') == 10
+        assert "ageGuidance = age < 13" in source
+        assert '"age":' not in source
+
+    def test_help_request_has_a_prominent_admin_state(self, visitor_client):
+        html = visitor_client.get("/admin").text
+        source = (STATIC_DIR / "admin.js").read_text(encoding="utf-8")
+        css = (STATIC_DIR / "style.css").read_text(encoding="utf-8")
+
+        assert 'id="visitor-assistance"' in html
+        assert 'aria-live="assertive"' in html
+        assert "HELP REQUEST · ATLAS Admin" in source
+        assert ".visitor-live-panel.has-help-request" in css
 
     def test_interest_assets_are_local_and_marked_unapproved(self):
         manifest = json.loads(
@@ -142,6 +193,27 @@ class TestVisitorShell:
         for item in manifest["interests"]:
             path = STATIC_DIR / item["asset"].removeprefix("/static/")
             assert path.is_file()
+
+    def test_journey_publishes_the_destination_screen_before_rendering_it(self):
+        source = (STATIC_DIR / "visitor.js").read_text(encoding="utf-8")
+        go_next = source.split("async function goNext() {", 1)[1].split(
+            "\n}\n\nasync function goBack()",
+            1,
+        )[0]
+        go_back = source.split("async function goBack() {", 1)[1].split(
+            "\n}\n\nfunction readinessIcon",
+            1,
+        )[0]
+
+        assert "await saveProgress(next);" in go_next
+        assert "saveProgress(current)" not in go_next
+        assert go_next.index("await saveProgress(next);") < go_next.index(
+            "showScreen(next);"
+        )
+        assert "await saveProgress(previous);" in go_back
+        assert go_back.index("await saveProgress(previous);") < go_back.index(
+            "showScreen(previous);"
+        )
 
 
 class TestVisitorContract:

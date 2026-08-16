@@ -1,3 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Abstract group of people">
-  <rect width="180" height="180" fill="#6a8279"/><circle cx="90" cy="52" r="23" fill="#f1d8ad"/><circle cx="42" cy="70" r="18" fill="#d59c74"/><circle cx="138" cy="70" r="18" fill="#b97559"/><path d="M54 151c0-43 14-68 36-68s36 25 36 68z" fill="#293e43"/><path d="M7 151c0-35 13-57 35-57s33 22 33 57zM105 151c0-35 11-57 33-57s35 22 35 57z" fill="#efe1c8" opacity=".92"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="A connected community of distinct people">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#004e4a"/><stop offset="1" stop-color="#10191d"/></linearGradient><linearGradient id="gold" x2="0" y2="1"><stop stop-color="#ffe38e"/><stop offset="1" stop-color="#d79d1c"/></linearGradient></defs><rect width="180" height="180" fill="url(#bg)"/>
+  <path d="M40 102 90 61l50 41M40 102l50 46 50-46M90 61v87" fill="none" stroke="#f5cb57" stroke-width="3" opacity=".55"/>
+  <circle cx="90" cy="47" r="23" fill="#d79a6b" stroke="#fff" stroke-width="3"/><path d="M51 118c0-31 18-47 39-47s39 16 39 47" fill="#e0ac28" stroke="#fff" stroke-width="3"/>
+  <circle cx="38" cy="98" r="18" fill="#8a5c44" stroke="#fff" stroke-width="3"/><path d="M8 153c1-28 13-41 30-41 18 0 30 13 31 41" fill="#2f78a8" stroke="#fff" stroke-width="3"/>
+  <circle cx="142" cy="98" r="18" fill="#efd0ad" stroke="#fff" stroke-width="3"/><path d="M111 153c1-28 13-41 31-41 17 0 29 13 30 41" fill="#9b3f5c" stroke="#fff" stroke-width="3"/>
+  <path d="M19 159h142" stroke="url(#gold)" stroke-width="6" stroke-linecap="round"/>
 </svg>

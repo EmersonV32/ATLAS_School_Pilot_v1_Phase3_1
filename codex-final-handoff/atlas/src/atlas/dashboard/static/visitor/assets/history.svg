@@ -1,3 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Abstract museum columns">
-  <rect width="180" height="180" fill="#b86952"/><path d="M24 58h132L90 22zM30 65h120v15H30zM39 84h18v54H39zM68 84h18v54H68zM97 84h18v54H97zM126 84h18v54h-18zM25 142h130v16H25z" fill="#f5ead6"/><path d="M90 22v36" stroke="#9b7130" stroke-width="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Classical columns and a historical timeline">
+  <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#263b43"/><stop offset="1" stop-color="#081417"/></linearGradient><linearGradient id="stone" x2="1"><stop stop-color="#fff"/><stop offset=".5" stop-color="#d9d9d3"/><stop offset="1" stop-color="#aeb1ad"/></linearGradient></defs><rect width="180" height="180" fill="url(#bg)"/>
+  <path d="M20 49 90 17l70 32-7 13H27Zm15 86h110l12 18H23Z" fill="url(#stone)" stroke="#e0ac28" stroke-width="3"/>
+  <path d="M43 62h20v73H43zm37 0h20v73H80zm37 0h20v73h-20z" fill="url(#stone)"/><path d="M48 65v66M58 65v66M85 65v66M95 65v66M122 65v66M132 65v66" stroke="#9da29e" stroke-width="2"/>
+  <path d="M17 162h146" stroke="#f5cb57" stroke-width="4"/><circle cx="36" cy="162" r="8" fill="#f5cb57"/><circle cx="90" cy="162" r="8" fill="#f5cb57"/><circle cx="144" cy="162" r="8" fill="#f5cb57"/>
 </svg>

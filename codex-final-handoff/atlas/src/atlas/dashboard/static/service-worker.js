@@ -1,11 +1,11 @@
 /* Static shell only. API requests are deliberately never cached. */
 "use strict";
 
-const CACHE_NAME = "atlas-visitor-shell-v5";
+const CACHE_NAME = "atlas-visitor-shell-v11";
 const STATIC_ALLOWLIST = [
   "/",
-  "/static/visitor.css?v=5",
-  "/static/visitor.js?v=5",
+  "/static/visitor.css?v=11",
+  "/static/visitor.js?v=11",
   "/static/manifest.webmanifest",
   "/static/visitor/interests.json",
   "/static/visitor/assets/stories.svg",
@@ -13,7 +13,20 @@ const STATIC_ALLOWLIST = [
   "/static/visitor/assets/symbols.svg",
   "/static/visitor/assets/history.svg",
   "/static/visitor/assets/color-light.svg",
-  "/static/visitor/assets/people-society.svg"
+  "/static/visitor/assets/people-society.svg",
+  "/static/visitor/assets/expertise-triptych.png",
+  "/static/visitor/assets/flag-en.svg",
+  "/static/visitor/assets/flag-fr.svg",
+  "/static/visitor/assets/flag-es.svg",
+  "/static/visitor/assets/flag-it.svg",
+  "/static/visitor/assets/flag-ar.svg",
+  "/static/visitor/assets/flag-zh-hant.svg",
+  "/static/visitor/locales/en.json",
+  "/static/visitor/locales/fr.json",
+  "/static/visitor/locales/es.json",
+  "/static/visitor/locales/it.json",
+  "/static/visitor/locales/ar.json",
+  "/static/visitor/locales/zh-Hant.json"
 ];
 
 self.addEventListener("install", (event) => {

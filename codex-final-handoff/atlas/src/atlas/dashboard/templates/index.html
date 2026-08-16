@@ -3,42 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f3ecdf">
+  <meta name="theme-color" content="#f8f8f6">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>ATLAS Museum Guide</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
-  <link rel="stylesheet" href="/static/visitor.css?v=5">
+  <link rel="stylesheet" href="/static/visitor.css?v=11">
 </head>
 <body class="visitor-page">
-  <div class="ambient-art" aria-hidden="true">
-    <span class="ambient-ring ring-one"></span><span class="ambient-ring ring-two"></span>
-    <span class="ambient-line line-one"></span><span class="ambient-line line-two"></span>
-  </div>
-
   <header class="visitor-header">
     <div class="visitor-brand" aria-label="ATLAS museum guide">
-      <span class="visitor-brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-      <span><strong>ATLAS</strong><small>Museum guide</small></span>
+      <svg class="atlas-symbol" viewBox="0 0 64 64" aria-hidden="true">
+        <path class="atlas-symbol-frame" d="M32 3 57 17v30L32 61 7 47V17Z"/>
+        <path class="atlas-symbol-axis" d="M32 11v42M14 22h36M14 42h36"/>
+        <path class="atlas-symbol-a" d="m20 47 12-31 12 31M24 37h16"/>
+        <circle cx="32" cy="7" r="2.5"/><circle cx="55" cy="19" r="2.5"/><circle cx="9" cy="45" r="2.5"/>
+      </svg>
+      <span><strong>ATLAS</strong><small data-i18n="brand.subtitle">Museum guide</small></span>
     </div>
-    <div class="visitor-header-actions">
-      <span id="connection-status" class="visitor-status" role="status"><i></i> Private local setup</span>
-      <button type="button" class="text-button" data-open-dialog="privacy-dialog">Privacy</button>
-    </div>
+    <span id="connection-status" class="visitor-status" role="status"><i></i><span data-i18n="status.connecting">Connecting to your guide</span></span>
   </header>
 
   <main id="visitor-app" class="kiosk-shell">
-    <nav class="journey-progress" aria-label="Setup progress">
+    <nav class="journey-progress" aria-label="Setup progress" data-i18n-aria-label="progress.aria">
       <span id="progress-label">Welcome</span>
-      <ol id="progress-dots">
-        <li class="is-current"><span class="sr-only">Welcome</span></li>
-        <li><span class="sr-only">Language</span></li>
-        <li><span class="sr-only">About you</span></li>
-        <li><span class="sr-only">Art familiarity</span></li>
-        <li><span class="sr-only">Interests</span></li>
-        <li><span class="sr-only">Accessibility</span></li>
-        <li><span class="sr-only">Headset</span></li>
-        <li><span class="sr-only">Readiness</span></li>
-        <li><span class="sr-only">Privacy</span></li>
+      <ol id="progress-dots" aria-hidden="true">
+        <li class="is-current"></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li>
       </ol>
       <span id="progress-count">1 of 9</span>
     </nav>
@@ -46,134 +35,168 @@
     <section class="experience-card" aria-live="polite">
       <div id="screen-welcome" class="onboarding-screen is-active" data-screen="welcome">
         <div class="welcome-layout">
-          <div class="screen-copy">
-            <p class="kicker">A guide shaped around you · every story deserves a listener</p>
-            <h1>Meet art with<br><em>your own curiosity.</em></h1>
-            <p class="lead">A few quick choices help ATLAS match its stories, pace, and voice to you. It takes about two minutes.</p>
+          <div class="screen-copy localized-copy">
+            <p class="kicker" data-i18n="welcome.kicker">A museum guide shaped around you</p>
+            <h1 data-i18n="welcome.title">Meet art through your own curiosity.</h1>
+            <p class="lead" data-i18n="welcome.lead">A few quick choices help ATLAS match its stories, pace, and voice to you. It takes about two minutes.</p>
             <div class="welcome-actions">
-              <button type="button" class="primary-action" data-next>Begin setup <span aria-hidden="true">→</span></button>
-              <button type="button" class="quiet-action" data-open-dialog="privacy-dialog">How your choices are used</button>
+              <button type="button" class="primary-action" data-next><span data-i18n="actions.begin">Begin setup</span><span aria-hidden="true">→</span></button>
+              <button type="button" class="privacy-link" data-open-dialog="privacy-dialog" data-i18n="actions.privacy">How your choices are used</button>
             </div>
           </div>
-          <div class="atlas-orbit" aria-hidden="true">
-            <div class="orbit orbit-outer"><span></span><span></span><span></span></div>
-            <div class="orbit orbit-inner"><span></span><span></span></div>
-            <div class="orbit-core"><b>A</b><small>READY</small></div>
+          <div class="atlas-hero-mark" aria-hidden="true">
+            <div class="atlas-scan-line"></div>
+            <svg viewBox="0 0 260 260">
+              <path class="hero-hex outer" d="M130 8 236 69v122l-106 61L24 191V69Z"/>
+              <path class="hero-hex inner" d="M130 38 210 84v92l-80 46-80-46V84Z"/>
+              <circle cx="130" cy="130" r="76" class="hero-ring"/>
+              <path class="hero-a" d="m82 184 48-123 48 123M99 143h62"/>
+              <path class="hero-grid" d="M130 8v45M130 207v45M24 69l39 23M197 168l39 23M24 191l39-23M197 92l39-23"/>
+            </svg>
           </div>
         </div>
       </div>
 
       <div id="screen-language" class="onboarding-screen" data-screen="language">
-        <div class="centered-heading">
-          <p class="kicker">First, choose a voice</p>
-          <h1>Which language feels most comfortable?</h1>
-          <p>You can change this later with a museum team member.</p>
+        <div class="centered-heading localized-copy">
+          <p class="kicker" data-i18n="language.kicker">Choose your language</p>
+          <h1 data-i18n="language.title">Which language feels most comfortable?</h1>
+          <p data-i18n="language.lead">The entire setup will switch as soon as you choose.</p>
         </div>
         <fieldset class="language-grid choice-grid" id="language-options">
-          <legend class="sr-only">Choose a language</legend>
-          <label class="choice-tile language-tile"><input type="radio" name="language" value="en"><span class="language-code">EN</span><strong>English</strong><small>Available today</small></label>
-          <label class="choice-tile language-tile is-preview"><input type="radio" name="language" value="fr"><span class="language-code">FR</span><strong>Français</strong><small>Preview</small></label>
-          <label class="choice-tile language-tile is-preview"><input type="radio" name="language" value="es"><span class="language-code">ES</span><strong>Español</strong><small>Preview</small></label>
-          <label class="choice-tile language-tile is-preview"><input type="radio" name="language" value="it"><span class="language-code">IT</span><strong>Italiano</strong><small>Preview</small></label>
-          <label class="choice-tile language-tile is-preview"><input type="radio" name="language" value="ar"><span class="language-code">ع</span><strong>العربية</strong><small>Preview</small></label>
-          <label class="choice-tile language-tile is-preview"><input type="radio" name="language" value="zh-Hant"><span class="language-code">繁</span><strong>繁體中文</strong><small>Preview</small></label>
+          <legend class="sr-only" data-i18n="language.legend">Choose a language</legend>
+          <label class="choice-tile language-tile"><input type="radio" name="language" value="en"><img class="language-flag" src="/static/visitor/assets/flag-en.svg" alt=""><strong>English</strong></label>
+          <label class="choice-tile language-tile"><input type="radio" name="language" value="fr"><img class="language-flag" src="/static/visitor/assets/flag-fr.svg" alt=""><strong>Français</strong></label>
+          <label class="choice-tile language-tile"><input type="radio" name="language" value="es"><img class="language-flag" src="/static/visitor/assets/flag-es.svg" alt=""><strong>Español</strong></label>
+          <label class="choice-tile language-tile"><input type="radio" name="language" value="it"><img class="language-flag" src="/static/visitor/assets/flag-it.svg" alt=""><strong>Italiano</strong></label>
+          <label class="choice-tile language-tile"><input type="radio" name="language" value="ar"><img class="language-flag" src="/static/visitor/assets/flag-ar.svg" alt=""><strong>العربية</strong></label>
+          <label class="choice-tile language-tile"><input type="radio" name="language" value="zh-Hant"><img class="language-flag" src="/static/visitor/assets/flag-zh-hant.svg" alt=""><strong>繁體中文</strong></label>
         </fieldset>
       </div>
 
       <div id="screen-about" class="onboarding-screen" data-screen="about">
-        <div class="split-heading">
-          <div><p class="kicker">A little context</p><h1>How should ATLAS guide you?</h1></div>
-          <p>Both answers are optional. Your name stays on this screen and your age becomes a broad guidance band.</p>
+        <div class="split-heading localized-copy">
+          <div><p class="kicker" data-i18n="about.kicker">A little context</p><h1 data-i18n="about.title">How should ATLAS guide you?</h1></div>
+          <p data-i18n="about.lead">Both answers are optional. Your name stays on this screen and your age becomes a broad guidance band.</p>
         </div>
-        <div class="about-form">
-          <label class="large-field">First name <span>Optional</span><input id="visitor-name" type="text" maxlength="32" autocomplete="off" dir="auto" placeholder="What should ATLAS call you?"></label>
-          <label class="large-field">Age <span>Optional</span><input id="visitor-age" type="number" min="5" max="120" inputmode="numeric" autocomplete="off" dir="auto" placeholder="Used only to adjust explanations"></label>
+        <div class="about-form localized-copy">
+          <label class="large-field"><span data-i18n="about.name">First name</span><small data-i18n="common.optional">Optional</small><input id="visitor-name" type="text" maxlength="32" autocomplete="off" dir="auto" placeholder="What should ATLAS call you?" data-i18n-placeholder="about.name_placeholder"></label>
+          <label class="large-field"><span data-i18n="about.age">Age</span><small data-i18n="common.optional">Optional</small><input id="visitor-age" type="text" readonly inputmode="none" autocomplete="off" dir="ltr" placeholder="Tap to enter your age" data-i18n-placeholder="about.age_placeholder" aria-haspopup="dialog" aria-controls="age-keypad"></label>
         </div>
-        <aside class="privacy-note"><span aria-hidden="true">◇</span><p><strong>Designed to forget.</strong> These setup choices clear when your visit ends or the screen is inactive.</p></aside>
       </div>
 
       <div id="screen-expertise" class="onboarding-screen" data-screen="expertise">
-        <div class="centered-heading"><p class="kicker">Set the depth</p><h1>How familiar are you with art?</h1><p>There is no wrong answer. This only changes how ATLAS explains ideas.</p></div>
+        <div class="centered-heading localized-copy"><p class="kicker" data-i18n="expertise.kicker">Set the depth</p><h1 data-i18n="expertise.title">How familiar are you with art?</h1><p data-i18n="expertise.lead">Choose the artwork that best matches your comfort level.</p></div>
         <fieldset class="choice-grid expertise-grid">
-          <legend class="sr-only">Choose your art familiarity</legend>
-          <label class="choice-tile illustrated-choice"><input type="radio" name="expertise" value="curious"><span class="choice-glyph glyph-spark" aria-hidden="true"></span><strong>Curious explorer</strong><small>Keep it clear, lively, and welcoming.</small></label>
-          <label class="choice-tile illustrated-choice"><input type="radio" name="expertise" value="familiar"><span class="choice-glyph glyph-frame" aria-hidden="true"></span><strong>I know a little</strong><small>Add context and a few art terms.</small></label>
-          <label class="choice-tile illustrated-choice"><input type="radio" name="expertise" value="enthusiast"><span class="choice-glyph glyph-layers" aria-hidden="true"></span><strong>Art enthusiast</strong><small>Go deeper into technique and history.</small></label>
+          <legend class="sr-only" data-i18n="expertise.legend">Choose your art familiarity</legend>
+          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="curious"><span class="artwork-thumb art-mona" role="img" aria-label="Mona Lisa"></span><span class="choice-copy"><strong data-i18n="expertise.curious_title">Curious explorer</strong><small data-i18n="expertise.curious_desc">Clear, lively stories with familiar references.</small><em data-i18n="expertise.curious_art">Mona Lisa</em></span></label>
+          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="familiar"><span class="artwork-thumb art-wave" role="img" aria-label="The Great Wave off Kanagawa"></span><span class="choice-copy"><strong data-i18n="expertise.familiar_title">I know a little</strong><small data-i18n="expertise.familiar_desc">More context with a few art terms.</small><em data-i18n="expertise.familiar_art">The Great Wave</em></span></label>
+          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="enthusiast"><span class="artwork-thumb art-ambassadors" role="img" aria-label="The Ambassadors"></span><span class="choice-copy"><strong data-i18n="expertise.enthusiast_title">Art enthusiast</strong><small data-i18n="expertise.enthusiast_desc">Deeper technique, symbolism, and history.</small><em data-i18n="expertise.enthusiast_art">The Ambassadors</em></span></label>
         </fieldset>
       </div>
 
       <div id="screen-interests" class="onboarding-screen" data-screen="interests">
-        <div class="split-heading"><div><p class="kicker">Choose your lens</p><h1>What draws you into an artwork?</h1></div><p>Select up to three, or continue without choosing.</p></div>
-        <fieldset><legend class="sr-only">Choose up to three interests</legend><div id="interest-grid" class="interest-grid"></div></fieldset>
+        <div class="split-heading localized-copy"><div><p class="kicker" data-i18n="interests.kicker">Choose your lens</p><h1 data-i18n="interests.title">What draws you into an artwork?</h1></div><p data-i18n="interests.lead">Select up to three, or continue without choosing.</p></div>
+        <fieldset><legend class="sr-only" data-i18n="interests.legend">Choose up to three interests</legend><div id="interest-grid" class="interest-grid"></div></fieldset>
         <p id="interest-count" class="selection-count">0 of 3 selected</p>
       </div>
 
       <div id="screen-accessibility" class="onboarding-screen" data-screen="accessibility">
-        <div class="centered-heading"><p class="kicker">Make the visit comfortable</p><h1>Would any of these help?</h1><p>Choose as many as you like. You can also skip this step.</p></div>
+        <div class="centered-heading localized-copy"><p class="kicker" data-i18n="accessibility.kicker">Make the visit comfortable</p><h1 data-i18n="accessibility.title">Would any of these help?</h1><p data-i18n="accessibility.lead">Choose as many as you like, or skip this step.</p></div>
         <fieldset class="choice-grid accessibility-grid">
-          <legend class="sr-only">Accessibility preferences</legend>
-          <label class="choice-tile compact-choice"><input type="checkbox" name="accessibility" value="audio_description"><span aria-hidden="true">◉</span><strong>Audio description</strong><small>More detail about visual elements.</small></label>
-          <label class="choice-tile compact-choice"><input type="checkbox" name="accessibility" value="simple_language"><span aria-hidden="true">Aa</span><strong>Simple language</strong><small>Shorter sentences and less jargon.</small></label>
-          <label class="choice-tile compact-choice"><input type="checkbox" name="accessibility" value="slower_pace"><span aria-hidden="true">◌</span><strong>Slower pace</strong><small>More pauses and time to reflect.</small></label>
-          <label class="choice-tile compact-choice"><input type="checkbox" name="accessibility" value="none"><span aria-hidden="true">✓</span><strong>No adjustments</strong><small>Use the standard experience.</small></label>
+          <legend class="sr-only" data-i18n="accessibility.legend">Accessibility preferences</legend>
+          <label class="choice-tile compact-choice"><input type="checkbox" name="accessibility" value="audio_description"><span class="access-icon visual-icon" aria-hidden="true"></span><span><strong data-i18n="accessibility.audio_title">Audio description</strong><small data-i18n="accessibility.audio_desc">More detail about visual elements.</small></span></label>
+          <label class="choice-tile compact-choice"><input type="checkbox" name="accessibility" value="simple_language"><span class="access-icon text-icon" aria-hidden="true">Aa</span><span><strong data-i18n="accessibility.simple_title">Simple language</strong><small data-i18n="accessibility.simple_desc">Shorter sentences and less jargon.</small></span></label>
+          <label class="choice-tile compact-choice"><input type="checkbox" name="accessibility" value="slower_pace"><span class="access-icon pace-icon" aria-hidden="true"></span><span><strong data-i18n="accessibility.pace_title">Slower pace</strong><small data-i18n="accessibility.pace_desc">More pauses and time to reflect.</small></span></label>
+          <label class="choice-tile compact-choice"><input type="checkbox" name="accessibility" value="none"><span class="access-icon standard-icon" aria-hidden="true">✓</span><span><strong data-i18n="accessibility.none_title">No adjustments</strong><small data-i18n="accessibility.none_desc">Use the standard experience.</small></span></label>
         </fieldset>
       </div>
 
       <div id="screen-headset" class="onboarding-screen" data-screen="headset">
         <div class="headset-layout">
-          <div class="headset-illustration" aria-hidden="true"><div class="head-band"></div><div class="ear-piece left"></div><div class="ear-piece right"></div><div class="mic-boom"></div></div>
-          <div class="screen-copy"><p class="kicker">Wear it your way</p><h1>Set the headset just above your ears.</h1><ol class="instruction-list"><li><span>1</span>Keep your ears open to the museum around you.</li><li><span>2</span>Place the microphone near your cheek.</li><li><span>3</span>Use the side button whenever you want to speak.</li></ol><button type="button" class="quiet-action help-inline" data-help="headset">I need help with the headset</button></div>
+          <div class="opencomm-demo" role="img" aria-label="Looping demonstration of a Shokz OpenComm2 headset being fitted and its controls">
+            <svg viewBox="0 0 520 390" aria-hidden="true">
+              <path class="profile-head" d="M210 70c67 0 110 49 110 112 0 56-24 76-43 98-17 20-24 40-24 71H120c5-43 7-70-10-104-13-26-18-51-12-82C109 108 155 70 210 70Z"/>
+              <path class="profile-ear" d="M286 165c25-8 37 12 28 36-6 17-18 27-35 28"/>
+              <g class="opencomm-headset">
+                <path class="headset-band" d="M75 215C41 153 74 82 153 55c86-30 177-4 219 61"/>
+                <path class="headset-wire" d="M90 222c-16 20-23 49-20 77M368 119c20 18 27 45 22 73"/>
+                <rect class="headset-pad pad-left" x="62" y="207" width="48" height="70" rx="20"/>
+                <rect class="headset-pad pad-right" x="362" y="181" width="48" height="70" rx="20"/>
+                <g class="mic-arm"><path d="M378 230c-2 75-44 91-104 88"/><circle cx="269" cy="318" r="10"/></g>
+                <g class="volume-buttons"><rect x="374" y="190" width="7" height="17" rx="3"/><rect x="390" y="190" width="7" height="17" rx="3"/></g>
+                <circle class="multi-button" cx="84" cy="241" r="9"/>
+              </g>
+              <g class="headset-callout callout-fit"><path d="M55 84h76"/><circle cx="139" cy="82" r="5"/><text x="10" y="70" data-i18n="headset.callout_fit">OPEN-EAR FIT</text></g>
+              <g class="headset-callout callout-volume"><path d="M397 116v61"/><circle cx="397" cy="183" r="5"/><text x="348" y="98" data-i18n="headset.callout_volume">VOLUME + / −</text></g>
+              <g class="headset-callout callout-capture"><path d="M66 309l17-58"/><circle cx="84" cy="243" r="5"/><text x="8" y="332" data-i18n="headset.callout_capture">2× CAPTURE</text></g>
+              <g class="headset-callout callout-mic"><path d="M334 348l-57-28"/><circle cx="270" cy="318" r="5"/><text x="338" y="367" data-i18n="headset.callout_mic">LOWER MIC</text></g>
+            </svg>
+            <div class="demo-timeline" aria-hidden="true"><span></span></div>
+          </div>
+          <div class="screen-copy localized-copy"><p class="kicker" data-i18n="headset.kicker">Your OpenComm2</p><h1 data-i18n="headset.title">Open ears. Clear voice. One capture button.</h1><ol class="instruction-list"><li><span>1</span><p data-i18n="headset.step1">Rest the pads just in front of your ears and keep the band behind your head.</p></li><li><span>2</span><p data-i18n="headset.step2">Lower the microphone toward your mouth. Use + and − to adjust volume.</p></li><li><span>3</span><p data-i18n="headset.step3">Double-press the multifunction button to manually capture the artwork in front of you.</p></li></ol><button type="button" class="quiet-action help-inline" data-help="headset" data-i18n="headset.help">I need help with the headset</button></div>
         </div>
       </div>
 
       <div id="screen-readiness" class="onboarding-screen" data-screen="readiness">
-        <div class="split-heading"><div><p class="kicker">One last check</p><h1>Preparing your ATLAS unit</h1></div><span id="readiness-summary" class="readiness-summary is-checking">Checking</span></div>
+        <div class="split-heading localized-copy"><div><p class="kicker" data-i18n="readiness.kicker">One last check</p><h1 data-i18n="readiness.title">Preparing your ATLAS unit</h1></div><span id="readiness-summary" class="readiness-summary is-checking" data-i18n="readiness.checking">Checking</span></div>
         <ul id="readiness-list" class="readiness-list" aria-live="polite"></ul>
         <div id="readiness-blocker" class="readiness-blocker hidden" role="alert"></div>
       </div>
 
       <div id="screen-privacy" class="onboarding-screen" data-screen="privacy">
-        <div class="privacy-layout">
+        <div class="privacy-layout localized-copy">
           <div class="privacy-seal" aria-hidden="true"><span>◇</span><small>LOCAL<br>SETUP</small></div>
-          <div class="screen-copy"><p class="kicker">You are in control</p><h1>Your setup is temporary.</h1><p class="lead">ATLAS uses your choices only to shape this visit. The setup clears when the experience ends, and this kiosk never sends your name or exact age to the server.</p><ul class="privacy-points"><li>Coarse preferences only</li><li>No raw setup media stored</li><li>Clear stop available to museum staff</li></ul><button id="btn-start-experience" type="button" class="primary-action start-action">Start My Experience <span aria-hidden="true">→</span></button><p id="start-error" class="form-error hidden" role="alert"></p></div>
+          <div class="screen-copy"><p class="kicker" data-i18n="privacy.kicker">You are in control</p><h1 data-i18n="privacy.title">Your setup is temporary.</h1><p class="lead" data-i18n="privacy.lead">ATLAS uses your choices only to shape this visit. Your name and exact age never leave this screen.</p><ul class="privacy-points"><li data-i18n="privacy.point1">Coarse preferences only</li><li data-i18n="privacy.point2">No raw setup media stored</li><li data-i18n="privacy.point3">Museum staff can clear the session</li></ul><button id="btn-start-experience" type="button" class="primary-action start-action"><span data-i18n="actions.start">Start my experience</span><span aria-hidden="true">→</span></button><p id="start-error" class="form-error hidden" role="alert"></p></div>
         </div>
       </div>
 
       <div id="screen-in-use" class="onboarding-screen" data-screen="in_use">
-        <div class="completion-state"><div class="completion-mark" aria-hidden="true">A</div><p class="kicker">Profile transferred</p><h1>You are ready to explore.</h1><p>Put on your ATLAS unit and follow the museum team’s direction. This kiosk will clear itself.</p><button type="button" class="quiet-action" data-reset>Set up for the next visitor</button></div>
+        <div class="completion-state localized-copy"><svg class="completion-logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 3 57 17v30L32 61 7 47V17Z"/><path d="m19 48 13-33 13 33M24 37h16"/></svg><p class="kicker" data-i18n="in_use.kicker">Profile transferred</p><h1 data-i18n="in_use.title">You are ready to explore.</h1><p data-i18n="in_use.lead">Put on your ATLAS unit and follow the museum team’s direction. This kiosk will clear itself.</p><button type="button" class="quiet-action" data-reset data-i18n="actions.next_visitor">Set up for the next visitor</button></div>
       </div>
 
       <div id="screen-thank-you" class="onboarding-screen" data-screen="thank_you">
-        <div class="completion-state"><div class="completion-mark is-thanks" aria-hidden="true">✓</div><p class="kicker">Experience ended</p><h1>Thank you for exploring with ATLAS.</h1><p>Your temporary setup choices have been cleared.</p><button type="button" class="primary-action" data-reset>Welcome the next visitor</button></div>
+        <div class="completion-state localized-copy"><div class="completion-check" aria-hidden="true">✓</div><p class="kicker" data-i18n="thanks.kicker">Experience ended</p><h1 data-i18n="thanks.title">Thank you for exploring with ATLAS.</h1><p data-i18n="thanks.lead">Your temporary setup choices have been cleared.</p><button type="button" class="primary-action" data-reset data-i18n="actions.welcome_next">Welcome the next visitor</button></div>
       </div>
 
       <footer id="step-actions" class="step-actions hidden">
-        <button type="button" id="btn-back" class="back-action" data-back><span aria-hidden="true">←</span> Back</button>
+        <button type="button" id="btn-back" class="back-action" data-back><span aria-hidden="true">←</span><span data-i18n="actions.back">Back</span></button>
         <span id="step-hint">Choose one to continue</span>
-        <button type="button" id="btn-continue" class="primary-action" data-next>Continue <span aria-hidden="true">→</span></button>
+        <button type="button" id="btn-continue" class="primary-action" data-next><span data-i18n="actions.continue">Continue</span><span aria-hidden="true">→</span></button>
       </footer>
     </section>
   </main>
 
-  <button type="button" class="help-button" data-help="onboarding"><span aria-hidden="true">?</span> Need help</button>
+  <button type="button" class="help-button" data-help="onboarding"><span aria-hidden="true">?</span><span data-i18n="actions.help">Need help</span></button>
   <p id="visitor-notice" class="visitor-notice hidden" role="status"></p>
 
-  <dialog id="privacy-dialog" class="visitor-dialog">
-    <form method="dialog"><button class="dialog-close" aria-label="Close privacy information">×</button></form>
-    <p class="kicker">Privacy at a glance</p><h2>Personal for this visit. Temporary by design.</h2>
-    <p>Your first name stays in this browser’s memory only. If you enter an age, it is immediately converted into one of three broad guidance bands before any update is sent.</p>
-    <p>No visitor answer is written to browser storage. Setup state is cleared on completion, staff stop, reset, or inactivity.</p>
-    <form method="dialog"><button class="primary-action">Got it</button></form>
+  <dialog id="age-keypad" class="visitor-dialog keypad-dialog">
+    <div class="keypad-heading localized-copy"><p class="kicker" data-i18n="age_pad.kicker">Age guidance</p><h2 data-i18n="age_pad.title">Enter your age</h2><output id="age-keypad-value" aria-live="polite">—</output></div>
+    <div class="number-pad" aria-label="Numeric keypad" data-i18n-aria-label="age_pad.aria">
+      <button type="button" data-digit="1">1</button><button type="button" data-digit="2">2</button><button type="button" data-digit="3">3</button>
+      <button type="button" data-digit="4">4</button><button type="button" data-digit="5">5</button><button type="button" data-digit="6">6</button>
+      <button type="button" data-digit="7">7</button><button type="button" data-digit="8">8</button><button type="button" data-digit="9">9</button>
+      <button type="button" id="age-clear" class="keypad-command" data-i18n="age_pad.clear">Clear</button><button type="button" data-digit="0">0</button><button type="button" id="age-delete" class="keypad-command" aria-label="Delete last digit" data-i18n-aria-label="age_pad.delete">⌫</button>
+    </div>
+    <div class="dialog-actions"><button id="age-cancel" type="button" class="quiet-action" data-i18n="actions.cancel">Cancel</button><button id="age-done" type="button" class="primary-action" data-i18n="actions.done">Done</button></div>
   </dialog>
 
-  <dialog id="help-dialog" class="visitor-dialog help-dialog">
-    <form method="dialog"><button class="dialog-close" aria-label="Close help dialog">×</button></form>
-    <p class="kicker">Museum assistance</p><h2 id="help-title">Would you like a team member?</h2>
-    <p id="help-message">Send a quiet request to the operations desk. You can keep using this screen while you wait.</p>
-    <div class="dialog-actions"><form method="dialog"><button class="quiet-action">Not now</button></form><button id="btn-send-help" type="button" class="primary-action">Request help</button></div>
+  <dialog id="privacy-dialog" class="visitor-dialog localized-copy">
+    <form method="dialog"><button class="dialog-close" aria-label="Close privacy information" data-i18n-aria-label="privacy.close">×</button></form>
+    <p class="kicker" data-i18n="privacy.dialog_kicker">Privacy at a glance</p><h2 data-i18n="privacy.dialog_title">Personal for this visit. Temporary by design.</h2>
+    <p data-i18n="privacy.dialog_p1">Your first name stays in this browser’s memory only. Your age is converted into a broad guidance band before any update is sent.</p>
+    <p data-i18n="privacy.dialog_p2">Nothing is written to browser storage. Setup clears on completion, staff stop, reset, or inactivity.</p>
+    <form method="dialog"><button class="primary-action" data-i18n="actions.got_it">Got it</button></form>
+  </dialog>
+
+  <dialog id="help-dialog" class="visitor-dialog help-dialog localized-copy">
+    <form method="dialog"><button class="dialog-close" aria-label="Close help dialog" data-i18n-aria-label="help.close">×</button></form>
+    <p class="kicker" data-i18n="help.kicker">Museum assistance</p><h2 id="help-title" data-i18n="help.title">Would you like a team member?</h2>
+    <p id="help-message" data-i18n="help.message">Send a quiet request to the operations desk. You can keep using this screen while you wait.</p>
+    <div class="dialog-actions"><form method="dialog"><button class="quiet-action" data-i18n="actions.not_now">Not now</button></form><button id="btn-send-help" type="button" class="primary-action" data-i18n="actions.request_help">Request help</button></div>
   </dialog>
 
   <noscript><p class="noscript-message">JavaScript is required for the ATLAS setup experience. Please ask a museum team member for help.</p></noscript>
-  <script src="/static/visitor.js?v=5" defer></script>
+  <script src="/static/visitor.js?v=11" defer></script>
 </body>
 </html>

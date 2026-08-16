@@ -66,7 +66,7 @@ class TestHealthAndStatus:
         res = client.get("/")
         assert res.status_code == 200
         assert "ATLAS" in res.text
-        assert "every story deserves a listener" in res.text
+        assert "Meet art through your own curiosity." in res.text
 
     def test_admin_page_serves_html(self, client):
         res = client.get("/admin")

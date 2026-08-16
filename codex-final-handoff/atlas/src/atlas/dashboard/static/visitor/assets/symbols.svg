@@ -1,3 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Abstract eye and symbol">
-  <rect width="180" height="180" fill="#313a43"/><path d="M20 91s29-43 70-43 70 43 70 43-29 43-70 43-70-43-70-43z" fill="#efe1c8" stroke="#c3984c" stroke-width="4"/><circle cx="90" cy="91" r="26" fill="#9b7130"/><circle cx="90" cy="91" r="10" fill="#25221e"/><path d="M90 24v16M90 142v16M21 44l18 13M141 125l18 13" stroke="#c3984c" stroke-width="5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="An eye, key, stars, and symbolic geometry">
+  <defs><radialGradient id="bg"><stop stop-color="#0b6b64"/><stop offset="1" stop-color="#071417"/></radialGradient></defs><rect width="180" height="180" fill="url(#bg)"/>
+  <path d="M22 76c35-44 101-44 136 0-35 44-101 44-136 0Z" fill="#fff" stroke="#f5cb57" stroke-width="4"/><circle cx="90" cy="76" r="27" fill="#dca825"/><circle cx="90" cy="76" r="13" fill="#11191d"/><circle cx="82" cy="68" r="5" fill="#fff"/>
+  <path d="M88 114a17 17 0 1 0 0 34 17 17 0 0 0 0-34Zm16 17h48m-12 0v13m-15-13v9" fill="none" stroke="#f5cb57" stroke-width="7" stroke-linecap="round"/>
+  <path d="m35 31 4 10 10 4-10 4-4 10-4-10-10-4 10-4Zm114 4 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z" fill="#fff4c5"/>
 </svg>

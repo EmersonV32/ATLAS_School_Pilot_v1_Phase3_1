@@ -86,6 +86,11 @@ function renderVisitorStatus(payload) {
   const readiness = payload.readiness;
   const help = payload.help_request;
   const connected = state.connection === "online";
+  const helpRequested = Boolean(help && help.status === "requested");
+  $("visitor-live-panel").classList.toggle("has-help-request", helpRequested);
+  $("visitor-assistance").classList.toggle("has-help-request", helpRequested);
+  document.body.classList.toggle("visitor-help-active", helpRequested);
+  document.title = helpRequested ? "HELP REQUEST · ATLAS Admin" : "ATLAS Admin";
   $("visitor-live-state").textContent = connected ? titleCase(state.phase) : "Disconnected";
   $("visitor-live-state").className = `status-pill ${connected ? (state.phase === "in_use" ? "ok" : "neutral") : "danger"}`;
   $("visitor-unit").textContent = state.unit_id;
@@ -116,7 +121,7 @@ function renderVisitorStatus(payload) {
   currentHelpRequestId = help && help.status === "requested" ? help.request_id : null;
   $("btn-ack-help").disabled = !currentHelpRequestId;
   if (help) {
-    $("visitor-help-badge").textContent = titleCase(help.status);
+    $("visitor-help-badge").textContent = helpRequested ? "Help requested" : titleCase(help.status);
     $("visitor-help-badge").className = `status-pill ${help.status === "requested" ? "warning" : "ok"}`;
     $("visitor-help-detail").textContent = `${titleCase(help.context)} request · ${new Date(help.requested_at).toLocaleTimeString()}`;
     if (help.status === "requested" && help.request_id !== lastAlertedHelpRequestId) {

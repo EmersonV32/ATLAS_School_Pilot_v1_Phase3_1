@@ -1,3 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Abstract artist tools">
-  <rect width="180" height="180" fill="#567b6e"/><circle cx="72" cy="92" r="52" fill="#e9dfca"/><circle cx="52" cy="73" r="8" fill="#9b4d3f"/><circle cx="78" cy="60" r="8" fill="#b18a3f"/><circle cx="99" cy="80" r="8" fill="#355d72"/><path d="M124 25l14 8-54 96-18 16 3-24z" fill="#28241f"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Artist palette, brushes, and layered paint">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#171f23"/><stop offset="1" stop-color="#005d58"/></linearGradient><linearGradient id="wood" x2="1"><stop stop-color="#f7d27a"/><stop offset="1" stop-color="#b87517"/></linearGradient></defs>
+  <rect width="180" height="180" fill="url(#bg)"/><path d="M91 30c-42 0-68 31-62 65 5 26 32 48 58 46 15-1 13-18 26-20 10-2 21 8 31-4 26-32-8-87-53-87Z" fill="#f5d48e" stroke="#f5cb57" stroke-width="4"/>
+  <circle cx="66" cy="59" r="10" fill="#b93232"/><circle cx="99" cy="51" r="10" fill="#236bb2"/><circle cx="128" cy="70" r="10" fill="#e0ac28"/><circle cx="55" cy="94" r="10" fill="#14856f"/><circle cx="91" cy="92" r="16" fill="#fff" opacity=".86"/>
+  <path d="m109 146 42-104M122 151l36-91" stroke="url(#wood)" stroke-width="8" stroke-linecap="round"/><path d="m151 42 5-18 5 20M158 60l6-17 4 21" fill="#d9e2df" stroke="#10191d" stroke-width="2"/>
+  <path d="M24 151h70" stroke="#f5cb57" stroke-width="3"/><path d="M31 158c20-10 38-10 55 0" fill="none" stroke="#fff" stroke-width="4" opacity=".75"/>
 </svg>

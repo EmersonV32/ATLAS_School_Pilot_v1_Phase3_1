@@ -27,7 +27,7 @@
   </header>
 
   <main class="ops-dashboard">
-    <section class="ops-panel visitor-live-panel" aria-labelledby="visitor-live-title">
+    <section id="visitor-live-panel" class="ops-panel visitor-live-panel" aria-labelledby="visitor-live-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Visitor experience</p><h1 id="visitor-live-title">Onboarding live monitor</h1></div>
         <div class="visitor-monitor-actions">
@@ -51,7 +51,7 @@
           <div class="section-heading"><h2 id="visitor-readiness-title">Readiness</h2><span id="visitor-readiness-state" class="status-pill neutral">Checking</span></div>
           <ul id="visitor-readiness-list" class="mini-readiness-list"></ul>
         </section>
-        <section class="visitor-assistance" aria-labelledby="visitor-assistance-title">
+        <section id="visitor-assistance" class="visitor-assistance" aria-labelledby="visitor-assistance-title" aria-live="assertive">
           <div class="section-heading"><h2 id="visitor-assistance-title">Assistance</h2><span id="visitor-help-badge" class="status-pill neutral">No request</span></div>
           <p id="visitor-help-detail" class="visitor-help-detail">No visitor assistance request is active.</p>
           <div class="command-group compact-actions">
