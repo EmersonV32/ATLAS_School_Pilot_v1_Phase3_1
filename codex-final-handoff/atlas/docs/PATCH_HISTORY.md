@@ -4,6 +4,23 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-18 - Full expertise artwork sources
+
+**Changed:**
+
+- Replaced the three expertise-card image sources with the dedicated full artwork
+  files: `expertise-mona.webp`, `expertise-wave.webp`, and
+  `expertise-ambassadors.webp`.
+- Kept the padded `object-fit: contain` gallery mount so each original composition
+  remains visible without stretching or cropping.
+- Bumped the visitor service-worker shell to `v24`, forcing browsers to fetch the
+  corrected expertise sources immediately after deployment.
+
+**Validation:** Focused visitor asset and cache assertions updated. Full runtime
+validation occurs during the Jetson deployment.
+
+**Deployment result:** Not deployed; prepared locally.
+
 ## 2026-08-18 - Expertise gallery mount and live Shokz reconnect check
 
 **Changed:**
