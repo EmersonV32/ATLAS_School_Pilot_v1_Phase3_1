@@ -361,6 +361,17 @@ function showScreen(name) {
   });
 }
 
+function startWelcomeSlideshow() {
+  const slides = [...document.querySelectorAll(".welcome-slide")];
+  if (slides.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  let activeIndex = Math.max(0, slides.findIndex((slide) => slide.classList.contains("is-active")));
+  window.setInterval(() => {
+    slides[activeIndex].classList.remove("is-active");
+    activeIndex = (activeIndex + 1) % slides.length;
+    slides[activeIndex].classList.add("is-active");
+  }, 2600);
+}
+
 async function goNext() {
   if (navigationInFlight || !validateStep()) return;
   captureStep();
@@ -721,6 +732,7 @@ async function initialize() {
   ["pointerdown", "keydown", "touchstart"].forEach((eventName) => document.addEventListener(eventName, restartInactivityTimer, { passive: true }));
   if (!["in_use", "thank_you"].includes(bootstrap.state.phase)) restartInactivityTimer();
   window.setInterval(pollServerState, 1500);
+  startWelcomeSlideshow();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js").catch(() => {});
 }
 

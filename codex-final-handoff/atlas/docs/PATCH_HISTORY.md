@@ -4,6 +4,40 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-18 - Full-composition visitor artwork gallery
+
+**Changed:**
+
+- Replaced the cropped welcome triptych with a true three-artwork slideshow,
+  using the user-supplied original Mona Lisa, The Great Wave, and The
+  Ambassadors. The fade rotates every 2.6 seconds and respects reduced-motion
+  preferences.
+- Rebuilt the familiarity artwork panels as real image elements inside neutral
+  gallery mounts. Each image uses `object-fit: contain`, so portrait, square,
+  and wide originals remain complete rather than being forced into the same
+  crop.
+- Generated optimized local WebP delivery files from the supplied originals:
+  the largest source was reduced from 18.5 MB to a 728 KB kiosk asset. The
+  visitor shell now preloads and offline-caches only these compact files.
+- Bumped the visitor static shell to `v21` so old cropped assets are removed
+  from existing kiosk browser caches.
+- Updated the visitor deployment health check to verify all three replacement
+  artwork files after service restart, so a partial asset upload rolls back
+  instead of shipping a page with missing images.
+
+**Validation:** JavaScript syntax validation passed with Node `--check`.
+Dependency-free static validation confirmed all three WebPs exist, are referenced
+by the template and service-worker allowlist, and the `v21` shell references
+match. The local bundled Python runtime does not include pytest, so the focused
+visitor suite must run during Jetson deployment.
+
+**Deployment result:** Not deployed; prepared offline while the Jetson is
+unavailable.
+
+**Remaining limitation:** This deliberately leaves neutral margins around
+portrait or wide works. The margins preserve the full composition and are not
+image-loading failures.
+
 ## 2026-08-16 - Gemini general-knowledge response policy
 
 **Changed:**

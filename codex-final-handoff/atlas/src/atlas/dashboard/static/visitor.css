@@ -137,12 +137,10 @@ h2 { font-family: Georgia, "Times New Roman", serif; }
 .quiet-action:hover, .back-action:hover { border-color: var(--gold); background: var(--gold-soft); }
 .privacy-link { min-height: 2.2rem; padding: 0.4rem 0.2rem; border: 0; background: transparent; color: var(--muted); font-size: 0.74rem; text-decoration: underline; text-underline-offset: 0.2rem; }
 
-.welcome-gallery { width: min(100%, 25rem); aspect-ratio: 4 / 5; margin-inline: auto; display: grid; grid-template-columns: 1.05fr 1.22fr 1.05fr; overflow: hidden; border: 1px solid rgba(121,87,11,0.5); border-radius: 8px; background: #10191d; box-shadow: 0 1.1rem 2.2rem rgba(17,25,28,0.16); }
-.welcome-gallery-panel { min-width: 0; display: block; background-repeat: no-repeat; background-position: center; background-size: cover; filter: saturate(1.05) contrast(1.02); transition: filter 220ms ease; }
-.welcome-gallery-panel--mona { background-image: url("/static/visitor/assets/expertise-mona.webp"); }
-.welcome-gallery-panel--wave { background-image: url("/static/visitor/assets/expertise-wave.webp"); }
-.welcome-gallery-panel--ambassadors { background-image: url("/static/visitor/assets/expertise-ambassadors.webp"); }
-.welcome-gallery:hover .welcome-gallery-panel { filter: saturate(1.13) contrast(1.04); }
+.welcome-gallery { position: relative; width: min(100%, 31rem); aspect-ratio: 4 / 3; margin-inline: auto; overflow: hidden; border: 1px solid rgba(121,87,11,0.5); border-radius: 8px; background: #10191d; box-shadow: 0 1.1rem 2.2rem rgba(17,25,28,0.16); }
+.welcome-slide { position: absolute; inset: 0; width: 100%; height: 100%; display: block; box-sizing: border-box; padding: clamp(0.45rem, 1vw, 0.8rem); object-fit: contain; object-position: center; opacity: 0; filter: saturate(1.05) contrast(1.02); transition: opacity 850ms ease, filter 220ms ease; }
+.welcome-slide.is-active { opacity: 1; }
+.welcome-gallery:hover .welcome-slide.is-active { filter: saturate(1.13) contrast(1.04); }
 
 .choice-grid { display: grid; gap: 0.8rem; }
 fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
@@ -176,11 +174,9 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 
 .expertise-grid { width: min(100%, 88rem); margin-inline: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1rem, 1.5vw, 1.65rem); align-items: stretch; }
 .artwork-choice { min-height: 0; overflow: hidden; display: grid; grid-template-rows: minmax(13rem, 1.4fr) minmax(8.25rem, 1fr); background: #fffefa; }
-/* Independent originals prevent artwork edges from bleeding into a neighboring choice. */
-.artwork-thumb { display: block; width: 100%; min-height: 0; aspect-ratio: 724 / 636; background-repeat: no-repeat; background-position: center; background-size: cover; background-color: #e7e3d9; border-bottom: 2px solid var(--gold); }
-.art-mona { background-image: url("/static/visitor/assets/expertise-mona.webp"); }
-.art-wave { background-image: url("/static/visitor/assets/expertise-wave.webp"); }
-.art-ambassadors { background-image: url("/static/visitor/assets/expertise-ambassadors.webp"); }
+/* The dark gallery mount preserves every original composition without forcing one crop ratio. */
+.artwork-thumb { display: grid; place-items: center; width: 100%; min-height: 0; aspect-ratio: 16 / 11; overflow: hidden; background: #10191d; border-bottom: 2px solid var(--gold); }
+.artwork-thumb img { width: 100%; height: 100%; display: block; object-fit: contain; object-position: center; }
 .choice-copy { position: relative; padding: 1.15rem; border-top: 3px solid var(--gold); }
 .choice-copy strong { font-size: 1.08rem; }
 .choice-copy small { margin-top: 0.35rem; }

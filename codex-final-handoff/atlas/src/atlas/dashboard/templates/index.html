@@ -8,10 +8,10 @@
   <title>ATLAS Museum Guide</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
   <link rel="preload" as="image" href="/static/visitor/assets/atlas-logo-v2.webp" type="image/webp" fetchpriority="high">
-  <link rel="preload" as="image" href="/static/visitor/assets/expertise-mona.webp" type="image/webp" fetchpriority="high">
-  <link rel="preload" as="image" href="/static/visitor/assets/expertise-wave.webp" type="image/webp" fetchpriority="high">
-  <link rel="preload" as="image" href="/static/visitor/assets/expertise-ambassadors.webp" type="image/webp" fetchpriority="high">
-  <link rel="stylesheet" href="/static/visitor.css?v=20">
+  <link rel="preload" as="image" href="/static/visitor/assets/gallery-mona-lisa.webp" type="image/webp" fetchpriority="high">
+  <link rel="preload" as="image" href="/static/visitor/assets/gallery-great-wave.webp" type="image/webp" fetchpriority="high">
+  <link rel="preload" as="image" href="/static/visitor/assets/gallery-ambassadors.webp" type="image/webp" fetchpriority="high">
+  <link rel="stylesheet" href="/static/visitor.css?v=21">
 </head>
 <body class="visitor-page">
   <header class="visitor-header">
@@ -47,9 +47,9 @@
             </div>
           </div>
           <div class="welcome-gallery" aria-hidden="true">
-            <span class="welcome-gallery-panel welcome-gallery-panel--mona"></span>
-            <span class="welcome-gallery-panel welcome-gallery-panel--wave"></span>
-            <span class="welcome-gallery-panel welcome-gallery-panel--ambassadors"></span>
+            <img class="welcome-slide is-active" src="/static/visitor/assets/gallery-mona-lisa.webp" alt="" fetchpriority="high">
+            <img class="welcome-slide" src="/static/visitor/assets/gallery-great-wave.webp" alt="">
+            <img class="welcome-slide" src="/static/visitor/assets/gallery-ambassadors.webp" alt="">
           </div>
         </div>
       </div>
@@ -86,9 +86,9 @@
         <div class="centered-heading localized-copy"><p class="kicker" data-i18n="expertise.kicker">Set the depth</p><h1 data-i18n="expertise.title">How familiar are you with art?</h1><p data-i18n="expertise.lead">Choose the artwork that best matches your comfort level.</p></div>
         <fieldset class="choice-grid expertise-grid">
           <legend class="sr-only" data-i18n="expertise.legend">Choose your art familiarity</legend>
-          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="curious"><span class="artwork-thumb art-mona" role="img" aria-label="Mona Lisa"></span><span class="choice-copy"><strong data-i18n="expertise.curious_title">Curious explorer</strong><small data-i18n="expertise.curious_desc">Clear, lively stories with familiar references.</small><em data-i18n="expertise.curious_art">Mona Lisa</em></span></label>
-          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="familiar"><span class="artwork-thumb art-wave" role="img" aria-label="The Great Wave off Kanagawa"></span><span class="choice-copy"><strong data-i18n="expertise.familiar_title">I know a little</strong><small data-i18n="expertise.familiar_desc">More context with a few art terms.</small><em data-i18n="expertise.familiar_art">The Great Wave</em></span></label>
-          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="enthusiast"><span class="artwork-thumb art-ambassadors" role="img" aria-label="The Ambassadors"></span><span class="choice-copy"><strong data-i18n="expertise.enthusiast_title">Art enthusiast</strong><small data-i18n="expertise.enthusiast_desc">Deeper technique, symbolism, and history.</small><em data-i18n="expertise.enthusiast_art">The Ambassadors</em></span></label>
+          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="curious"><span class="artwork-thumb"><img src="/static/visitor/assets/gallery-mona-lisa.webp" alt="Mona Lisa"></span><span class="choice-copy"><strong data-i18n="expertise.curious_title">Curious explorer</strong><small data-i18n="expertise.curious_desc">Clear, lively stories with familiar references.</small><em data-i18n="expertise.curious_art">Mona Lisa</em></span></label>
+          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="familiar"><span class="artwork-thumb"><img src="/static/visitor/assets/gallery-great-wave.webp" alt="The Great Wave off Kanagawa"></span><span class="choice-copy"><strong data-i18n="expertise.familiar_title">I know a little</strong><small data-i18n="expertise.familiar_desc">More context with a few art terms.</small><em data-i18n="expertise.familiar_art">The Great Wave</em></span></label>
+          <label class="choice-tile artwork-choice"><input type="radio" name="expertise" value="enthusiast"><span class="artwork-thumb"><img src="/static/visitor/assets/gallery-ambassadors.webp" alt="The Ambassadors"></span><span class="choice-copy"><strong data-i18n="expertise.enthusiast_title">Art enthusiast</strong><small data-i18n="expertise.enthusiast_desc">Deeper technique, symbolism, and history.</small><em data-i18n="expertise.enthusiast_art">The Ambassadors</em></span></label>
         </fieldset>
       </div>
 
@@ -175,6 +175,6 @@
   </dialog>
 
   <noscript><p class="noscript-message">JavaScript is required for the ATLAS setup experience. Please ask a museum team member for help.</p></noscript>
-  <script src="/static/visitor.js?v=20" defer></script>
+  <script src="/static/visitor.js?v=21" defer></script>
 </body>
 </html>

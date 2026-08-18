@@ -149,10 +149,10 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v20"' in response.text
-        assert '"/static/visitor.js?v=20"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v21"' in response.text
+        assert '"/static/visitor.js?v=21"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
-        assert '"/static/visitor/assets/expertise-mona.webp"' in response.text
+        assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
         assert '"/api/' not in response.text
         assert 'request.method !== "GET"' in response.text
@@ -161,17 +161,20 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=20" in html
-        assert "/static/visitor.js?v=20" in html
+        assert "/static/visitor.css?v=21" in html
+        assert "/static/visitor.js?v=21" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
         css = (STATIC_DIR / "visitor.css").read_text(encoding="utf-8")
+        source = (STATIC_DIR / "visitor.js").read_text(encoding="utf-8")
         assert ".welcome-gallery" in css
-        assert "welcome-gallery-panel--mona" in css
-        assert "expertise-mona.webp" in css
+        assert ".welcome-slide.is-active" in css
+        assert "object-fit: contain" in css
         assert "white-space: nowrap" in css
         assert "visitor-screen-enter" in css
+        assert "function startWelcomeSlideshow()" in source
+        assert "startWelcomeSlideshow();" in source
 
     def test_admin_preserves_unsaved_experience_and_supports_log_views(self):
         source = (STATIC_DIR / "admin.js").read_text(encoding="utf-8")
@@ -192,7 +195,9 @@ class TestVisitorShell:
     def test_visitor_images_are_served_by_the_shared_dashboard_service(self, visitor_client):
         for asset in (
             "atlas-logo-v2.webp",
-            "expertise-mona.webp",
+            "gallery-mona-lisa.webp",
+            "gallery-great-wave.webp",
+            "gallery-ambassadors.webp",
             "stories.svg",
             "flag-en.svg",
         ):
