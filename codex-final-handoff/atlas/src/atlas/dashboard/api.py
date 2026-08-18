@@ -17,9 +17,11 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from atlas.app.dependency_container import Container, build_container
+from atlas.dashboard.admin_ai import AdminAIService, Planner
 from atlas.dashboard.auth import make_admin_guard
 from atlas.dashboard.runtime_service import RuntimeService
 from atlas.dashboard.schemas import (
+    AdminAIRequest,
     AskRequest,
     AskResponse,
     DashboardConfigUpdate,
@@ -43,6 +45,7 @@ def create_app(
     container: Container | None = None,
     capture_request: Callable[[], None] | None = None,
     visitor_service: VisitorService | None = None,
+    admin_ai_planner: Planner | None = None,
 ) -> FastAPI:
     container = container or build_container()
     service = RuntimeService(container, capture_request=capture_request)
@@ -66,6 +69,7 @@ def create_app(
     )
     app.state.service = service
     app.state.visitor_service = visitor_service or VisitorService()
+    app.state.admin_ai = AdminAIService(service, planner=admin_ai_planner)
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
     # -- pages --------------------------------------------------------------
@@ -145,6 +149,48 @@ def create_app(
     @app.post("/api/admin/visitor/simulate", dependencies=[Depends(require_admin)])
     def simulate_visitor(req: VisitorSimulationRequest) -> dict:
         return app.state.visitor_service.simulate(req.scenario)
+
+    # -- approval-gated Codex admin operations -----------------------------
+    @app.get("/api/admin/ai/status", dependencies=[Depends(require_admin)])
+    def admin_ai_status() -> dict:
+        return app.state.admin_ai.status()
+
+    @app.get("/api/admin/ai/jobs", dependencies=[Depends(require_admin)])
+    def admin_ai_jobs() -> list[dict]:
+        return app.state.admin_ai.list_jobs()
+
+    @app.post("/api/admin/ai/jobs", dependencies=[Depends(require_admin)])
+    def create_admin_ai_job(req: AdminAIRequest) -> dict:
+        try:
+            return app.state.admin_ai.create_job(req.request)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @app.post(
+        "/api/admin/ai/jobs/{job_id}/approve",
+        dependencies=[Depends(require_admin)],
+    )
+    def approve_admin_ai_job(job_id: str) -> dict:
+        try:
+            return app.state.admin_ai.approve(job_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="AI job not found.") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post(
+        "/api/admin/ai/jobs/{job_id}/reject",
+        dependencies=[Depends(require_admin)],
+    )
+    def reject_admin_ai_job(job_id: str) -> dict:
+        try:
+            return app.state.admin_ai.reject(job_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="AI job not found.") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     # -- health / status ----------------------------------------------------
     @app.get("/health")

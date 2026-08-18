@@ -140,3 +140,11 @@ class DashboardConfigUpdate(BaseModel):
     hardware: VisionConfigUpdate | None = None
     rag: RagConfigUpdate | None = None
     logging: LoggingConfigUpdate | None = None
+
+
+class AdminAIRequest(BaseModel):
+    """An operator request sent to the private, server-side Codex planner."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request: str = Field(min_length=3, max_length=3000)

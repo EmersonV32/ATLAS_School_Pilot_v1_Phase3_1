@@ -106,6 +106,16 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
             cloud_speech.lower() in ("1", "true", "yes")
         )
 
+    admin_ai_enabled = os.getenv("ATLAS_ADMIN_AI_ENABLED")
+    if admin_ai_enabled is not None:
+        raw.setdefault("dashboard", {})["admin_ai_enabled"] = (
+            admin_ai_enabled.lower() in ("1", "true", "yes")
+        )
+
+    admin_ai_model = os.getenv("ATLAS_ADMIN_AI_MODEL")
+    if admin_ai_model:
+        raw.setdefault("dashboard", {})["admin_ai_model"] = admin_ai_model
+
     cartesia_voice = os.getenv("ATLAS_CARTESIA_VOICE_ID")
     if cartesia_voice:
         raw.setdefault("speech", {})["cartesia_voice_id"] = cartesia_voice

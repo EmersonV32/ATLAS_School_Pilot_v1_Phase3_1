@@ -8,6 +8,7 @@ let cameraTimer = null;
 let currentHelpRequestId = null;
 let lastAlertedHelpRequestId = null;
 let helpAlertsEnabled = false;
+let codexAvailable = false;
 
 function token() {
   return $("inp-token").value.trim();
@@ -128,6 +129,102 @@ function renderVisitorStatus(payload) {
     $("visitor-help-badge").className = "status-pill neutral";
     $("visitor-help-detail").textContent = "No visitor assistance request is active.";
   }
+}
+
+function codexStatusClass(status) {
+  if (status === "completed") return "ok";
+  if (["failed", "rejected"].includes(status)) return "danger";
+  if (["pending_approval", "handoff_required"].includes(status)) return "warning";
+  return "neutral";
+}
+
+function renderCodexJobs(jobs) {
+  const list = $("codex-job-list");
+  list.replaceChildren();
+  if (!jobs.length) {
+    const empty = document.createElement("p");
+    empty.className = "codex-empty";
+    empty.textContent = "No Codex requests yet.";
+    list.append(empty);
+    return;
+  }
+  jobs.forEach((job) => {
+    const article = document.createElement("article");
+    article.className = "codex-job";
+    const head = document.createElement("div");
+    head.className = "codex-job-head";
+    const title = document.createElement("strong");
+    title.textContent = job.summary;
+    const badge = document.createElement("span");
+    badge.className = `status-pill ${codexStatusClass(job.status)}`;
+    badge.textContent = titleCase(job.status);
+    head.append(title, badge);
+    article.append(head);
+
+    const meta = document.createElement("p");
+    meta.textContent = `${titleCase(job.action)} · ${new Date(job.updated_at).toLocaleTimeString()}`;
+    article.append(meta);
+
+    if (job.status === "pending_approval") {
+      const warning = document.createElement("p");
+      warning.textContent = "Review the exact proposal below before approving.";
+      article.append(warning);
+      const actions = document.createElement("div");
+      actions.className = "codex-job-actions";
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.textContent = "Approve";
+      approve.addEventListener("click", () => decideCodexJob(job.job_id, "approve"));
+      const reject = document.createElement("button");
+      reject.type = "button";
+      reject.className = "secondary";
+      reject.textContent = "Reject";
+      reject.addEventListener("click", () => decideCodexJob(job.job_id, "reject"));
+      actions.append(approve, reject);
+      article.append(actions);
+    }
+
+    const detailsValue = job.result || job.payload || (job.error ? { error: job.error } : null);
+    if (detailsValue) {
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = job.result ? "View result" : "View proposal";
+      const pre = document.createElement("pre");
+      pre.textContent = JSON.stringify(detailsValue, null, 2);
+      details.append(summary, pre);
+      article.append(details);
+    }
+    list.append(article);
+  });
+}
+
+async function refreshCodex() {
+  if (authRequired && !token()) return;
+  try {
+    const [status, jobs] = await Promise.all([
+      api("/api/admin/ai/status", {}, true),
+      api("/api/admin/ai/jobs", {}, true),
+    ]);
+    codexAvailable = Boolean(status.available);
+    $("codex-state").textContent = codexAvailable ? status.model : "Not configured";
+    $("codex-state").className = `status-pill ${codexAvailable ? "ok" : "warning"}`;
+    $("btn-codex-run").disabled = !codexAvailable;
+    $("codex-request").disabled = !codexAvailable;
+    if (!codexAvailable && status.detail) $("codex-request").placeholder = status.detail;
+    renderCodexJobs(jobs);
+  } catch (error) {
+    $("codex-state").textContent = "Unavailable";
+    $("codex-state").className = "status-pill danger";
+  }
+}
+
+async function decideCodexJob(jobId, decision) {
+  if (decision === "approve" && !window.confirm("Approve this exact ATLAS operation?")) return;
+  try {
+    await api(`/api/admin/ai/jobs/${jobId}/${decision}`, { method: "POST" }, true);
+    notice(decision === "approve" ? "Codex operation approved." : "Codex proposal rejected.");
+    await Promise.all([refreshCodex(), refreshStatus(), refreshHealth(), refreshContentChoices()]);
+  } catch (error) { notice(error.message, true); }
 }
 
 async function refreshVisitorStatus() {
@@ -275,6 +372,7 @@ async function loadConfig() {
   adminUnlocked = true;
   if (authRequired) window.sessionStorage.setItem("atlasAdminToken", token());
   await refreshVisitorStatus();
+  await refreshCodex();
 }
 
 function numberValue(id) {
@@ -390,8 +488,27 @@ $("config-form").addEventListener("submit", async (event) => {
   } catch (error) { notice(error.message, true); }
 });
 
+$("codex-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const request = $("codex-request").value.trim();
+  if (!request || !codexAvailable) return;
+  $("btn-codex-run").disabled = true;
+  $("codex-state").textContent = "Planning";
+  $("codex-state").className = "status-pill neutral";
+  try {
+    await api("/api/admin/ai/jobs", {
+      method: "POST",
+      body: JSON.stringify({ request }),
+    }, true);
+    $("codex-request").value = "";
+    notice("Codex proposal ready.");
+  } catch (error) { notice(error.message, true); }
+  finally { await refreshCodex(); }
+});
+$("btn-codex-refresh").addEventListener("click", refreshCodex);
+
 $("btn-refresh").addEventListener("click", () => Promise.all([
-  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(),
+  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(), refreshCodex(),
 ]));
 $("btn-start").addEventListener("click", async () => {
   try { await applyExperience(); await api("/session/start", { method: "POST" }); await refreshStatus(); }
@@ -471,3 +588,4 @@ window.setInterval(refreshStatus, 2000);
 window.setInterval(refreshHealth, 12000);
 window.setInterval(refreshLogs, 1500);
 window.setInterval(refreshVisitorStatus, 1000);
+window.setInterval(refreshCodex, 5000);

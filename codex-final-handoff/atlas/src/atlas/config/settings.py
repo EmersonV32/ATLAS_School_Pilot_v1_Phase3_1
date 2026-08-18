@@ -174,6 +174,13 @@ class DashboardSettings(BaseModel):
     admin_token_env: str = "ATLAS_ADMIN_TOKEN"
     # Safe dashboard edits are stored separately from the reviewed base config.
     config_override_path: Path = Path("config/dashboard_overrides.yaml")
+    # The admin copilot is a separate, opt-in cloud workflow. It never changes
+    # the visitor-facing LLM provider and never stores its API key in config.
+    admin_ai_enabled: bool = False
+    admin_ai_model: str = "gpt-5.3-codex"
+    admin_ai_api_key_env: str = "OPENAI_API_KEY"
+    admin_ai_timeout_s: float = Field(default=45.0, ge=5.0, le=120.0)
+    admin_ai_max_jobs: int = Field(default=50, ge=5, le=200)
 
 
 class PrivacySettings(BaseModel):

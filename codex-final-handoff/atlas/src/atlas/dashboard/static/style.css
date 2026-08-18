@@ -329,6 +329,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   display: grid;
   grid-template-columns: minmax(31rem, 0.95fr) minmax(36rem, 1.25fr);
   grid-template-areas:
+    "ai ai"
     "visitor visitor"
     "settings camera"
     "logs operations";
@@ -343,6 +344,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   background: var(--surface);
 }
 .visitor-live-panel { grid-area: visitor; }
+.codex-panel { grid-area: ai; }
 .settings-panel { grid-area: settings; }
 .live-panel { grid-area: camera; }
 .logs-panel { grid-area: logs; }
@@ -359,6 +361,27 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 }
 .ops-panel-header h1 { margin: 0; font-size: 1.18rem; }
 .ops-panel-header .eyebrow { margin-bottom: 0.1rem; }
+
+.codex-workspace { display: grid; grid-template-columns: minmax(24rem, 0.85fr) minmax(30rem, 1.15fr); }
+.codex-request-form { min-width: 0; padding: 0.8rem 0.9rem; border-right: 1px solid var(--border); }
+.codex-request-form > label { margin-bottom: 0.45rem; font-size: 0.78rem; font-weight: 700; }
+.codex-request-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.55rem; align-items: stretch; }
+.codex-request-row textarea { min-height: 4.8rem; resize: vertical; }
+.codex-request-row button { min-width: 7.5rem; }
+.codex-safety-note { margin: 0.45rem 0 0; color: var(--muted); font-size: 0.68rem; line-height: 1.4; }
+.codex-jobs { min-width: 0; padding: 0.7rem 0.9rem; }
+.codex-jobs .section-heading { margin-bottom: 0.45rem; }
+.codex-jobs h2 { margin: 0; font-size: 0.88rem; }
+.codex-job-list { max-height: 9.5rem; overflow: auto; display: grid; gap: 0.45rem; }
+.codex-empty { margin: 0; padding: 0.8rem; border: 1px dashed var(--border); color: var(--muted); font-size: 0.75rem; text-align: center; }
+.codex-job { padding: 0.58rem 0.65rem; border: 1px solid var(--border); border-radius: 5px; background: #fbfcfc; }
+.codex-job-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.codex-job-head strong { font-size: 0.76rem; }
+.codex-job p { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.7rem; line-height: 1.4; }
+.codex-job details { margin-top: 0.35rem; font-size: 0.68rem; }
+.codex-job pre { max-height: 7rem; margin: 0.3rem 0 0; overflow: auto; white-space: pre-wrap; font-size: 0.65rem; }
+.codex-job-actions { margin-top: 0.45rem; display: flex; gap: 0.4rem; }
+.codex-job-actions button { min-height: 1.95rem; padding: 0.25rem 0.55rem; font-size: 0.7rem; }
 
 .settings-scroll { max-height: 34rem; overflow: auto; }
 .control-section { min-width: 0; padding: 0.85rem 0.9rem; border-top: 1px solid var(--border); }
@@ -449,8 +472,10 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   .ops-header-metrics { order: 3; width: 100%; max-width: none; border-top: 1px solid var(--border); }
   .ops-dashboard {
     grid-template-columns: 1fr;
-    grid-template-areas: "visitor" "camera" "settings" "operations" "logs";
+    grid-template-areas: "ai" "visitor" "camera" "settings" "operations" "logs";
   }
+  .codex-workspace { grid-template-columns: 1fr; }
+  .codex-request-form { border-right: 0; border-bottom: 1px solid var(--border); }
   .visitor-monitor-grid { grid-template-columns: 1fr; }
   .visitor-monitor-grid > section + section { border-left: 0; border-top: 1px solid var(--border); }
   .settings-scroll { max-height: none; }
@@ -460,6 +485,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   .ops-header-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ops-header-metrics div { border-bottom: 1px solid var(--border); }
   .dense-form.three-columns, .dense-form.four-columns, .operations-grid, .log-grid { grid-template-columns: 1fr; }
+  .codex-request-row { grid-template-columns: 1fr; }
   .visitor-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .visitor-summary-grid div, .visitor-summary-grid div:nth-child(3n) { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .visitor-summary-grid div:nth-child(even) { border-right: 0; }
@@ -473,14 +499,13 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 }
 
 @media (min-width: 76.01rem) and (min-height: 45rem) {
-  html, body.admin-page { height: 100%; overflow: hidden; }
+  html, body.admin-page { min-height: 100%; }
   .ops-header { height: 4.25rem; }
   .ops-dashboard {
-    height: calc(100vh - 4.25rem);
-    grid-template-rows: minmax(10rem, 0.58fr) repeat(2, minmax(0, 1fr));
-    overflow: hidden;
+    min-height: calc(100vh - 4.25rem);
+    grid-template-rows: auto auto repeat(2, minmax(24rem, auto));
   }
-  .ops-panel { min-height: 0; height: 100%; }
+  .ops-panel { min-height: 0; }
   .settings-panel, .operations-panel, .logs-panel, .live-panel, .visitor-live-panel {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);

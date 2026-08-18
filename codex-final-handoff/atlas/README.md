@@ -41,6 +41,7 @@ behind the same interfaces for device/demo modes.
 | Audio (mock + Whisper STT / Piper TTS adapters, graceful failure) | Done |
 | Hardware (mock + EV3 adapter, emergency stop) | Done |
 | Teacher dashboard (local FastAPI + vanilla JS) | Done |
+| Codex admin copilot (allowlisted tools + approvals, opt-in) | Done |
 | Tests (pytest, incl. dashboard + privacy) | Done |
 | School-pilot docs (`docs/`) | Done |
 
@@ -66,6 +67,7 @@ pip install -e ".[rag]"              # ChromaDB + sentence-transformers + BM25
 pip install -e ".[vision]"           # ultralytics (YOLO)
 pip install -e ".[audio]"            # faster-whisper + Piper
 pip install -e ".[llm]"              # google-generativeai (Gemini)
+pip install -e ".[admin-ai]"         # OpenAI SDK for protected admin Codex
 ```
 
 ## Run
@@ -98,6 +100,12 @@ Admin-protected dashboard actions (content ingest, RAG eval, demo
 simulations, clearing the emergency stop) require the `ATLAS_ADMIN_TOKEN`
 environment variable and the matching `X-Atlas-Admin-Token` header (the
 dashboard UI has a token field).
+
+The optional Ask Codex admin panel also requires
+`ATLAS_ADMIN_AI_ENABLED=true`, a server-side `OPENAI_API_KEY`, and the
+`admin-ai` extra. Mutations require a second authenticated approval and Codex
+has no shell, SSH, or deployment tool. See
+`docs/admin_ai/CODEX_ADMIN_COPILOT.md`.
 
 After ingesting, the hybrid retriever is available through the dependency
 container (`Container.retriever`). A typed-question CLI and the teacher

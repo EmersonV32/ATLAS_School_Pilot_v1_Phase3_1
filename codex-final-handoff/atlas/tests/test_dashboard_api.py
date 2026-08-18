@@ -75,6 +75,8 @@ class TestHealthAndStatus:
         assert "Live camera" in res.text
         assert "Live logs" in res.text
         assert "Current state" in res.text
+        assert "Ask Codex" in res.text
+        assert "Changes pause for approval" in res.text
 
 
 class TestSession:

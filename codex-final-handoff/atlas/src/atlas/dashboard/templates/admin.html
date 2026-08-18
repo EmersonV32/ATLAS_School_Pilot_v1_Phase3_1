@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
-  <link rel="stylesheet" href="/static/style.css?v=7">
+  <link rel="stylesheet" href="/static/style.css?v=9">
 </head>
 <body class="admin-page">
   <header class="app-header ops-header">
@@ -27,6 +27,27 @@
   </header>
 
   <main class="ops-dashboard">
+    <section class="ops-panel codex-panel" aria-labelledby="codex-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Controlled operations</p><h1 id="codex-title">Ask Codex</h1></div>
+        <span id="codex-state" class="status-pill neutral">Unlock required</span>
+      </div>
+      <div class="codex-workspace">
+        <form id="codex-form" class="codex-request-form">
+          <label for="codex-request">What should ATLAS inspect, prepare, or change?</label>
+          <div class="codex-request-row">
+            <textarea id="codex-request" rows="3" maxlength="3000" required placeholder="Example: Check the system and explain anything that needs attention."></textarea>
+            <button id="btn-codex-run" type="submit">Ask Codex</button>
+          </div>
+          <p class="codex-safety-note">Do not paste visitor information, passwords, keys, or tokens. Changes pause for approval and Codex has no shell, SSH, or direct deployment access.</p>
+        </form>
+        <section class="codex-jobs" aria-labelledby="codex-jobs-title">
+          <div class="section-heading"><h2 id="codex-jobs-title">Proposals and results</h2><button id="btn-codex-refresh" type="button" class="secondary compact-button">Refresh</button></div>
+          <div id="codex-job-list" class="codex-job-list" aria-live="polite"><p class="codex-empty">Unlock admin controls to use Codex.</p></div>
+        </section>
+      </div>
+    </section>
+
     <section class="ops-panel visitor-live-panel" aria-labelledby="visitor-live-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Visitor experience</p><h1 id="visitor-live-title">Onboarding live monitor</h1></div>
@@ -249,6 +270,6 @@
   </main>
 
   <p id="admin-notice" class="notice hidden" role="status"></p>
-  <script src="/static/admin.js?v=8"></script>
+  <script src="/static/admin.js?v=10"></script>
 </body>
 </html>

@@ -1,5 +1,8 @@
 # Jetson Codex coordination
 
+Ongoing dated messages are recorded in `JETSON_CODEX_LOG.md`. This file remains
+the current actionable request.
+
 ## Current request from the dashboard Codex
 
 Please preserve and publish the Jetson's current runtime work before we make
