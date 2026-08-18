@@ -4,6 +4,26 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-18 - Corrected independent expertise artwork files
+
+**Changed:**
+
+- Rebuilt `expertise-mona.webp`, `expertise-wave.webp`, and
+  `expertise-ambassadors.webp` from three independent original artwork files.
+  The prior files were crops from a combined triptych, so Mona Lisa and The
+  Ambassadors carried a visible strip of their neighbouring artwork.
+- Retained the padded `object-fit: contain` mount: each card now shows one full,
+  undistorted painting in its own 4:3 frame, with neutral space where the
+  original aspect ratio requires it.
+- Bumped the visitor service-worker shell to `v25` and the visitor CSS/JS query
+  versions to force the corrected image files to replace stale cached copies.
+
+**Validation:** Opened each rebuilt WebP locally and confirmed it contains only
+its intended artwork. Focused visitor-dashboard tests remain required before
+deployment.
+
+**Deployment result:** Not deployed; prepared locally.
+
 ## 2026-08-18 - Full expertise artwork sources
 
 **Changed:**

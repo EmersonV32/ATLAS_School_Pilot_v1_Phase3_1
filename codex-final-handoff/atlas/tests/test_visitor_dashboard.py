@@ -150,8 +150,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v24"' in response.text
-        assert '"/static/visitor.js?v=24"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v25"' in response.text
+        assert '"/static/visitor.js?v=25"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/assets/expertise-mona.webp"' in response.text
@@ -163,8 +163,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=24" in html
-        assert "/static/visitor.js?v=24" in html
+        assert "/static/visitor.css?v=25" in html
+        assert "/static/visitor.js?v=25" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
