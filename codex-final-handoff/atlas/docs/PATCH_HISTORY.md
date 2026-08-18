@@ -4,6 +4,26 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-18 - Visitor interest panel fit and cache-test repair
+
+**Changed:**
+
+- Matched the interest image panel to the supplied illustration ratio (`8:3`),
+  so every full-width visual fills its card without crop or letterboxing.
+- Corrected the focused visitor tests to expect the current visitor shell
+  version (`v22`) in both the HTML and service-worker cache allowlist.
+
+**Validation:** PowerShell syntax validation passed for the deployment script.
+Dependency-free static validation confirmed the current `v22` references in the
+template, service worker, and focused tests, plus the `8:3` full-composition
+interest frame. `git diff --check` passed. The focused pytest suite must still
+run during Jetson deployment.
+
+**Deployment result:** Not deployed; prepared locally.
+
+**Remaining limitation:** The compact mobile two-column layout still uses the
+same full-width images; verify it on the target kiosk display after deployment.
+
 ## 2026-08-18 - Visitor interest illustration replacement
 
 **Changed:**

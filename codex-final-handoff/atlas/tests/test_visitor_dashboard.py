@@ -150,7 +150,7 @@ class TestVisitorShell:
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
         assert 'CACHE_NAME = "atlas-visitor-shell-v22"' in response.text
-        assert '"/static/visitor.js?v=21"' in response.text
+        assert '"/static/visitor.js?v=22"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
@@ -161,8 +161,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=21" in html
-        assert "/static/visitor.js?v=21" in html
+        assert "/static/visitor.css?v=22" in html
+        assert "/static/visitor.js?v=22" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
@@ -171,6 +171,7 @@ class TestVisitorShell:
         assert ".welcome-gallery" in css
         assert ".welcome-slide.is-active" in css
         assert "object-fit: contain" in css
+        assert "aspect-ratio: 8 / 3" in css
         assert "white-space: nowrap" in css
         assert "visitor-screen-enter" in css
         assert "function startWelcomeSlideshow()" in source
