@@ -113,7 +113,36 @@ class TestPromptBuilder:
             visitor_language="fr",
         )
         messages = PromptBuilder().build(ctx)
-        assert "Vous êtes ATLAS" in messages[0]["content"]
+        assert "You are ATLAS" in messages[0]["content"]
+        assert "<selected_language>fr</selected_language>" in messages[1]["content"]
+
+    def test_system_prompt_allows_general_knowledge_when_rag_is_empty(self):
+        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+
+        messages = PromptBuilder().build(
+            DialogueContext(question="What is the capital of Japan?", artwork_chunks=[])
+        )
+        system = messages[0]["content"]
+        assert "well-established general knowledge" in system
+        assert "general knowledge to guess an artwork's identity" in system
+        assert "Answer ONLY from the verified context" not in system
+
+    def test_json_output_attaches_provider_schema(self):
+        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+
+        messages = PromptBuilder().build(
+            DialogueContext(question="Who painted this?", artwork_chunks=[]),
+            json_output=True,
+        )
+        response_format = messages[0]["response_format"]
+        assert response_format["mime_type"] == "application/json"
+        assert response_format["schema"]["required"] == [
+            "spoken_answer",
+            "used_chunk_ids",
+            "confidence",
+            "unsupported_claims",
+            "fallback_used",
+        ]
 
     def test_system_prompt_repairs_only_clear_speech_errors(self):
         from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
@@ -325,3 +354,21 @@ class TestDialogueEngine:
             visitor_age=9,
         )
         assert result.error is None
+
+
+def test_prompt_includes_only_immediate_prior_exchange_for_clear_followups():
+    from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+
+    messages = PromptBuilder().build(
+        DialogueContext(
+            question="What artworks did you painted?",
+            artwork_chunks=[],
+            recent_turn=(
+                "Visitor: Who is Leonardo da Vinci?\n"
+                "ATLAS: He was a Renaissance artist."
+            ),
+        )
+    )
+    assert "IMMEDIATE PRIOR EXCHANGE" in messages[1]["content"]
+    assert "Leonardo da Vinci" in messages[1]["content"]
+    assert "What artworks did he paint" in messages[0]["content"]

@@ -25,9 +25,11 @@ class GeminiClient:
         self,
         model: str = "gemini-2.5-flash",
         api_key: str | None = None,
+        api_key_env: str = "GEMINI_API_KEY",
     ) -> None:
         self.model_name = model
-        self._api_key = api_key or os.getenv("GEMINI_API_KEY", "")
+        self._api_key_env = api_key_env
+        self._api_key = api_key or os.getenv(api_key_env, "")
         self._client = None  # lazy-loaded
 
     # ------------------------------------------------------------------
@@ -48,8 +50,8 @@ class GeminiClient:
 
         if not self._api_key:
             raise RuntimeError(
-                "GEMINI_API_KEY is not set.\n"
-                "Set it with:  $env:GEMINI_API_KEY='your-key'  (PowerShell)\n"
+                f"{self._api_key_env} is not set.\n"
+                f"Set it with:  $env:{self._api_key_env}='your-key'  (PowerShell)\n"
                 "Or use MockLLMClient for dev mode."
             )
 
@@ -65,15 +67,35 @@ class GeminiClient:
         self._ensure_client()
 
     @staticmethod
-    def _generation_config(types, max_tokens: int, system_instruction: str | None):
+    def _generation_config(
+        types,
+        max_tokens: int,
+        system_instruction: str | None,
+        response_format: dict | None = None,
+    ):
         options = {
             "max_output_tokens": max_tokens,
             "system_instruction": system_instruction,
         }
-        thinking_config = getattr(types, "ThinkingConfig", None)
-        if thinking_config is not None:
-            options["thinking_config"] = thinking_config(thinking_budget=0)
+        if response_format:
+            options["response_mime_type"] = response_format["mime_type"]
+            options["response_schema"] = response_format["schema"]
         return types.GenerateContentConfig(**options)
+
+    def _log_usage(self, response) -> None:
+        """Record provider usage metadata when Gemini supplies it, never prompts."""
+        usage = getattr(response, "usage_metadata", None)
+        prompt_tokens = getattr(usage, "prompt_token_count", None)
+        output_tokens = getattr(usage, "candidates_token_count", None)
+        total_tokens = getattr(usage, "total_token_count", None)
+        logger.info(
+            "[Gemini] Usage [model=%s input_tokens=%s output_tokens=%s "
+            "total_tokens=%s]",
+            self.model_name,
+            prompt_tokens if prompt_tokens is not None else "n/a",
+            output_tokens if output_tokens is not None else "n/a",
+            total_tokens if total_tokens is not None else "n/a",
+        )
 
     def generate(self, messages: list[dict], max_tokens: int = 300) -> str:
         self._ensure_client()
@@ -82,6 +104,10 @@ class GeminiClient:
 
         system_parts = [m["content"] for m in messages if m["role"] == "system"]
         user_parts = [m["content"] for m in messages if m["role"] == "user"]
+        response_format = next(
+            (m.get("response_format") for m in messages if m["role"] == "system"),
+            None,
+        )
 
         system_instruction = system_parts[0] if system_parts else None
         user_text = user_parts[0] if user_parts else ""
@@ -92,6 +118,7 @@ class GeminiClient:
             types,
             max_tokens,
             system_instruction,
+            response_format,
         )
         response = self._client.models.generate_content(
             model=self.model_name,
@@ -106,6 +133,7 @@ class GeminiClient:
             (time.perf_counter() - started) * 1000.0,
             len(text.strip()),
         )
+        self._log_usage(response)
         return text.strip()
 
     def generate_stream(
@@ -121,6 +149,10 @@ class GeminiClient:
         logger.info("[Gemini] Stream started [model=%s]", self.model_name)
         system_parts = [m["content"] for m in messages if m["role"] == "system"]
         user_parts = [m["content"] for m in messages if m["role"] == "user"]
+        response_format = next(
+            (m.get("response_format") for m in messages if m["role"] == "system"),
+            None,
+        )
         system_instruction = system_parts[0] if system_parts else None
         user_text = user_parts[0] if user_parts else ""
 
@@ -130,6 +162,7 @@ class GeminiClient:
             types,
             max_tokens,
             system_instruction,
+            response_format,
         )
         response_stream = self._client.models.generate_content_stream(
             model=self.model_name,
@@ -137,7 +170,9 @@ class GeminiClient:
             config=generation_config,
         )
         produced_text = False
+        last_response = None
         for response in response_stream:
+            last_response = response
             text = response.text or ""
             if text:
                 produced_text = True
@@ -156,6 +191,8 @@ class GeminiClient:
             (time.perf_counter() - started) * 1000.0,
             produced_chars,
         )
+        if last_response is not None:
+            self._log_usage(last_response)
 
     def identify_artwork(
         self,
@@ -173,19 +210,21 @@ class GeminiClient:
             f"- {artwork_id}: {title}" for artwork_id, title in candidates.items()
         )
         prompt = (
-            "You are the visual fallback for ATLAS, a museum guide. Identify the "
-            "main artwork centered in this image, even if it is a photograph or "
-            "cropped reproduction. Choose exactly one candidate ID from the list "
-            "below, or return unknown if none match. Return only the ID, with no "
-            f"explanation.\n{choices}"
+            "You are the conservative visual-matching fallback for ATLAS. Match "
+            "the main artwork centered in the image to the candidate list only "
+            "when there is a unique, strong visual match based on distinctive "
+            "composition, figures, colors, and shapes. Cropping, glare, or a "
+            "photographed reproduction is acceptable only when those distinctive "
+            "features remain clear. If the image is ambiguous, too obscured, shows "
+            "multiple works, or no candidate is a strong match, return unknown. "
+            "Never choose the closest candidate merely because one must be chosen. "
+            "Return only one candidate ID or unknown, with no explanation.\n"
+            f"<candidates>\n{choices}\n</candidates>"
         )
         config_options = {
             "max_output_tokens": 64,
             "temperature": 0,
         }
-        thinking_config = getattr(types, "ThinkingConfig", None)
-        if thinking_config is not None:
-            config_options["thinking_config"] = thinking_config(thinking_budget=0)
         response = self._client.models.generate_content(
             model=self.model_name,
             contents=[

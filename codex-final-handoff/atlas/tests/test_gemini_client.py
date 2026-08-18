@@ -15,10 +15,6 @@ def test_generate_uses_new_genai_client_without_network(monkeypatch):
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
-    class FakeThinkingConfig:
-        def __init__(self, **kwargs):
-            self.__dict__.update(kwargs)
-
     class FakeModels:
         def generate_content(self, **kwargs):
             calls.update(kwargs)
@@ -34,7 +30,6 @@ def test_generate_uses_new_genai_client_without_network(monkeypatch):
     genai_module.Client = FakeClient
     genai_module.types = SimpleNamespace(
         GenerateContentConfig=FakeConfig,
-        ThinkingConfig=FakeThinkingConfig,
     )
     google_module.genai = genai_module
     monkeypatch.setitem(sys.modules, "google", google_module)
@@ -43,7 +38,14 @@ def test_generate_uses_new_genai_client_without_network(monkeypatch):
     client = GeminiClient(model="gemini-test", api_key="private-test-key")
     answer = client.generate(
         [
-            {"role": "system", "content": "Use museum context only."},
+            {
+                "role": "system",
+                "content": "Use museum context only.",
+                "response_format": {
+                    "mime_type": "application/json",
+                    "schema": {"type": "object"},
+                },
+            },
             {"role": "user", "content": "Who painted this?"},
         ],
         max_tokens=42,
@@ -55,7 +57,9 @@ def test_generate_uses_new_genai_client_without_network(monkeypatch):
     assert calls["contents"] == "Who painted this?"
     assert calls["config"].max_output_tokens == 42
     assert calls["config"].system_instruction == "Use museum context only."
-    assert calls["config"].thinking_config.thinking_budget == 0
+    assert calls["config"].response_mime_type == "application/json"
+    assert calls["config"].response_schema == {"type": "object"}
+    assert not hasattr(calls["config"], "thinking_config")
 
 
 def test_generate_stream_yields_sdk_chunks_without_network(monkeypatch):
@@ -151,3 +155,7 @@ def test_identify_artwork_sends_in_memory_jpeg_and_parses_id(monkeypatch):
     assert calls["model"] == "gemini-test"
     parts = calls["contents"][0].parts
     assert parts[1] == ("bytes", b"\xff\xd8test-jpeg", "image/jpeg")
+    prompt = parts[0][1]
+    assert "unique, strong visual match" in prompt
+    assert "return unknown" in prompt
+    assert not hasattr(calls["config"], "thinking_config")

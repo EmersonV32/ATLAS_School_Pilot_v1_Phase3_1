@@ -54,7 +54,7 @@ def test_llm_generation_continues_while_first_sentence_is_spoken():
     assert result.response == " ".join(spoken)
 
 
-def test_ungrounded_stream_is_replaced_before_speech():
+def test_dev_stream_records_low_overlap_without_blocking_general_knowledge():
     class OffTopicLLM:
         def generate_stream(self, _messages):
             yield "Quantum processors use entanglement for calculations."
@@ -66,6 +66,28 @@ def test_ungrounded_stream_is_replaced_before_speech():
         on_sentence=spoken.append,
     )
     assert not result.grounded
-    assert result.fallback_used
+    assert not result.fallback_used
     assert len(spoken) == 1
-    assert "verified" in spoken[0]
+    assert spoken[0].startswith("Quantum processors")
+
+
+def test_gemini_stream_path_validates_structured_output_before_speech():
+    class StructuredLLM:
+        def generate(self, _messages, max_tokens=300):
+            return (
+                '{"spoken_answer": "Leonardo da Vinci painted the Mona Lisa.", '
+                '"used_chunk_ids": [], "confidence": "high", '
+                '"unsupported_claims": [], "fallback_used": false}'
+            )
+
+        def generate_stream(self, _messages):
+            raise AssertionError("unsafe text streaming path was used")
+
+    spoken: list[str] = []
+    result = DialogueEngine(StructuredLLM(), expect_json=True).respond_stream(
+        question="Who painted it?",
+        artwork_chunks=CONTEXT,
+        on_sentence=spoken.append,
+    )
+    assert result.grounded
+    assert spoken == ["Leonardo da Vinci painted the Mona Lisa."]

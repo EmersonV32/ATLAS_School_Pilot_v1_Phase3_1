@@ -44,7 +44,8 @@ from atlas.safety.prompt_injection_filter import PromptInjectionFilter
 
 logger = logging.getLogger(__name__)
 
-# Spoken refusal used when an answer is not grounded in verified context.
+# Spoken response used whenever Gemini reports that its answer contains a claim
+# not supported by the museum context. It intentionally makes no new claim.
 UNGROUNDED_FALLBACK = {
     "en": (
         "I don't have that detail verified in my guide yet, but I can tell "
@@ -118,6 +119,7 @@ class DialogueEngine:
         visitor_age: int | None = None,
         language: str = "en",
         profile: str | None = None,
+        recent_turn: str | None = None,
     ) -> DialogueResult:
         # 0. Prompt-injection guard — refuse before any LLM call.
         if self._injection.is_injection(question):
@@ -139,6 +141,7 @@ class DialogueEngine:
             visitor_age=visitor_age,
             visitor_language=language,
             profile=profile,
+            recent_turn=recent_turn,
         )
         messages = self._prompt_builder.build(ctx, json_output=self._expect_json)
 
@@ -171,9 +174,28 @@ class DialogueEngine:
         confidence = "medium"
         unsupported_claims: list = []
         structured = _parse_structured(raw_response)
+        if self._expect_json and structured is None:
+            logger.warning("Gemini violated the structured-output contract.")
+            return DialogueResult(
+                response=UNGROUNDED_FALLBACK.get(
+                    language,
+                    UNGROUNDED_FALLBACK["en"],
+                ),
+                language=language,
+                grounded=False,
+                grounding_reason="invalid_structured_output",
+                filtered=False,
+                fallback_used=True,
+                confidence="low",
+            )
         if structured is not None:
             spoken = structured["spoken_answer"].strip()
-            confidence = str(structured.get("confidence", "medium"))
+            confidence_value = str(structured.get("confidence", "medium"))
+            confidence = (
+                confidence_value
+                if confidence_value in {"high", "medium", "low"}
+                else "low"
+            )
             claims = structured.get("unsupported_claims")
             unsupported_claims = claims if isinstance(claims, list) else []
             # used_chunk_ids must refer to chunks we actually retrieved.
@@ -187,20 +209,25 @@ class DialogueEngine:
                 if invalid:
                     logger.warning("LLM cited unknown chunk ids: %s", invalid)
 
-        # 3. Grounding check (+ unsupported-claims check from the contract).
+        # 3. Retrieval overlap remains an observability signal because valid
+        # general-knowledge answers may not overlap museum context. An explicit
+        # unsupported-claims report, however, must never be spoken.
         is_grounded, grounding_reason = self._validator.validate(spoken, artwork_chunks)
         if unsupported_claims:
             is_grounded = False
             grounding_reason = "unsupported_claims"
         fallback_used = bool(structured and structured.get("fallback_used"))
-        if not is_grounded:
-            logger.warning(
-                "Grounding check failed (%s) — refusing with safe fallback.",
-                grounding_reason,
-            )
+        if unsupported_claims:
+            logger.warning("Rejecting answer with unsupported claims.")
             spoken = UNGROUNDED_FALLBACK.get(language, UNGROUNDED_FALLBACK["en"])
             fallback_used = True
             confidence = "low"
+        elif not is_grounded:
+            logger.warning(
+                "Grounding check did not match retrieved context (%s); "
+                "retaining Gemini answer.",
+                grounding_reason,
+            )
 
         # 4. Safety filter (always speaks last).
         final_response, was_filtered = self._safety.filter(spoken, language)
@@ -226,6 +253,7 @@ class DialogueEngine:
         visitor_age: int | None = None,
         language: str = "en",
         profile: str | None = None,
+        recent_turn: str | None = None,
     ) -> DialogueResult:
         """Generate and validate in one thread while TTS consumes sentences.
 
@@ -246,12 +274,28 @@ class DialogueEngine:
             on_sentence(result.response)
             return result
 
+        # Gemini sessions use the structured-output path so unsupported claims
+        # can be rejected before any text reaches TTS. This trades token-level
+        # streaming latency for factual safety; mock/dev clients still stream.
+        if self._expect_json:
+            result = self.respond(
+                question=question,
+                artwork_chunks=artwork_chunks,
+                visitor_age=visitor_age,
+                language=language,
+                profile=profile,
+                recent_turn=recent_turn,
+            )
+            on_sentence(result.response)
+            return result
+
         ctx = DialogueContext(
             question=question,
             artwork_chunks=artwork_chunks,
             visitor_age=visitor_age,
             visitor_language=language,
             profile=profile,
+            recent_turn=recent_turn,
         )
         messages = self._prompt_builder.build(ctx, streaming_output=True)
         events: queue.Queue[tuple[str, object]] = queue.Queue()
@@ -280,10 +324,10 @@ class DialogueEngine:
                         if not ok:
                             grounded = False
                             grounding_reason = reason
-                            fallback_used = True
-                            sentence = UNGROUNDED_FALLBACK.get(
-                                language,
-                                UNGROUNDED_FALLBACK["en"],
+                            logger.warning(
+                                "Streaming sentence does not overlap retrieved "
+                                "context (%s); retaining Gemini sentence.",
+                                reason,
                             )
                         sentence, was_filtered = self._safety.filter(
                             sentence,
@@ -292,7 +336,7 @@ class DialogueEngine:
                         filtered = filtered or was_filtered
                         accepted.append(sentence)
                         events.put(("sentence", sentence))
-                        if not ok or was_filtered:
+                        if was_filtered:
                             raise StopIteration
 
                 remainder = assembler.flush()
@@ -301,10 +345,10 @@ class DialogueEngine:
                     if not ok:
                         grounded = False
                         grounding_reason = reason
-                        fallback_used = True
-                        remainder = UNGROUNDED_FALLBACK.get(
-                            language,
-                            UNGROUNDED_FALLBACK["en"],
+                        logger.warning(
+                            "Streaming remainder does not overlap retrieved "
+                            "context (%s); retaining Gemini answer.",
+                            reason,
                         )
                     remainder, was_filtered = self._safety.filter(
                         remainder,

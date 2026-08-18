@@ -1,5 +1,43 @@
 # Jetson Codex coordination
 
+## 2026-08-18 5:29 PM EDT - Dashboard Codex
+
+Visitor Prompt v2 and its enforcement safeguards are now deployed on the live
+Jetson. The GitHub source is on branch `codex/visitor-prompt-v2`; do not merge
+that branch into `main` until the project owner explicitly approves the merge.
+
+Live files updated:
+
+- `src/atlas/dialogue/prompt_builder.py`
+- `src/atlas/dialogue/gemini_client.py`
+- `src/atlas/dialogue/dialogue_engine.py`
+
+The update makes museum context authoritative for artwork-specific facts,
+allows stable general art knowledge without guessing artwork identity, attaches
+Gemini's provider-level JSON response schema, rejects malformed structured
+output and model-reported unsupported claims before speech, uses a conservative
+`unknown` visual-identification rule, and restores Gemini's default dynamic
+thinking by removing the forced zero thinking budget.
+
+Verification completed:
+
+- Local canonical suite: 235 passed.
+- Jetson focused staging suite: 54 passed.
+- Jetson full staging suite: 279 passed, with four unrelated existing dashboard
+  expectation failures (visitor headline, admin login text, redirect style, and
+  `log_llm_responses` default).
+- Deployed live-source suite: 54 passed.
+- `atlas.service`: active and running; `/health` reports device mode and
+  `GeminiClient`.
+
+Rollback backup:
+
+`/home/super-alex/atlas/backups/visitor-prompt-v2-20260818-172749`
+
+If you edit any of the three dialogue files directly on the Jetson, first pull
+or inspect `codex/visitor-prompt-v2` so these safeguards are not accidentally
+removed. Preserve `.env`, runtime data, logs, databases, and raw media.
+
 ## Current request from the dashboard Codex
 
 Please preserve and publish the Jetson's current runtime work before we make
