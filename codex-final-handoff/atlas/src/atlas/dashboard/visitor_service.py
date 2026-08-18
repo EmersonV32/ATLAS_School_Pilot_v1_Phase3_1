@@ -9,6 +9,11 @@ from threading import RLock
 from typing import Any, Protocol
 from uuid import uuid4
 
+from atlas.audio.devices import (
+    find_alsa_playback,
+    find_pulse_capture,
+    find_pulse_playback,
+)
 from atlas.dashboard.visitor_schemas import (
     VisitorHelpRequest,
     VisitorProgressRequest,
@@ -58,6 +63,25 @@ def _component_is_ready(value: object) -> bool:
         return False
     lowered = value.lower()
     return "error" not in lowered and "unavailable" not in lowered
+
+
+def _runtime_headset_ready(runtime: RuntimeBridge) -> bool | None:
+    """Return live Shokz readiness when a device runtime exposes its settings."""
+    container = getattr(runtime, "container", None)
+    settings = getattr(container, "settings", None)
+    hardware = getattr(settings, "hardware", None)
+    headset_name = str(getattr(hardware, "headset_name", "")).strip()
+    if not headset_name:
+        return None
+    try:
+        return bool(
+            find_pulse_playback(headset_name)
+            and find_pulse_capture(headset_name)
+            and find_alsa_playback(headset_name)
+        )
+    except Exception:
+        logger.exception("Visitor headset readiness probe failed")
+        return False
 
 
 class VisitorService:
@@ -386,9 +410,15 @@ class VisitorService:
         if not isinstance(camera, dict):
             camera = {}
         unit_ready = health.get("status") == "ok"
-        audio_ready = _component_is_ready(
+        provider_audio_ready = _component_is_ready(
             components.get("stt")
         ) and _component_is_ready(components.get("tts"))
+        headset_connected = _runtime_headset_ready(self._runtime_service)
+        audio_ready = (
+            headset_connected
+            if headset_connected is not None
+            else provider_audio_ready
+        )
         connection_ready = _component_is_ready(components.get("llm"))
         content_ready = all(
             _component_is_ready(components.get(name))
@@ -419,9 +449,13 @@ class VisitorService:
                 "Check fit and volume."
                 if scenario == "headset_attention"
                 else (
-                    "Audio input and output are ready."
+                    "Shokz OpenComm2 input and output are ready."
                     if audio_ready
-                    else "Audio input or output is unavailable."
+                    else (
+                        "Reconnect the Shokz OpenComm2 USB adapter; this page checks again automatically."
+                        if headset_connected is False
+                        else "Audio input or output is unavailable."
+                    )
                 ),
             ),
             self._item(

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -149,8 +150,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v22"' in response.text
-        assert '"/static/visitor.js?v=22"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v23"' in response.text
+        assert '"/static/visitor.js?v=23"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/locales/fr.json"' in response.text
@@ -161,8 +162,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=22" in html
-        assert "/static/visitor.js?v=22" in html
+        assert "/static/visitor.css?v=23" in html
+        assert "/static/visitor.js?v=23" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
@@ -172,10 +173,15 @@ class TestVisitorShell:
         assert ".welcome-slide.is-active" in css
         assert "object-fit: contain" in css
         assert "aspect-ratio: 8 / 3" in css
+        assert "aspect-ratio: 4 / 3" in css
+        assert ".artwork-thumb img" in css
+        assert "padding: clamp(0.45rem, 1vw, 0.8rem)" in css
         assert "white-space: nowrap" in css
         assert "visitor-screen-enter" in css
         assert "function startWelcomeSlideshow()" in source
         assert "startWelcomeSlideshow();" in source
+        assert "function startReadinessPolling()" in source
+        assert 'void refreshReadiness({ silent: true });' in source
 
     def test_admin_preserves_unsaved_experience_and_supports_log_views(self):
         source = (STATIC_DIR / "admin.js").read_text(encoding="utf-8")
@@ -480,6 +486,42 @@ class TestVisitorLifecycle:
 
 
 class TestRuntimeBridge:
+    def test_runtime_bridge_refreshes_headset_after_shokz_reconnect(self, monkeypatch):
+        runtime = _FakeRuntime()
+        runtime.container = SimpleNamespace(
+            settings=SimpleNamespace(
+                hardware=SimpleNamespace(headset_name="Shokz OpenComm2")
+            )
+        )
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_pulse_playback", lambda _: None
+        )
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_pulse_capture", lambda _: None
+        )
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_alsa_playback", lambda _: None
+        )
+        service = VisitorService(runtime_service=runtime)
+        initial = next(
+            item for item in service.readiness()["items"] if item["id"] == "headset"
+        )
+        assert initial["status"] == "unavailable"
+
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_pulse_playback", lambda _: "shokz"
+        )
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_pulse_capture", lambda _: "shokz"
+        )
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_alsa_playback", lambda _: "plughw:1,0"
+        )
+        reconnected = next(
+            item for item in service.readiness()["items"] if item["id"] == "headset"
+        )
+        assert reconnected["status"] == "ready"
+
     def test_runtime_bridge_transfers_coarse_profile_and_controls_session(self):
         runtime = _FakeRuntime()
         service = VisitorService(runtime_service=runtime)

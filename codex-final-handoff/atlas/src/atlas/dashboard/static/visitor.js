@@ -188,6 +188,8 @@ let interestManifest = null;
 let keypadValue = "";
 let connectionState = "connecting";
 let readinessSnapshot = null;
+let readinessRefreshTimer = null;
+let readinessRefreshInFlight = false;
 
 function format(template, values = {}) {
   return String(template).replace(/\{(\w+)\}/g, (_, key) => (
@@ -351,6 +353,8 @@ function showScreen(name) {
     });
     updateJourneyCopy(name);
   }
+  if (name === "readiness") startReadinessPolling();
+  else stopReadinessPolling();
   updateDirection();
   window.requestAnimationFrame(() => {
     const heading = document.querySelector(`[data-screen="${name}"] h1`);
@@ -442,9 +446,29 @@ function renderReadiness(readiness) {
     blocker.textContent = readiness.blockers.length ? t("readiness.blocker") : "";
 }
 
-async function refreshReadiness() {
+function stopReadinessPolling() {
+  if (readinessRefreshTimer !== null) {
+    window.clearInterval(readinessRefreshTimer);
+    readinessRefreshTimer = null;
+  }
+}
+
+function startReadinessPolling() {
+  stopReadinessPolling();
+  readinessRefreshTimer = window.setInterval(() => {
+    if (steps[visitor.step] === "readiness" && !navigationInFlight) {
+      void refreshReadiness({ silent: true });
+    }
+  }, 2000);
+}
+
+async function refreshReadiness({ silent = false } = {}) {
+  if (readinessRefreshInFlight) return;
+  readinessRefreshInFlight = true;
   const list = $("readiness-list");
-  list.innerHTML = `<li class="readiness-loading"><span class="readiness-icon">…</span><div><strong>${t("readiness.loading_title")}</strong><small>${t("readiness.loading_detail")}</small></div></li>`;
+  if (!silent) {
+    list.innerHTML = `<li class="readiness-loading"><span class="readiness-icon">…</span><div><strong>${t("readiness.loading_title")}</strong><small>${t("readiness.loading_detail")}</small></div></li>`;
+  }
   try {
     const readiness = await api("/api/visitor/readiness");
     readinessSnapshot = readiness;
@@ -454,6 +478,8 @@ async function refreshReadiness() {
     $("readiness-summary").className = "readiness-summary is-blocked";
     $("readiness-blocker").textContent = error.message;
     $("readiness-blocker").classList.remove("hidden");
+  } finally {
+    readinessRefreshInFlight = false;
   }
 }
 

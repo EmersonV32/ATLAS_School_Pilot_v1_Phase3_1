@@ -4,6 +4,33 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-18 - Expertise gallery mount and live Shokz reconnect check
+
+**Changed:**
+
+- Rebuilt only the art-familiarity media frame as the welcome gallery's padded
+  `4:3` dark mount. Mona Lisa, The Great Wave, and The Ambassadors now keep
+  their original composition with `object-fit: contain`; no image is cropped
+  or stretched.
+- Left the approved interest-card images and layout unchanged.
+- Added a live Shokz OpenComm2 readiness probe that checks Pulse playback,
+  Pulse capture, and ALSA playback each time the visitor readiness endpoint is
+  requested.
+- The readiness screen now refreshes itself every two seconds while open, so a
+  headset reconnect appears without restarting ATLAS.
+- Bumped the visitor service-worker shell to `v23`, preventing kiosk browsers
+  from retaining the old expertise CSS or readiness JavaScript.
+
+**Validation:** Focused visitor tests cover the new frame/cache version and a
+simulated Shokz disconnect followed by reconnect. Deployment validation must
+run on the Jetson because the audio-device probe requires its Pulse/ALSA stack.
+
+**Deployment result:** Not deployed; prepared locally.
+
+**Remaining limitation:** The headset is marked ready only when the Jetson can
+see both Shokz playback and microphone endpoints. A powered-but-unpaired USB
+adapter will remain unavailable, which is intentional.
+
 ## 2026-08-18 - Visitor interest panel fit and cache-test repair
 
 **Changed:**
