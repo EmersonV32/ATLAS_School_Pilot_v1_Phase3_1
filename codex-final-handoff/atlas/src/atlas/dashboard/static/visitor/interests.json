@@ -1,13 +1,13 @@
 {
-  "version": 1,
-  "development_placeholders": true,
+  "version": 2,
+  "development_placeholders": false,
   "approval_status": "not_approved_for_publication",
   "interests": [
-    {"id": "stories", "label": "Stories", "description": "People, myths, and moments", "asset": "/static/visitor/assets/stories.svg", "approved": false},
-    {"id": "technique", "label": "Technique", "description": "How the work was made", "asset": "/static/visitor/assets/technique.svg", "approved": false},
-    {"id": "symbols", "label": "Symbols", "description": "Clues and hidden meaning", "asset": "/static/visitor/assets/symbols.svg", "approved": false},
-    {"id": "history", "label": "History", "description": "The world around the work", "asset": "/static/visitor/assets/history.svg", "approved": false},
-    {"id": "color-light", "label": "Color & light", "description": "Mood, contrast, and atmosphere", "asset": "/static/visitor/assets/color-light.svg", "approved": false},
-    {"id": "people-society", "label": "People & society", "description": "Identity, power, and community", "asset": "/static/visitor/assets/people-society.svg", "approved": false}
+    {"id": "stories", "label": "Stories", "description": "People, myths, and moments", "asset": "/static/visitor/assets/interest-stories.webp", "approved": false},
+    {"id": "technique", "label": "Technique", "description": "How the work was made", "asset": "/static/visitor/assets/interest-technique.webp", "approved": false},
+    {"id": "symbols", "label": "Symbols", "description": "Clues and hidden meaning", "asset": "/static/visitor/assets/interest-symbols.webp", "approved": false},
+    {"id": "history", "label": "History", "description": "The world around the work", "asset": "/static/visitor/assets/interest-history.webp", "approved": false},
+    {"id": "color-light", "label": "Color & light", "description": "Mood, contrast, and atmosphere", "asset": "/static/visitor/assets/interest-color-light.webp", "approved": false},
+    {"id": "people-society", "label": "People & society", "description": "Identity, power, and community", "asset": "/static/visitor/assets/interest-people-society.webp", "approved": false}
   ]
 }

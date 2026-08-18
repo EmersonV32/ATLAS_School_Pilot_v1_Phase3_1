@@ -149,7 +149,7 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v21"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v22"' in response.text
         assert '"/static/visitor.js?v=21"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
@@ -198,7 +198,7 @@ class TestVisitorShell:
             "gallery-mona-lisa.webp",
             "gallery-great-wave.webp",
             "gallery-ambassadors.webp",
-            "stories.svg",
+            "interest-stories.webp",
             "flag-en.svg",
         ):
             response = visitor_client.get(f"/static/visitor/assets/{asset}")
@@ -247,9 +247,19 @@ class TestVisitorShell:
         manifest = json.loads(
             (STATIC_DIR / "visitor" / "interests.json").read_text(encoding="utf-8")
         )
-        assert manifest["development_placeholders"] is True
+        assert manifest["development_placeholders"] is False
+        assert manifest["version"] == 2
         assert len(manifest["interests"]) == 6
         assert all(item["approved"] is False for item in manifest["interests"])
+        expected_assets = {
+            "/static/visitor/assets/interest-stories.webp",
+            "/static/visitor/assets/interest-technique.webp",
+            "/static/visitor/assets/interest-symbols.webp",
+            "/static/visitor/assets/interest-history.webp",
+            "/static/visitor/assets/interest-color-light.webp",
+            "/static/visitor/assets/interest-people-society.webp",
+        }
+        assert {item["asset"] for item in manifest["interests"]} == expected_assets
         for item in manifest["interests"]:
             path = STATIC_DIR / item["asset"].removeprefix("/static/")
             assert path.is_file()

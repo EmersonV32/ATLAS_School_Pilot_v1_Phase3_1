@@ -4,6 +4,33 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-18 - Visitor interest illustration replacement
+
+**Changed:**
+
+- Replaced the six placeholder interest illustrations with the user-supplied
+  visual set, mapped by meaning: Stories, Technique, Symbols, History, Colour
+  & light, and People & society.
+- Converted the supplied PNGs into six local 1280 x 480 WebP assets (24-31 KB
+  each), avoiding both network loading and the prior multi-megabyte image cost.
+- Changed interest-card artwork rendering to `object-fit: contain` on a dark
+  gallery mount, so the complete supplied illustration remains visible rather
+  than being cropped at the top and sides.
+- Bumped the offline visitor shell to `v22`; existing kiosk browsers discard
+  the old placeholder assets and cache the replacement set.
+
+**Validation:** JavaScript syntax validation passed with Node `--check`.
+Dependency-free static validation confirmed all six WebPs exist, map to the six
+interest ids, are 1280 x 480 WebP files, total 163,404 bytes, and appear in the
+offline-cache allowlist. `git diff --check` passed. The local bundled Python
+runtime does not include pytest, so the focused visitor suite must run during
+Jetson deployment.
+
+**Deployment result:** Not deployed; prepared locally.
+
+**Remaining limitation:** The artwork illustrations are supplied for this
+prototype. Confirm the final display rights before public distribution.
+
 ## 2026-08-18 - Full-composition visitor artwork gallery
 
 **Changed:**
