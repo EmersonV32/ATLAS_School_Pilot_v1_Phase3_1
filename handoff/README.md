@@ -28,3 +28,4 @@ museum operator, or replacement Jetson. It describes the active source in
 - **Privacy reviewer:** [`policies/`](policies/).
 - **Visitor-dashboard developer:** [`visitor-dashboard/`](visitor-dashboard/).
 - **Content editor:** [`CONTENT_PACK_FORMAT.md`](CONTENT_PACK_FORMAT.md).
+- **Project planning:** [`project/NEXT_STEPS_EXECUTION_MATRIX.md`](project/NEXT_STEPS_EXECUTION_MATRIX.md).

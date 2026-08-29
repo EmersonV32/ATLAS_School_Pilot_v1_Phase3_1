@@ -1,6 +1,6 @@
 # Current state
 
-Status date: 2026-08-28
+Status date: 2026-08-29
 
 ## Active implementation
 
@@ -23,37 +23,33 @@ Implemented behavior includes:
 
 ## Verification state
 
-Laptop validation on 2026-08-28 after the structural reorganization produced:
+Reconciliation and device validation on 2026-08-29 produced:
 
-- `257 passed` from the complete pytest suite;
-- a passing obvious-secret scan and recovery-bundle verifier;
-- successful Python compilation and dependency consistency checks;
-- a passing Ruff check for the changed recovery verifier;
+- `276 passed` from the complete suite during the successful Jetson deployment;
+- `277 passed` locally after adding the disconnected-camera regression;
+- passing obvious-secret and recovery-bundle checks;
+- a successful XIAO ESP32-S3 Sense firmware compile for the balanced
+  800x600/15 FPS profile;
+- HTTP 200 responses for visitor, staff, health, and bootstrap endpoints from
+  another computer while the camera was unplugged;
+- a healthy `atlas.service` after the camera-independent deployment; and
 - one non-failing Starlette deprecation warning from the installed FastAPI
   test client.
 
-The repository-wide Ruff scan still reports pre-existing style findings in
-runtime and test files that were moved without behavioral edits. They are not
-part of this structural change and remain cleanup work.
-
-The reorganized baseline commit
-`ac06623e476633f0aef14c9c49e8606da40857c4` was pushed to `main`, cloned into a
-new temporary directory, and passed the recovery-bundle verifier. The fresh
-clone contained only `.github`, `.gitignore`, `AGENTS.md`, `README.md`,
-`archive/`, `atlas/`, and `handoff/` at repository root.
+The active work is on `codex/jetson-runtime-reconcile`. It has not been merged
+into GitHub `main`. The exact device state and rollback information are in
+[`jetson/JETSON_RUNTIME_STATUS.md`](jetson/JETSON_RUNTIME_STATUS.md).
 
 ## Physical validation still required
 
 The following cannot be proven from a laptop-only session:
 
-- Jetson camera discovery and sustained capture;
-- CUDA, TensorRT, PyTorch, and model compatibility;
-- Deepgram and Cartesia behavior with production keys and museum networking;
+- XIAO firmware flashing and a 20-minute sustained thermal/FPS test;
+- camera hot-plug recovery and live artwork detection;
 - Traditional Chinese live STT and TTS provider behavior;
-- Shokz multifunction-button events and manual capture;
-- headset disconnect/reconnect recovery after boot;
-- single-voice playback across real streaming responses;
-- systemd startup, restart, and dashboard reachability on the museum network.
+- a physical Shokz multifunction-button manual capture;
+- headset disconnect/reconnect recovery after boot; and
+- Cartesia recovery after its HTTP 402 account/billing failure is resolved.
 
 Use the Jetson section of [`VALIDATION_CHECKLIST.md`](VALIDATION_CHECKLIST.md)
 before declaring a deployment complete.

@@ -1,82 +1,110 @@
 # Jetson Runtime Status
 
-Updated: 2026-08-09
+Updated: 2026-08-29
 
-## Source and startup
+## Source and recovery authority
 
-- Sync branch: `codex/jetson-runtime-sync`.
-- Local base commit before this runtime-sync commit: `5ec608f4c43159a69af78e49c44f8e07f0e66056`.
-- Jetson runtime directory: `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`.
+- Integration branch: `codex/jetson-runtime-reconcile`.
+- Camera-independent dashboard and firmware-profile commit: `92421f0`.
+- Live runtime: `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`.
+- Recovery clone: `/home/super-alex/atlas/ATLAS_School_Pilot_v1_Phase3_1`.
 - Python environment: `/home/super-alex/atlas/venvs/atlas-school-pilot`.
-- Normal service: `systemctl --user start atlas.service`.
+- User service: `atlas.service`.
 - Service command: `python -m atlas.app.main --mode device --device-loop`.
-- Dashboard: `http://127.0.0.1:8765/admin` on the Jetson. It is loopback-only.
-- Runtime configuration: `config/settings.yaml` plus an ignored local `.env` for API keys.
+- Visitor dashboard: `http://10.0.0.238:8765/` on the current LAN.
+- Staff dashboard: `http://10.0.0.238:8765/admin` on the current LAN.
+- Device settings and secrets remain local in ignored files. They are preserved
+  by the deployment script and are not Git recovery artifacts.
 
-The live Jetson was updated through a reviewed deployment archive, not by a
-confirmed Git checkout. Its exact Git revision therefore remains unverified.
+The reconciliation branch is pushed to GitHub but is not merged into `main`.
+Do not describe GitHub `main` as the physical Jetson authority until the branch
+has passed review and been merged.
 
-## Verified on the physical Jetson
+## Verified on 2026-08-29
 
-- Jetson Orin NX runtime starts, becomes healthy, and serves the admin
-  dashboard after deployment.
-- Shokz OpenComm2 UC playback and microphone work with ATLAS.
-- Deepgram Nova-3 plus Silero VAD produces live English transcripts.
-- Gemini 2.5 Flash streams answers.
-- Cartesia Sonic 3.5 speaks streamed answers through one continuous context.
-  The 2026-08-09 runtime log recorded the same Cartesia voice ID throughout
-  multi-sentence responses, with no Piper fallback voice takeover.
-- The RAG demo pack is indexed with 7 artworks and 157 chunks in both the
-  vector store and SQLite FTS5.
-- The XIAO ESP32-S3 Sense MJPEG camera stream opens and reconnects after a
-  stream failure. The dashboard receives frames from the in-memory reader.
+- The full reconciled runtime deployment passed `276` Jetson tests. The local
+  suite then passed `277` tests after adding the disconnected-camera regression.
+- `atlas.service` starts and remains healthy while the camera is unplugged.
+- Visitor, staff, health, and bootstrap endpoints return HTTP 200 from another
+  computer on the LAN while the camera is unplugged.
+- The public language list contains English, French, Spanish, Italian, and
+  Traditional Chinese. Arabic remains a preview language.
+- Shokz input/output readiness is healthy. The multifunction button is exposed
+  as `/dev/input/event2`, key code `164`, and is configured for manual capture.
+- Gemini and Deepgram are ready. Local Whisper is available as speech-to-text
+  fallback. Cartesia currently returns HTTP 402, so Piper is the verified
+  text-to-speech fallback.
+- The balanced XIAO camera firmware profile compiles for
+  `esp32:esp32:XIAO_ESP32S3` with OPI PSRAM and the 8 MB application partition.
+  The compiled sketch uses 1,031,466 bytes of flash and 70,616 bytes of global
+  memory.
+
+## Rollback point
+
+The pre-deployment snapshot is retained on the Jetson at:
+
+`/home/super-alex/atlas/snapshots/atlas_live_pre_8eae94f_20260829.tar.gz`
+
+- Size: approximately 40 MB.
+- SHA-256:
+  `3033739fce0fa1ab39ee514cd4b3d1d035819bc5afb34b2df0d6030917e7e19e`.
+- The same snapshot directory contains the service definition and Python
+  package freeze used for recovery.
+- The successful atomic deployment also retained
+  `/tmp/atlas_visitor_backup_20260829_175759`.
 
 ## Current hardware and flow status
 
 | Component or flow | Status | Notes |
 | --- | --- | --- |
-| Jetson Orin NX / J401 | Working | Device runtime and user service run. |
-| Shokz microphone and speaker | Working | Real Deepgram input and Cartesia output verified. |
-| XIAO ESP32-S3 Sense camera | Partially verified | It streams, but `atlas-camera.local` has intermittent name resolution and the MJPEG stream can stall. The runtime now recovers automatically. |
-| Router / network | Partially verified | Internet is sufficient for cloud calls, but local mDNS is not fully reliable. |
-| YOLO artwork detection | Not re-verified in the latest live session | Latest captured questions used all-artwork RAG because no active camera context was latched. |
-| EV3 / mechanical outputs | Disabled | `enable_ev3: false`; no current physical verification on this Jetson. |
-| Status LED / RGB strip | Not verified | No current enabled hardware adapter. |
-| Shokz multi-function button | Code present, not physically verified | One click cycles language, two clicks capture artwork, three clicks resets context. |
-| Visitor dashboard | Mock-backed on GitHub main | It is not yet connected to real runtime state. |
+| Jetson Orin NX / J401 | Working | Device runtime and user service are healthy. |
+| Visitor and staff dashboards | Working without camera | Both remain reachable and report camera disconnection instead of blocking startup. |
+| Shokz microphone and speaker | Ready | Runtime readiness reports both audio directions available. |
+| Shokz multifunction button | Ready | Manual capture is mapped to input event key `164`; physical press should be rechecked before a demo. |
+| XIAO ESP32-S3 Sense camera | Intentionally disconnected | Website availability is verified without it. Reconnect, flash, and run the thermal test before wearable use. |
+| Camera firmware profile | Compiled, not flashed | SVGA 800x600 JPEG, quality 10, maximum 15 streamed FPS, idle Wi-Fi power saving. |
+| Gemini | Ready | Cloud response provider is available. |
+| Deepgram / Whisper | Ready with fallback | Deepgram is primary; local Whisper is fallback. |
+| Cartesia / Piper | Degraded with fallback | Cartesia returns HTTP 402; Piper keeps speech output available. |
+| YOLO artwork detection | Runtime present, hardware test pending | Cannot verify visual detection while the camera is unplugged. |
+| EV3 / mechanical outputs | Disabled | `enable_ev3: false`; no current physical verification. |
 
-## Known failures and workarounds
+## Deployment and rollback procedure
 
-- Camera mDNS: when `atlas-camera.local` does not resolve, ATLAS continues
-  listening without visual context and retries the camera. Reserve a static
-  IP address for the XIAO on the router, then replace the camera URL in the
-  local device configuration to eliminate this dependency.
-- Camera stream stalls: the runtime clears stale frames and reconnects. The
-  new network-read timeout is deployed but still needs a focused live camera
-  stress test.
-- Deepgram can temporarily fail during a DNS outage. ATLAS then uses local
-  Whisper, which is much slower; later Deepgram calls may recover.
-- Only `demo_pack` is verified as the active physical RAG pack. The admin UI
-  can list and re-index packs, but selecting another pack does not yet
-  reconfigure the running device retriever. Treat multiple live packs as
-  unsupported until that behavior is implemented and tested.
-- The full end-to-end audit has not been run because it requires explicit
-  approval before starting.
+Use `atlas/scripts/deploy/DEPLOY_ATLAS_VISITOR_IMPROVEMENTS.ps1` from the
+repository checkout. It packages the tracked runtime, tests, content, and
+firmware; preserves device settings and dashboard overrides; stops the service;
+replaces source trees atomically; runs the complete test suite against the
+repository development configuration; restores device-local configuration;
+starts the service; and checks health. A failed test or health check restores
+the prior runtime trees.
 
-## Sensitive and generated files excluded from Git
+Never replace the ignored Jetson `.env`, XIAO `wifi_secrets.h`, device
+`settings.yaml`, dashboard overrides, databases, or model caches with files
+from GitHub.
 
-- `.env`, API keys, tokens, SSH private keys, and XIAO Wi-Fi credentials.
-- Runtime logs, transcript data, raw audio/images, SQLite/Chroma databases,
-  model caches, ONNX/TensorRT exports, and build artifacts.
+## Required next physical checks
 
-## Safe reconciliation and update path
+1. Reconnect the XIAO camera and confirm the camera endpoint is reachable.
+2. Flash commit `92421f0` using the documented XIAO board profile.
+3. Stream continuously for 20 minutes while recording FPS and enclosure
+   temperature; stop if temperature rises abnormally or frames become unstable.
+4. Confirm the dashboard changes from `Camera disconnected` to ready without
+   restarting the website service.
+5. Trigger manual capture using the Shokz multifunction button and verify that
+   the selected artwork context updates.
+6. Run one live artwork identification and spoken question through the complete
+   Deepgram, Gemini, and Piper fallback path.
 
-1. Preserve this branch and compare it against GitHub `main`.
-2. Reconcile source changes in a new integration branch; do not force-push or
-   merge directly into `main` from the Jetson.
-3. On the Jetson, back up the current runtime and local `.env`, fetch the
-   reconciled branch, and review `git diff` before applying it.
-4. Run the focused test suite and RAG ingestion, then restart
-   `atlas.service` and confirm `/health` before a live hardware check.
-5. Retain the prior runtime directory or deployment archive until the camera,
-   microphone, TTS, and dashboard checks pass.
+## Known risks
+
+- The XIAO firmware has passed compilation but not a physical flash or thermal
+  test. Do not seal it into the wearable enclosure yet.
+- Cartesia speech will remain unavailable until its account/billing issue is
+  resolved; Piper is the current operational fallback.
+- The dashboard URLs use the Jetson's current LAN address. A public Vercel site
+  would require a separate hosted frontend and a secure relay/API to the Jetson;
+  replacing the LAN URL alone would not expose the local runtime safely.
+- GitHub recovery excludes secrets, Wi-Fi credentials, generated indexes,
+  downloaded models, runtime logs, and captured visitor media. Restore those
+  from the private recovery inventory after cloning.
