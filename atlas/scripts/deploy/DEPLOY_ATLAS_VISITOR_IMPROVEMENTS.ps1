@@ -42,16 +42,43 @@ $files = @(
     "src/atlas/dashboard/api.py",
     "src/atlas/dashboard/runtime_service.py",
     "src/atlas/dashboard/schemas.py",
+    "src/atlas/app/dependency_container.py",
     "src/atlas/app/device_runtime.py",
+    "src/atlas/app/preflight.py",
     "src/atlas/audio/cartesia_tts.py",
     "src/atlas/audio/deepgram_stt.py",
+    "src/atlas/audio/fallback.py",
     "src/atlas/audio/whisper_stt.py",
+    "src/atlas/config/loader.py",
     "src/atlas/config/settings.py",
+    "src/atlas/dialogue/dialogue_engine.py",
+    "src/atlas/dialogue/gemini_client.py",
+    "src/atlas/dialogue/openai_compatible_client.py",
+    "src/atlas/dialogue/prompt_builder.py",
+    "src/atlas/dialogue/safety_filter.py",
     "src/atlas/models/enums.py",
     "src/atlas/pipeline/session_runner.py",
+    "src/atlas/safety/prompt_injection_filter.py",
+    "src/atlas/vision/camera_source.py",
+    "data/content_packs/demo_pack/artworks/girl_with_a_pearl_earring.json",
+    "data/content_packs/demo_pack/artworks/great_wave_off_kanagawa.json",
+    "data/content_packs/demo_pack/artworks/mona_lisa.json",
+    "data/content_packs/demo_pack/artworks/sunflowers.json",
+    "data/content_packs/demo_pack/artworks/tutankhamun_mask.json",
+    "data/content_packs/demo_pack/manifest.json",
+    "firmware/xiao_camera/xiao_camera.ino",
+    "pyproject.toml",
+    "requirements.txt",
+    "tests/test_camera_source.py",
     "tests/test_visitor_dashboard.py",
     "tests/test_cloud_speech.py",
+    "tests/test_dashboard_api.py",
+    "tests/test_device_integrations.py",
+    "tests/test_dialogue.py",
+    "tests/test_fallback_tts.py",
     "tests/test_headset_button.py",
+    "tests/test_openai_compatible_client.py",
+    "tests/test_safety.py",
     "docs/PATCH_HISTORY.md"
 )
 $files += Get-ChildItem -LiteralPath (Join-Path $repoRoot "src/atlas/dashboard/static/visitor") -File -Recurse |
@@ -80,17 +107,44 @@ root='__ROOT__'
 archive='__ARCHIVE__'
 backup='/tmp/atlas_visitor_backup___STAMP__'
 files=(
+  data/content_packs/demo_pack/artworks/girl_with_a_pearl_earring.json
+  data/content_packs/demo_pack/artworks/great_wave_off_kanagawa.json
+  data/content_packs/demo_pack/artworks/mona_lisa.json
+  data/content_packs/demo_pack/artworks/sunflowers.json
+  data/content_packs/demo_pack/artworks/tutankhamun_mask.json
+  data/content_packs/demo_pack/manifest.json
+  firmware/xiao_camera/xiao_camera.ino
+  pyproject.toml
+  requirements.txt
+  src/atlas/app/dependency_container.py
   src/atlas/app/device_runtime.py
+  src/atlas/app/preflight.py
   src/atlas/audio/cartesia_tts.py
   src/atlas/audio/deepgram_stt.py
+  src/atlas/audio/fallback.py
   src/atlas/audio/whisper_stt.py
+  src/atlas/config/loader.py
   src/atlas/config/settings.py
   src/atlas/dashboard/schemas.py
+  src/atlas/dialogue/dialogue_engine.py
+  src/atlas/dialogue/gemini_client.py
+  src/atlas/dialogue/openai_compatible_client.py
+  src/atlas/dialogue/prompt_builder.py
+  src/atlas/dialogue/safety_filter.py
   src/atlas/models/enums.py
   src/atlas/pipeline/session_runner.py
+  src/atlas/safety/prompt_injection_filter.py
+  src/atlas/vision/camera_source.py
+  tests/test_camera_source.py
   tests/test_visitor_dashboard.py
   tests/test_cloud_speech.py
+  tests/test_dashboard_api.py
+  tests/test_device_integrations.py
+  tests/test_dialogue.py
+  tests/test_fallback_tts.py
   tests/test_headset_button.py
+  tests/test_openai_compatible_client.py
+  tests/test_safety.py
   docs/PATCH_HISTORY.md
 )
 rollback() {
@@ -106,7 +160,7 @@ for file in "${files[@]}"; do
 done
 tar -xzf "$archive" -C "$root"
 cd "$root"
-if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest tests/test_visitor_dashboard.py tests/test_cloud_speech.py tests/test_headset_button.py; then
+if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest; then
   rollback
   exit 1
 fi
