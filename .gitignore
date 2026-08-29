@@ -16,5 +16,6 @@
 **/*.py[cod]
 **/.pytest_cache/
 **/.ruff_cache/
+**/labels.cache
 **/*.tar.gz
 **/*.zip
