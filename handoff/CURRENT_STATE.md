@@ -34,8 +34,13 @@ Laptop validation on 2026-08-28 after the structural reorganization produced:
 
 The repository-wide Ruff scan still reports pre-existing style findings in
 runtime and test files that were moved without behavioral edits. They are not
-part of this structural change and remain cleanup work. A fresh clone must
-also pass the recovery verifier before publication is considered complete.
+part of this structural change and remain cleanup work.
+
+The reorganized baseline commit
+`ac06623e476633f0aef14c9c49e8606da40857c4` was pushed to `main`, cloned into a
+new temporary directory, and passed the recovery-bundle verifier. The fresh
+clone contained only `.github`, `.gitignore`, `AGENTS.md`, `README.md`,
+`archive/`, `atlas/`, and `handoff/` at repository root.
 
 ## Physical validation still required
 
