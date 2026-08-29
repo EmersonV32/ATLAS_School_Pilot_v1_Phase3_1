@@ -263,14 +263,26 @@ class DeviceRuntime:
     def preload(self) -> dict[str, str]:
         """Load all local models/adapters before announcing readiness."""
         camera = self.container.camera_source
-        camera.start(timeout_s=10.0)
-
-        # SQLite connections belong to the thread that creates them. Build RAG
-        # here because all later retrieval calls run on this runtime thread.
-        statuses: dict[str, str] = {"Camera": "ready"}
+        # The reader owns reconnection. Keep speech and the dashboard available
+        # while a Wi-Fi camera is returning to the network.
         try:
+            camera.start(timeout_s=10.0)
+            camera_status = "ready"
+        except RuntimeError as exc:
+            camera_status = f"recovering: {exc}"
+            logger.warning(
+                "Camera startup deferred; reader will keep retrying: %s", exc
+            )
+
+        # SQLite connections belong to the thread that creates them. Load both
+        # the index and the real embedding model here, so the first visitor
+        # never pays the multi-second model-load cost.
+        statuses: dict[str, str] = {"Camera": camera_status}
+        try:
+            self.container.embedder.embed_one("ATLAS museum guide startup warm-up")
             _ = self.container.retriever
             statuses["RAG"] = "ready"
+            logger.info("[RAG] Embedding model warmed before visitor sessions")
         except Exception as exc:
             statuses["RAG"] = f"unavailable: {exc}"
             logger.warning("RAG preload failed: %s", exc)
@@ -321,13 +333,9 @@ class DeviceRuntime:
             )
         return statuses
 
-    def run(
-        self,
-        max_interactions: int = 0,
-        wait_for_terminal: bool = False,
-    ) -> None:
-        statuses = self.preload()
-        required = ("Camera", "YOLO", "STT", "TTS", "RAG")
+    def _required_components(self) -> tuple[str, ...]:
+        """Return components that must be ready before the voice experience starts."""
+        required = ("YOLO", "STT", "TTS", "RAG")
         llm = getattr(self.container.settings, "llm", None)
         if (
             llm is not None
@@ -335,6 +343,15 @@ class DeviceRuntime:
             and llm.cloud_llm_enabled
         ):
             required += ("Gemini",)
+        return required
+
+    def run(
+        self,
+        max_interactions: int = 0,
+        wait_for_terminal: bool = False,
+    ) -> None:
+        statuses = self.preload()
+        required = self._required_components()
         failed = [name for name in required if statuses.get(name) != "ready"]
         if failed:
             raise RuntimeError("required components unavailable: " + ", ".join(failed))
@@ -387,6 +404,7 @@ class DeviceRuntime:
         clear_count = 0
         completed = 0
         last_frame_number = 0
+        last_missing_frame_log_at = 0.0
         active_session_id: str | None = None
 
         try:
@@ -396,7 +414,16 @@ class DeviceRuntime:
                     timeout_s=2.0,
                 )
                 if frame is None:
-                    logger.warning("No fresh camera frame")
+                    now = time.monotonic()
+                    if now - last_missing_frame_log_at >= 10.0:
+                        camera_status = camera.status()
+                        logger.warning(
+                            "No fresh camera frame; still recovering "
+                            "[ready=%s error=%s]",
+                            camera_status.get("ready"),
+                            camera_status.get("last_error") or "none",
+                        )
+                        last_missing_frame_log_at = now
                     continue
 
                 detection = tracker.update(frame)

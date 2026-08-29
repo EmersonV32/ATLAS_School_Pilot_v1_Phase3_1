@@ -6,8 +6,8 @@ Precedence (lowest to highest):
     3. config/dashboard_overrides.yaml (admin dashboard settings)
     4. Environment variables (ATLAS_* overrides + ATLAS_MODE)
 
-Secrets are not loaded here. API keys are read at call time from the env
-var named by `settings.llm.api_key_env`.
+Secrets are not loaded here. Each cloud provider reads its API key from the
+configured environment-variable name at call time.
 """
 
 from __future__ import annotations
@@ -146,6 +146,12 @@ def load_settings(config_dir: str | Path = "config") -> Settings:
     if not override_path.is_absolute():
         override_path = config_dir.parent / override_path
     raw = _deep_merge(raw, _read_yaml(override_path))
+    # Dashboard overrides created before provider selection used one generic
+    # Gemini key variable. Preserve those installations while moving to
+    # provider-specific key names.
+    legacy_key_env = raw.get("llm", {}).pop("api_key_env", None)
+    if legacy_key_env:
+        raw.setdefault("llm", {}).setdefault("gemini_api_key_env", legacy_key_env)
     raw.setdefault("dashboard", {})["config_override_path"] = str(override_path)
     raw = _apply_env_overrides(raw)
     return Settings.model_validate(raw)

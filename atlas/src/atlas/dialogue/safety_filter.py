@@ -27,6 +27,14 @@ _FALLBACK = {
         "Je ne suis pas en mesure de répondre à cela dans ce contexte. "
         "N'hésitez pas à me poser des questions sur l'œuvre que vous regardez."
     ),
+    "es": (
+        "No puedo responder a eso en este contexto. Puedes hacerme preguntas "
+        "sobre la obra que estás mirando."
+    ),
+    "it": (
+        "Non posso rispondere a questo in questo contesto. Puoi farmi domande "
+        "sull'opera che stai guardando."
+    ),
 }
 
 

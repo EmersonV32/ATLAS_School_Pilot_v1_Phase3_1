@@ -35,7 +35,7 @@ audio-cloud = [
     "sounddevice>=0.4",
     "websockets>=14",
 ]
-llm = ["google-genai>=1.0"]
+llm = ["google-genai>=1.0", "openai>=1.0"]
 dev = [
     "pytest>=8.0",
     "ruff>=0.4",
@@ -55,6 +55,7 @@ all = [
     "sounddevice>=0.4",
     "websockets>=14",
     "google-genai>=1.0",
+    "openai>=1.0",
     "pytest>=8.0",
     "ruff>=0.4",
 ]

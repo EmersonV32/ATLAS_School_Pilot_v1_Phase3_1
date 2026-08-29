@@ -129,7 +129,7 @@ class TestVisitorShell:
         assert 'id="admin-unlock-gate"' in response.text
         assert 'id="admin-workspace"' in response.text
         assert 'class="admin-page admin-locked"' in response.text
-        assert "/static/style.css?v=9" in response.text
+        assert "/static/style.css?v=10" in response.text
         assert 'id="btn-toggle-visitor-monitor"' in response.text
         assert 'id="btn-save-config-top"' in response.text
         assert 'data-log-format="human"' in response.text
@@ -200,7 +200,9 @@ class TestVisitorShell:
         assert events.status_code == 200
         assert isinstance(events.json(), list)
 
-    def test_visitor_images_are_served_by_the_shared_dashboard_service(self, visitor_client):
+    def test_visitor_images_are_served_by_the_shared_dashboard_service(
+        self, visitor_client
+    ):
         for asset in (
             "atlas-logo-v2.webp",
             "gallery-mona-lisa.webp",

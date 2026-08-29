@@ -10,6 +10,10 @@ namespace {
 
 constexpr char kHostname[] = "atlas-camera";
 constexpr uint32_t kWifiConnectTimeoutMs = 30000;
+constexpr uint32_t kWifiReconnectIntervalMs = 3000;
+constexpr uint32_t kWifiReconnectTimeoutMs = 30000;
+uint32_t wifiLostAtMs = 0;
+uint32_t nextWifiReconnectAtMs = 0;
 
 void setStatusLed(bool on) {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -19,6 +23,7 @@ void setStatusLed(bool on) {
 bool connectWifi() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
+  WiFi.setAutoReconnect(true);
   WiFi.setHostname(kHostname);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -40,6 +45,36 @@ bool connectWifi() {
   Serial.print("[WiFi] IP: ");
   Serial.println(WiFi.localIP());
   return true;
+}
+
+void maintainWifi() {
+  if (WiFi.status() == WL_CONNECTED) {
+    if (wifiLostAtMs != 0) {
+      Serial.println("[WiFi] Reconnected without restarting camera.");
+    }
+    wifiLostAtMs = 0;
+    nextWifiReconnectAtMs = 0;
+    setStatusLed(false);
+    return;
+  }
+
+  const uint32_t now = millis();
+  if (wifiLostAtMs == 0) {
+    wifiLostAtMs = now;
+    nextWifiReconnectAtMs = now;
+    Serial.println("[WiFi] Disconnected; attempting recovery.");
+  }
+  if (now >= nextWifiReconnectAtMs) {
+    WiFi.reconnect();
+    nextWifiReconnectAtMs = now + kWifiReconnectIntervalMs;
+    Serial.println("[WiFi] Reconnect requested.");
+  }
+  setStatusLed((now / 250) % 2 == 0);
+  if (now - wifiLostAtMs >= kWifiReconnectTimeoutMs) {
+    Serial.println("[WiFi] Recovery timed out; restarting camera.");
+    delay(500);
+    ESP.restart();
+  }
 }
 
 bool initializeCamera() {
@@ -128,10 +163,6 @@ void setup() {
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[WiFi] Disconnected; restarting.");
-    delay(500);
-    ESP.restart();
-  }
-  delay(1000);
+  maintainWifi();
+  delay(100);
 }

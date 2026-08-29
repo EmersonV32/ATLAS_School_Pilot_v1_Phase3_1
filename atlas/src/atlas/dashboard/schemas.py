@@ -68,7 +68,7 @@ class DemoSimulateRequest(BaseModel):
 class LLMConfigUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    provider: Literal["mock", "gemini"] | None = None
+    provider: Literal["mock", "gemini", "openai", "kimi"] | None = None
     model: str | None = Field(default=None, min_length=1, max_length=100)
     cloud_llm_enabled: bool | None = None
     streaming_enabled: bool | None = None
@@ -107,6 +107,10 @@ class VisionConfigUpdate(BaseModel):
     manual_capture_crop_ratio: float | None = Field(
         default=None, ge=0.25, le=1.0
     )
+    camera_width: int | None = Field(default=None, ge=160, le=3840)
+    camera_height: int | None = Field(default=None, ge=120, le=2160)
+    camera_fps: int | None = Field(default=None, ge=1, le=60)
+    camera_reconnect_s: float | None = Field(default=None, ge=0.1, le=30.0)
 
 
 class RagConfigUpdate(BaseModel):

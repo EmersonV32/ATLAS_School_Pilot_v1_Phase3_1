@@ -593,6 +593,10 @@ class SessionRunner:
                 _format_optional_ms(getattr(self._tts, "last_total_ms", None)),
                 continuous_ok,
             )
+        elif use_streaming:
+            # Release the one-response provider lock used by FallbackTTS when
+            # continuous synthesis was unavailable.
+            self._tts.end_utterance()
 
         logger.info(
             "Response ready [grounded=%s filtered=%s chars=%d]",
@@ -860,6 +864,10 @@ class SessionRunner:
                 _format_optional_ms(getattr(self._tts, "last_total_ms", None)),
                 continuous_ok,
             )
+        elif use_streaming:
+            # Release the one-response provider lock used by FallbackTTS when
+            # continuous synthesis was unavailable.
+            self._tts.end_utterance()
 
         logger.info(
             "Response ready [grounded=%s filtered=%s chars=%d]",

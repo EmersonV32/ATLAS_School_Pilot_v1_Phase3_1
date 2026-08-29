@@ -160,6 +160,8 @@ class FallbackTTS(BaseTTS):
         self._streaming_primary = False
         self._stream_segments: list[str] = []
         self._stream_language = "en"
+        self._locked_adapter: BaseTTS | None = None
+        self._utterance_had_audio = False
 
     def warm_up(self) -> None:
         primary_error: Exception | None = None
@@ -192,26 +194,56 @@ class FallbackTTS(BaseTTS):
         self._streaming_primary = False
         self._stream_segments = []
         self._stream_language = language
-        if not self.primary_ready:
-            return False
-        try:
-            started = bool(self.primary.begin_utterance(language))
-        except Exception as exc:
-            logger.warning(
-                "[TTS] Primary %s could not start continuous synthesis: %s",
-                type(self.primary).__name__,
-                exc,
-            )
-            return False
-        self._streaming_primary = started
-        return started
+        self._locked_adapter = None
+        self._utterance_had_audio = False
+        if self.primary_ready:
+            try:
+                started = bool(self.primary.begin_utterance(language))
+            except Exception as exc:
+                logger.warning(
+                    "[TTS] Primary %s could not start continuous synthesis: %s",
+                    type(self.primary).__name__,
+                    exc,
+                )
+                started = False
+            if started:
+                self._streaming_primary = True
+                self._locked_adapter = self.primary
+                logger.info(
+                    "[TTS] Response voice locked "
+                    "[provider=%s mode=continuous language=%s]",
+                    type(self.primary).__name__,
+                    language,
+                )
+                return True
+
+        # When a provider cannot stream, lock one voice for the *whole*
+        # response. This prevents sentence two from suddenly switching voice.
+        self._locked_adapter = (
+            self.primary if self.primary_ready else self.fallback
+        )
+        logger.info(
+            "[TTS] Response voice locked [provider=%s mode=per_sentence]",
+            type(self._locked_adapter).__name__,
+        )
+        return False
 
     def speak_segment(self, text: str, language: str = "en") -> bool:
         if not self._streaming_primary:
             return self.speak(text, language)
         self._stream_segments.append(text)
         try:
-            return bool(self.primary.speak_segment(text, language))
+            accepted = bool(self.primary.speak_segment(text, language))
+            logger.info(
+                "[TTS] Continuous segment %d %s "
+                "[provider=%s language=%s chars=%d]",
+                len(self._stream_segments),
+                "accepted" if accepted else "rejected",
+                type(self.primary).__name__,
+                language,
+                len(text),
+            )
+            return accepted
         except Exception as exc:
             logger.error(
                 "[TTS] Primary %s segment failed: %s",
@@ -222,6 +254,8 @@ class FallbackTTS(BaseTTS):
 
     def end_utterance(self) -> bool:
         if not self._streaming_primary:
+            self._locked_adapter = None
+            self._utterance_had_audio = False
             return False
         self._streaming_primary = False
         try:
@@ -237,37 +271,70 @@ class FallbackTTS(BaseTTS):
             self.last_provider = type(self.primary).__name__
             self._last_adapter = self.primary
             logger.info("[TTS] Provider used: %s", self.last_provider)
+            self._locked_adapter = None
+            self._utterance_had_audio = False
             return True
-        if getattr(self.primary, "playback_started", False):
-            self.last_provider = type(self.primary).__name__
-            self._last_adapter = self.primary
-            logger.error(
-                "[TTS] Primary failed after playback began; fallback suppressed "
-                "to avoid duplicate speech"
-            )
-            return False
-        combined = " ".join(self._stream_segments).strip()
-        if not combined:
-            return False
-        logger.warning(
-            "[TTS] Primary produced no audio; switching to %s",
-            type(self.fallback).__name__,
+        # A continuous provider may have already handed audio to the output
+        # process before it reports a late stream error. Replaying the queued
+        # sentences with Piper here creates the audible mid-answer voice swap
+        # we are trying to prevent. A failed continuous answer stays text-only
+        # for any unheard portion; the next answer may retry Cartesia normally.
+        self.last_provider = type(self.primary).__name__
+        self._last_adapter = self.primary
+        logger.error(
+            "[TTS] Continuous %s failed; local replay suppressed to keep one "
+            "consistent voice for this response",
+            self.last_provider,
         )
-        self.primary_ready = False
-        result = bool(self.fallback.speak(combined, self._stream_language))
-        self.last_provider = type(self.fallback).__name__
-        self._last_adapter = self.fallback
-        return result
+        self._locked_adapter = None
+        self._utterance_had_audio = False
+        return False
 
     def abort_utterance(self) -> None:
         self._streaming_primary = False
         self._stream_segments = []
+        self._locked_adapter = None
+        self._utterance_had_audio = False
         try:
             self.primary.abort_utterance()
         except Exception as exc:
             logger.warning("[TTS] Could not abort primary utterance: %s", exc)
 
     def speak(self, text: str, language: str = "en") -> bool:
+        if self._locked_adapter is not None and not self._streaming_primary:
+            adapter = self._locked_adapter
+            try:
+                result = bool(adapter.speak(text, language))
+            except Exception as exc:
+                logger.warning(
+                    "[TTS] Locked %s exception: %s",
+                    type(adapter).__name__,
+                    exc,
+                )
+                result = False
+            if result:
+                self.last_provider = type(adapter).__name__
+                self._last_adapter = adapter
+                self._utterance_had_audio = True
+                logger.info(
+                    "[TTS] Locked response provider used: %s",
+                    self.last_provider,
+                )
+                return True
+            if self._utterance_had_audio or getattr(adapter, "playback_started", False):
+                logger.error(
+                    "[TTS] Locked provider failed after speech began; fallback "
+                    "suppressed to keep one consistent voice"
+                )
+                return False
+            if adapter is self.primary and self.fallback_ready:
+                self._locked_adapter = self.fallback
+                logger.warning(
+                    "[TTS] Locked primary failed before speech; response will use %s",
+                    type(self.fallback).__name__,
+                )
+                return self.speak(text, language)
+            return False
         if self.primary_ready:
             try:
                 if self.primary.speak(text, language):

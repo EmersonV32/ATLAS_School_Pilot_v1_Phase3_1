@@ -60,8 +60,8 @@ def create_app(
         require_admin = make_admin_guard(dashboard_settings.admin_token_env)
 
     app = FastAPI(
-        title="ATLAS Dashboards",
-        description="Local visitor and operator controls for ATLAS.",
+        title="ATLAS Operations Console",
+        description="Local operator controls for ATLAS.",
         version="1.1.0",
     )
     app.state.service = service

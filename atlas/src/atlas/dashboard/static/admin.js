@@ -11,6 +11,8 @@ let helpAlertsEnabled = false;
 let refreshIntervals = [];
 let experienceDirty = false;
 let visitorMonitorCollapsed = false;
+let cameraRequestInFlight = false;
+let cameraObjectUrl = null;
 const logFormats = { runtime: "human", events: "human" };
 
 function token() {
@@ -201,6 +203,12 @@ async function refreshStatus() {
     $("camera-confidence").textContent = confidence == null ? "--" : `${Math.round(confidence * 100)}%`;
     $("camera-source").textContent = artwork.artwork_id
       ? `${artwork.stable ? "Stable" : "Detecting"} / ${artwork.source}` : "Camera stream";
+    const camera = status.camera || {};
+    $("vision-camera-fps").textContent = camera.observed_fps != null
+      ? `${Number(camera.observed_fps).toFixed(1)} fps` : "--";
+    if (camera.last_error) {
+      $("camera-source").textContent = `Recovering: ${camera.last_error}`;
+    }
   } catch (_) {
     $("admin-state").textContent = "Offline";
     $("admin-state").className = "status-pill danger";
@@ -438,21 +446,49 @@ async function applyExperience() {
   experienceDirty = false;
 }
 
-function refreshCamera() {
+function scheduleCameraRefresh(delayMs) {
   window.clearTimeout(cameraTimer);
-  $("admin-camera").src = `/camera/frame.jpg?t=${Date.now()}`;
+  cameraTimer = window.setTimeout(refreshCamera, delayMs);
 }
 
-$("admin-camera").addEventListener("load", () => {
-  $("camera-state").textContent = "Live";
-  $("camera-state").className = "status-pill ok";
-  cameraTimer = window.setTimeout(refreshCamera, 200);
-});
-$("admin-camera").addEventListener("error", () => {
-  $("camera-state").textContent = "Unavailable";
-  $("camera-state").className = "status-pill danger";
-  cameraTimer = window.setTimeout(refreshCamera, 1000);
-});
+function showCameraImage(image, source) {
+  return new Promise((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("camera image could not be displayed"));
+    image.src = source;
+  });
+}
+
+async function refreshCamera() {
+  if (cameraRequestInFlight) return;
+  cameraRequestInFlight = true;
+  try {
+    const response = await fetch(`/camera/frame.jpg?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`camera returned ${response.status}`);
+    const nextUrl = URL.createObjectURL(await response.blob());
+    const image = $("admin-camera");
+    const previousUrl = cameraObjectUrl;
+    cameraObjectUrl = nextUrl;
+    await showCameraImage(image, nextUrl);
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    $("camera-state").textContent = "Live";
+    $("camera-state").className = "status-pill ok";
+    scheduleCameraRefresh(120);
+  } catch (_) {
+    if (cameraObjectUrl) {
+      URL.revokeObjectURL(cameraObjectUrl);
+      cameraObjectUrl = null;
+    }
+    $("admin-camera").removeAttribute("src");
+    $("camera-state").textContent = "Unavailable";
+    $("camera-state").className = "status-pill danger";
+    scheduleCameraRefresh(1000);
+  } finally {
+    cameraRequestInFlight = false;
+  }
+}
 
 $("btn-unlock").addEventListener("click", () => unlockAdmin()
   .catch((error) => notice(error.message, true)));
@@ -493,6 +529,14 @@ document.querySelectorAll("[data-log-view]").forEach((button) => {
     });
     refreshLogs(true);
   });
+});
+$("cfg-llm-provider").addEventListener("change", () => {
+  const defaults = { gemini: "gemini-2.5-flash", openai: "gpt-5", kimi: "kimi-k2.5" };
+  const provider = $("cfg-llm-provider").value;
+  const model = $("cfg-llm-model");
+  if (defaults[provider] && Object.values(defaults).includes(model.value.trim())) {
+    model.value = defaults[provider];
+  }
 });
 
 $("btn-override").addEventListener("click", () => api("/session/manual-artwork", { method: "POST", body: JSON.stringify({ artwork_id: $("sel-artwork").value }) }).then(refreshStatus).catch((error) => notice(error.message, true)));

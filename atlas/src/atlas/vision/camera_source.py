@@ -6,10 +6,10 @@ import logging
 import platform
 import threading
 import time
+from collections import deque
 from typing import Any
 
 logger = logging.getLogger(__name__)
-
 
 def normalize_camera_source(source: str | int) -> str | int:
     """Convert a numeric camera setting to an OpenCV device index."""
@@ -52,6 +52,10 @@ class CameraSource:
         self._frame_number = 0
         self._last_frame_at = 0.0
         self._last_error: str | None = None
+        self._opened_at = 0.0
+        self._reconnect_count = 0
+        self._consecutive_failures = 0
+        self._frame_times: deque[float] = deque(maxlen=60)
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._ready = threading.Event()
@@ -63,7 +67,31 @@ class CameraSource:
         if isinstance(self.source, int) and platform.system() == "Linux":
             capture = cv2.VideoCapture(self.source, cv2.CAP_V4L2)
         else:
-            capture = cv2.VideoCapture(self.source)
+            # ESP32 MJPEG streams occasionally stop sending frames without
+            # closing the HTTP connection. Ask FFmpeg to return from a stuck
+            # read so this reader can perform its normal reconnect instead of
+            # leaving the dashboard on a frozen image for about a minute.
+            params: list[int] = []
+            for attribute, timeout_ms in (
+                ("CAP_PROP_OPEN_TIMEOUT_MSEC", 5000),
+                ("CAP_PROP_READ_TIMEOUT_MSEC", 4000),
+            ):
+                property_id = getattr(cv2, attribute, None)
+                if property_id is not None:
+                    params.extend((property_id, timeout_ms))
+            if params:
+                try:
+                    capture = cv2.VideoCapture(self.source, cv2.CAP_FFMPEG, params)
+                except (TypeError, cv2.error):
+                    capture = cv2.VideoCapture(self.source)
+            else:
+                capture = cv2.VideoCapture(self.source)
+            # Some OpenCV builds expose the timeout constants but do not
+            # accept the three-argument constructor. Retain the previous
+            # generic backend as a compatibility fallback.
+            if not capture.isOpened():
+                capture.release()
+                capture = cv2.VideoCapture(self.source)
         capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         if isinstance(self.source, int):
             capture.set(
@@ -76,7 +104,13 @@ class CameraSource:
         if not capture.isOpened():
             capture.release()
             raise RuntimeError(f"could not open camera source {self.source!r}")
-        logger.info("Camera opened: %r", self.source)
+        logger.info(
+            "Camera opened: %r [requested=%dx%d@%dfps]",
+            self.source,
+            self.width,
+            self.height,
+            self.fps,
+        )
         return capture
 
     def start(self, timeout_s: float = 10.0) -> None:
@@ -102,24 +136,57 @@ class CameraSource:
             180: cv2.ROTATE_180,
             270: cv2.ROTATE_90_COUNTERCLOCKWISE,
         }
+        reconnect_delay = self.reconnect_s
         while not self._stop.is_set():
             if self._capture is None:
                 try:
                     self._capture = self._open()
-                    self._last_error = None
+                    with self._lock:
+                        if self._opened_at:
+                            self._reconnect_count += 1
+                            logger.info(
+                                "Camera reconnected [count=%d]",
+                                self._reconnect_count,
+                            )
+                        self._opened_at = time.monotonic()
+                        self._last_error = None
+                        self._consecutive_failures = 0
+                    reconnect_delay = self.reconnect_s
                 except Exception as exc:
-                    self._last_error = str(exc)
-                    logger.warning("Camera open failed: %s", exc)
-                    self._stop.wait(self.reconnect_s)
+                    with self._lock:
+                        self._last_error = str(exc)
+                    logger.warning(
+                        "Camera open failed; retrying in %.1fs: %s",
+                        reconnect_delay,
+                        exc,
+                    )
+                    self._stop.wait(reconnect_delay)
+                    reconnect_delay = min(reconnect_delay * 1.8, 10.0)
                     continue
 
             ok, frame = self._capture.read()
             if not ok:
-                self._last_error = "camera read failed"
-                logger.warning("Camera read failed; reconnecting")
+                with self._lock:
+                    self._consecutive_failures += 1
+                    failures = self._consecutive_failures
+                    self._last_error = "camera read failed"
+                # One empty network frame should not tear down the stream. Three
+                # failures means the reader owns a controlled reconnect instead.
+                if failures < 3:
+                    self._stop.wait(0.05)
+                    continue
+                logger.warning(
+                    "Camera read failed %d times; reconnecting in %.1fs",
+                    failures,
+                    reconnect_delay,
+                )
+                with self._lock:
+                    self._frame = None
+                    self._ready.clear()
                 self._capture.release()
                 self._capture = None
-                self._stop.wait(self.reconnect_s)
+                self._stop.wait(reconnect_delay)
+                reconnect_delay = min(reconnect_delay * 1.8, 10.0)
                 continue
 
             if self.rotation_degrees:
@@ -128,6 +195,8 @@ class CameraSource:
                 self._frame = frame
                 self._frame_number += 1
                 self._last_frame_at = time.monotonic()
+                self._frame_times.append(self._last_frame_at)
+                self._consecutive_failures = 0
             self._ready.set()
 
         if self._capture is not None:
@@ -159,12 +228,26 @@ class CameraSource:
             age = (
                 time.monotonic() - self._last_frame_at if self._last_frame_at else None
             )
+            observed_fps = 0.0
+            if len(self._frame_times) > 1:
+                elapsed = self._frame_times[-1] - self._frame_times[0]
+                if elapsed > 0:
+                    observed_fps = (len(self._frame_times) - 1) / elapsed
+            # A reader thread can remain alive while a network stream is
+            # silently stalled. Report that as unavailable, not "ready".
+            fresh = age is not None and age <= 4.5
             return {
                 "source": self.source,
-                "ready": self._ready.is_set(),
+                "ready": self._ready.is_set() and fresh,
                 "frame_number": self._frame_number,
                 "last_frame_age_s": age,
                 "last_error": self._last_error,
+                "observed_fps": round(observed_fps, 1),
+                "requested_width": self.width,
+                "requested_height": self.height,
+                "requested_fps": self.fps,
+                "reconnect_count": self._reconnect_count,
+                "consecutive_failures": self._consecutive_failures,
             }
 
     def stop(self) -> None:

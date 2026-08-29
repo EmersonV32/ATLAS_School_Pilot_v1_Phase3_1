@@ -153,6 +153,12 @@ class CartesiaTTS(BaseTTS):
             self.playback_started = False
             self.last_first_audio_ms = None
             self.last_total_ms = None
+            logger.info(
+                "[Cartesia] Continuous context opened "
+                "[voice=%s language=%s]",
+                self._voice_id,
+                self._utterance_language,
+            )
         return True
 
     def _receive_utterance(self, context_id: str) -> None:
@@ -183,6 +189,13 @@ class CartesiaTTS(BaseTTS):
                         self.last_first_audio_ms = (
                             time.perf_counter() - started
                         ) * 1000.0
+                        logger.info(
+                            "[Cartesia] First audio received "
+                            "[voice=%s language=%s first_audio_ms=%.0f]",
+                            self._voice_id,
+                            self._utterance_language,
+                            self.last_first_audio_ms,
+                        )
                     if player.stdin is None:
                         raise RuntimeError("audio player stdin is unavailable")
                     player.stdin.write(base64.b64decode(payload["data"]))
@@ -218,8 +231,9 @@ class CartesiaTTS(BaseTTS):
                 self._utterance_started_at = time.perf_counter()
                 logger.info(
                     "[Cartesia] Continuous synthesis started "
-                    "[model=%s language=%s]",
+                    "[model=%s voice=%s language=%s]",
                     self._model,
+                    self._voice_id,
                     self._utterance_language,
                 )
             request = build_cartesia_request(
@@ -331,8 +345,9 @@ class CartesiaTTS(BaseTTS):
         self.playback_started = False
         connection = self._ensure_connection()
         logger.info(
-            "[Cartesia] Synthesis started [model=%s language=%s chars=%d]",
+            "[Cartesia] Synthesis started [model=%s voice=%s language=%s chars=%d]",
             self._model,
+            self._voice_id,
             language,
             len(text),
         )

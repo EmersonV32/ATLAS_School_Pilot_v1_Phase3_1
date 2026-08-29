@@ -363,6 +363,22 @@ Default Source: alsa_input.usb-Shokz_Loop120-02.mono-fallback
     }
 
 
+def test_find_pulse_defaults_reads_pactl_info(monkeypatch):
+    output = """\
+Default Sink: alsa_output.usb-Shokz_Loop120-02.analog-stereo
+Default Source: alsa_input.usb-Shokz_Loop120-02.mono-fallback
+"""
+    monkeypatch.setattr(
+        "atlas.audio.devices.subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(stdout=output),
+    )
+
+    assert find_pulse_defaults() == {
+        "sink": "alsa_output.usb-Shokz_Loop120-02.analog-stereo",
+        "source": "alsa_input.usb-Shokz_Loop120-02.mono-fallback",
+    }
+
+
 def test_named_shokz_pulse_device_is_selected_without_being_default():
     output = """\
 0\talsa_output.platform-sound.analog-stereo\tmodule-alsa-card.c
@@ -388,6 +404,14 @@ def test_rag_preloads_on_runtime_thread():
         def warm_up(self):
             return None
 
+    class WarmEmbedder:
+        def __init__(self):
+            self.thread = None
+
+        def embed_one(self, _text):
+            self.thread = threading.get_ident()
+            return [0.0]
+
     class ReadyCamera:
         def start(self, timeout_s):
             assert timeout_s == 10.0
@@ -398,6 +422,7 @@ def test_rag_preloads_on_runtime_thread():
             self.vision_detector = ReadyComponent()
             self.stt = ReadyComponent()
             self.tts = ReadyComponent()
+            self.embedder = WarmEmbedder()
             self.settings = SimpleNamespace(
                 hardware=SimpleNamespace(enable_ev3=False)
             )
@@ -412,7 +437,45 @@ def test_rag_preloads_on_runtime_thread():
     runtime_thread = threading.get_ident()
     statuses = DeviceRuntime(container).preload()
     assert statuses["RAG"] == "ready"
+    assert container.embedder.thread == runtime_thread
     assert container.retriever_thread == runtime_thread
+
+
+def test_device_runtime_keeps_running_while_camera_recovers():
+    class ReadyComponent:
+        def warm_up(self):
+            return None
+
+    class WarmEmbedder:
+        def embed_one(self, _text):
+            return [0.0]
+
+    class RecoveringCamera:
+        def start(self, timeout_s):
+            assert timeout_s == 10.0
+            raise RuntimeError("camera did not become ready: Wi-Fi unavailable")
+
+    class FakeContainer:
+        def __init__(self):
+            self.camera_source = RecoveringCamera()
+            self.vision_detector = ReadyComponent()
+            self.stt = ReadyComponent()
+            self.tts = ReadyComponent()
+            self.embedder = WarmEmbedder()
+            self.settings = SimpleNamespace(
+                hardware=SimpleNamespace(enable_ev3=False)
+            )
+
+        @property
+        def retriever(self):
+            return object()
+
+    runtime = DeviceRuntime(FakeContainer())
+    statuses = runtime.preload()
+
+    assert statuses["Camera"].startswith("recovering:")
+    assert "Camera" not in runtime._required_components()
+    assert runtime._required_components() == ("YOLO", "STT", "TTS", "RAG")
 
 
 class RecordingEV3(EV3Hardware):

@@ -33,7 +33,9 @@ python -m pip install torch==2.8.0 torchvision==0.23.0 \
 python -m pip install -r "$PROJECT_DIR/requirements-jetson.lock.txt"
 python -m pip install --force-reinstall \
     numpy==1.26.4 opencv-python==4.10.0.84 scipy==1.11.4
-python -m pip install -e "$PROJECT_DIR"
+# Install cloud-provider adapters too. They remain inactive until a provider,
+# enable switch, and matching private environment variable are configured.
+python -m pip install -e "$PROJECT_DIR[llm]"
 
 cd "$PROJECT_DIR"
 ./scripts/restore_models.sh

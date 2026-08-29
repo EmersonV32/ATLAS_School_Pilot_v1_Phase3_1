@@ -6,6 +6,8 @@ Run from the atlas project root with:
 
 from __future__ import annotations
 
+import pytest
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -125,6 +127,34 @@ class TestPromptBuilder:
         assert "not a limit" in system
         assert "database" in system
         assert "Answer ONLY from the verified context" not in system
+
+    @pytest.mark.parametrize(
+        ("language", "language_name"),
+        [("es", "Spanish"), ("it", "Italian")],
+    )
+    def test_selected_language_is_mandatory_for_all_supported_languages(
+        self, language, language_name
+    ):
+        from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+
+        messages = PromptBuilder().build(
+            DialogueContext(
+                question="Tell me about this artwork.",
+                artwork_chunks=_STARRY_NIGHT_CHUNKS,
+                visitor_language=language,
+            )
+        )
+
+        system_prompt = messages[0]["content"]
+        user_prompt = messages[1]["content"]
+        assert (
+            f"OUTPUT LANGUAGE (mandatory): {language_name} ({language})"
+            in system_prompt
+        )
+        assert (
+            f"REQUIRED RESPONSE LANGUAGE: {language_name} ({language})"
+            in user_prompt
+        )
 
     def test_system_prompt_repairs_only_clear_speech_errors(self):
         from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder

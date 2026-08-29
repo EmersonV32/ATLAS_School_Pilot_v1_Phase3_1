@@ -108,17 +108,33 @@ class Container:
     @property
     def llm_client(self):
         if self._llm_client is None:
-            use_gemini = (
-                self.settings.llm.provider == "gemini"
-                and self.settings.llm.cloud_llm_enabled
+            llm = self.settings.llm
+            use_cloud_llm = (
+                llm.provider in {"gemini", "openai", "kimi"}
+                and llm.cloud_llm_enabled
                 and self.settings.mode in (RunMode.DEVICE, RunMode.DEMO)
             )
-            if use_gemini:
+            if use_cloud_llm and llm.provider == "gemini":
                 from atlas.dialogue.gemini_client import GeminiClient
 
                 self._llm_client = GeminiClient(
-                    model=self.settings.llm.model,
-                    api_key=None,  # reads the env var at call time
+                    model=llm.model,
+                    api_key_env=llm.gemini_api_key_env,
+                )
+            elif use_cloud_llm:
+                from atlas.dialogue.openai_compatible_client import (
+                    OpenAICompatibleClient,
+                )
+
+                is_kimi = llm.provider == "kimi"
+                self._llm_client = OpenAICompatibleClient(
+                    provider_name="Kimi" if is_kimi else "OpenAI",
+                    model=llm.model,
+                    api_key_env=(
+                        llm.kimi_api_key_env if is_kimi else llm.openai_api_key_env
+                    ),
+                    base_url=llm.kimi_base_url if is_kimi else None,
+                    timeout_s=llm.timeout_s,
                 )
             else:
                 from atlas.dialogue.mock_llm_client import MockLLMClient
@@ -131,13 +147,13 @@ class Container:
         if self._dialogue_engine is None:
             from atlas.dialogue.dialogue_engine import DialogueEngine
 
-            use_gemini = (
-                self.settings.llm.provider == "gemini"
+            use_cloud_llm = (
+                self.settings.llm.provider in {"gemini", "openai", "kimi"}
                 and self.settings.llm.cloud_llm_enabled
                 and self.settings.mode in (RunMode.DEVICE, RunMode.DEMO)
             )
             self._dialogue_engine = DialogueEngine(
-                llm_client=self.llm_client, expect_json=use_gemini
+                llm_client=self.llm_client, expect_json=use_cloud_llm
             )
         return self._dialogue_engine
 

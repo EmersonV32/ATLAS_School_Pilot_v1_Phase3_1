@@ -33,6 +33,8 @@ _INJECTION_PATTERNS: list[str] = [
 SAFE_RESPONSE = {
     "en": "I can only help with the artwork and the museum visit.",
     "fr": "Je peux seulement aider avec l'œuvre d'art et la visite du musée.",
+    "es": "Solo puedo ayudar con la obra de arte y la visita al museo.",
+    "it": "Posso aiutare solo con l'opera d'arte e la visita al museo.",
 }
 
 

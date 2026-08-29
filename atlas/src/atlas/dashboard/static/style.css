@@ -143,6 +143,8 @@ h2 { margin-bottom: 0.75rem; font-size: 1.05rem; letter-spacing: 0; }
 .segmented button:last-child { border-radius: 0 5px 5px 0; }
 .segmented button + button { border-left: 0; }
 .segmented button.active { background: var(--blue); color: #ffffff; }
+.log-format-toggle { grid-template-columns: repeat(2, 3.25rem); }
+.log-format-toggle button[aria-pressed="true"] { background: var(--blue); color: #ffffff; }
 .compact-field { min-width: 9rem; }
 .switch-field {
   min-height: 2.5rem;
@@ -463,6 +465,8 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .vision-answer { max-height: 4.2rem; margin: 0.65rem 0 0; padding-top: 0.55rem; overflow: hidden; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.7rem; }
 .camera-readout { min-height: 2.7rem; padding: 0.65rem 0.9rem; display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: 0.8rem; }
 .camera-readout strong { color: var(--ink); }
+.camera-controls { display: flex; align-items: center; gap: 0.4rem; }
+.camera-controls select { min-height: 1.9rem; padding: 0.2rem 0.45rem; font-size: 0.75rem; }
 
 .log-controls { flex-wrap: wrap; justify-content: flex-end; }
 .log-controls .switch-field { min-height: 2rem; }
@@ -476,6 +480,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .log-format-toggle { margin-left: auto; }
 .log-format-toggle button { min-height: 1.85rem; padding: 0.2rem 0.48rem; font-size: 0.68rem; }
 .guided-log { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: hidden; }
+.live-log.guided-log { color: #ffffff !important; background: #111827 !important; font-size: 0.84rem; line-height: 1.62; opacity: 1; text-shadow: none; white-space: pre-wrap; }
 
 .operations-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
 .operations-grid .control-section:nth-child(even) { border-left: 1px solid var(--border); }
