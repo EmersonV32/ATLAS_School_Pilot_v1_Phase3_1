@@ -71,8 +71,16 @@ paths=(
   tests
   docs/PATCH_HISTORY.md
 )
-rollback() {
+restore_device_config() {
   cp -a "$backup/device_settings.yaml" "$root/config/settings.yaml"
+  if [ -f "$backup/dashboard_overrides.yaml" ]; then
+    cp -a "$backup/dashboard_overrides.yaml" "$root/config/dashboard_overrides.yaml"
+  else
+    rm -f "$root/config/dashboard_overrides.yaml"
+  fi
+}
+rollback() {
+  restore_device_config
   for path in "${paths[@]}"; do
     rm -rf "$root/$path"
     mkdir -p "$root/$(dirname "$path")"
@@ -82,6 +90,9 @@ rollback() {
 }
 mkdir -p "$backup/files"
 cp -a "$root/config/settings.yaml" "$backup/device_settings.yaml"
+if [ -f "$root/config/dashboard_overrides.yaml" ]; then
+  cp -a "$root/config/dashboard_overrides.yaml" "$backup/dashboard_overrides.yaml"
+fi
 for path in "${paths[@]}"; do
   mkdir -p "$backup/files/$(dirname "$path")"
   cp -a "$root/$path" "$backup/files/$path"
@@ -92,12 +103,13 @@ if ! systemctl --user stop atlas.service; then
 fi
 rm -rf "$root/src/atlas" "$root/tests" "$root/data/content_packs/demo_pack"
 tar -xzf "$archive" -C "$root"
+rm -f "$root/config/dashboard_overrides.yaml"
 cd "$root"
 if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest; then
   rollback
   exit 1
 fi
-cp -a "$backup/device_settings.yaml" "$root/config/settings.yaml"
+restore_device_config
 if ! systemctl --user start atlas.service; then
   rollback
   exit 1
