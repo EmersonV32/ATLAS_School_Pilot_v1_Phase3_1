@@ -5,8 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
-$workspaceRoot = Split-Path $repoRoot -Parent
-$cliRoot = Join-Path $workspaceRoot ".tools\arduino-cli"
+$cliRoot = Join-Path $repoRoot ".tools\arduino-cli"
 $cli = Join-Path $cliRoot "arduino-cli.exe"
 $config = Join-Path $cliRoot "arduino-cli.yaml"
 $secrets = Join-Path $PSScriptRoot "wifi_secrets.h"

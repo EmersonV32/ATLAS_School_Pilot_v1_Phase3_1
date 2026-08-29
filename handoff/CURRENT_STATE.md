@@ -30,6 +30,8 @@ Reconciliation and device validation on 2026-08-29 produced:
 - passing obvious-secret and recovery-bundle checks;
 - a successful XIAO ESP32-S3 Sense firmware compile for the balanced
   800x600/15 FPS profile;
+- a successful physical flash of that profile, with a fresh 800x600 frame and
+  six short-run samples at approximately 12.4 to 14.8 FPS;
 - HTTP 200 responses for visitor, staff, health, and bootstrap endpoints from
   another computer while the camera was unplugged;
 - successful camera hot-plug recovery without restarting the website service,
@@ -47,8 +49,8 @@ into GitHub `main`. The exact device state and rollback information are in
 The following cannot be proven from a laptop-only session:
 
 - XIAO firmware flashing and a 20-minute sustained thermal/FPS test;
-- sustained camera streaming, 800x600 firmware flashing, thermal behavior, and
-  live artwork detection with the new profile;
+- sustained camera streaming, thermal behavior, and live artwork detection
+  with the flashed 800x600 profile;
 - Traditional Chinese live STT and TTS provider behavior;
 - a physical Shokz multifunction-button manual capture;
 - headset disconnect/reconnect recovery after boot; and

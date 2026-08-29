@@ -44,6 +44,9 @@ has passed review and been merged.
   `esp32:esp32:XIAO_ESP32S3` with OPI PSRAM and the 8 MB application partition.
   The compiled sketch uses 1,031,466 bytes of flash and 70,616 bytes of global
   memory.
+- The balanced firmware was flashed successfully through Windows `COM3` and
+  verified by ATLAS with an 800x600 JPEG. A six-sample post-flash check kept
+  fresh frames at approximately 12.4 to 14.8 FPS with no reconnects or failures.
 
 ## Rollback point
 
@@ -67,8 +70,8 @@ The pre-deployment snapshot is retained on the Jetson at:
 | Visitor and staff dashboards | Working without camera | Both remain reachable and report camera disconnection instead of blocking startup. |
 | Shokz microphone and speaker | Ready | Runtime readiness reports both audio directions available. |
 | Shokz multifunction button | Ready | Manual capture is mapped to input event key `164`; physical press should be rechecked before a demo. |
-| XIAO ESP32-S3 Sense camera | Connected on old firmware | Hot-plug and automatic stream recovery work. The current device still outputs 640x480 and needs a sustained thermal test. |
-| Camera firmware profile | Compiled, not flashed | SVGA 800x600 JPEG, quality 10, maximum 15 streamed FPS, idle Wi-Fi power saving. |
+| XIAO ESP32-S3 Sense camera | Connected on new firmware | ATLAS receives fresh 800x600 frames at a 15 FPS target. Hot-plug and automatic stream recovery work; sustained thermal validation remains required. |
+| Camera firmware profile | Flashed and short-tested | SVGA 800x600 JPEG, quality 10, maximum 15 streamed FPS, idle Wi-Fi power saving. |
 | Gemini | Ready | Cloud response provider is available. |
 | Deepgram / Whisper | Ready with fallback | Deepgram is primary; local Whisper is fallback. |
 | Cartesia / Piper | Degraded with fallback | Cartesia returns HTTP 402; Piper keeps speech output available. |
@@ -91,15 +94,12 @@ from GitHub.
 
 ## Required next physical checks
 
-1. Recreate the ignored `wifi_secrets.h`; do not commit or print its values.
-2. Flash commit `92421f0` using the documented XIAO board profile.
-3. Stream continuously for 20 minutes while recording FPS and enclosure
+1. Stream continuously for 20 minutes while recording FPS and enclosure
    temperature; stop if temperature rises abnormally or frames become unstable.
-4. Confirm the flashed stream reports 800x600 and remains fresh with ATLAS as
-   its only MJPEG client.
-5. Trigger manual capture using the Shokz multifunction button and verify that
+2. Confirm the flashed stream remains fresh with ATLAS as its only MJPEG client.
+3. Trigger manual capture using the Shokz multifunction button and verify that
    the selected artwork context updates.
-6. Run one live artwork identification and spoken question through the complete
+4. Run one live artwork identification and spoken question through the complete
    Deepgram, Gemini, and Piper fallback path.
 
 ## Known risks
