@@ -27,6 +27,12 @@ has passed review and been merged.
 - `atlas.service` starts and remains healthy while the camera is unplugged.
 - Visitor, staff, health, and bootstrap endpoints return HTTP 200 from another
   computer on the LAN while the camera is unplugged.
+- After the camera was reconnected, the visitor API changed to `Camera health
+  signal is fresh` without a website or service restart. A captured frame from
+  the currently flashed firmware measured 640x480.
+- A competing direct capture briefly stalled the MJPEG reader. ATLAS reported
+  the failure, reconnected automatically, and returned to fresh frames with
+  `reconnect_count: 1` and zero consecutive failures.
 - The public language list contains English, French, Spanish, Italian, and
   Traditional Chinese. Arabic remains a preview language.
 - Shokz input/output readiness is healthy. The multifunction button is exposed
@@ -61,7 +67,7 @@ The pre-deployment snapshot is retained on the Jetson at:
 | Visitor and staff dashboards | Working without camera | Both remain reachable and report camera disconnection instead of blocking startup. |
 | Shokz microphone and speaker | Ready | Runtime readiness reports both audio directions available. |
 | Shokz multifunction button | Ready | Manual capture is mapped to input event key `164`; physical press should be rechecked before a demo. |
-| XIAO ESP32-S3 Sense camera | Intentionally disconnected | Website availability is verified without it. Reconnect, flash, and run the thermal test before wearable use. |
+| XIAO ESP32-S3 Sense camera | Connected on old firmware | Hot-plug and automatic stream recovery work. The current device still outputs 640x480 and needs a sustained thermal test. |
 | Camera firmware profile | Compiled, not flashed | SVGA 800x600 JPEG, quality 10, maximum 15 streamed FPS, idle Wi-Fi power saving. |
 | Gemini | Ready | Cloud response provider is available. |
 | Deepgram / Whisper | Ready with fallback | Deepgram is primary; local Whisper is fallback. |
@@ -85,12 +91,12 @@ from GitHub.
 
 ## Required next physical checks
 
-1. Reconnect the XIAO camera and confirm the camera endpoint is reachable.
+1. Recreate the ignored `wifi_secrets.h`; do not commit or print its values.
 2. Flash commit `92421f0` using the documented XIAO board profile.
 3. Stream continuously for 20 minutes while recording FPS and enclosure
    temperature; stop if temperature rises abnormally or frames become unstable.
-4. Confirm the dashboard changes from `Camera disconnected` to ready without
-   restarting the website service.
+4. Confirm the flashed stream reports 800x600 and remains fresh with ATLAS as
+   its only MJPEG client.
 5. Trigger manual capture using the Shokz multifunction button and verify that
    the selected artwork context updates.
 6. Run one live artwork identification and spoken question through the complete
@@ -100,6 +106,9 @@ from GitHub.
 
 - The XIAO firmware has passed compilation but not a physical flash or thermal
   test. Do not seal it into the wearable enclosure yet.
+- The current camera server can be disrupted by a competing capture client.
+  Route previews through ATLAS's `/camera/frame.jpg` endpoint instead of opening
+  a second direct connection to the XIAO stream.
 - Cartesia speech will remain unavailable until its account/billing issue is
   resolved; Piper is the current operational fallback.
 - The dashboard URLs use the Jetson's current LAN address. A public Vercel site

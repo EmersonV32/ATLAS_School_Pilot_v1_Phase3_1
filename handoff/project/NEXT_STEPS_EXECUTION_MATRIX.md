@@ -15,6 +15,7 @@ document into an execution view; it does not replace the original roadmap.
 | Language access | Traditional Chinese is a public visitor language; Arabic is retained as preview. | Bootstrap response verified on the live Jetson. |
 | Headset control | The multifunction button is configured for manual capture. | Runtime reports `/dev/input/event2`, key `164`; physical press remains a demo check. |
 | Camera quality baseline | Added a balanced 800x600 JPEG, quality 10, 15 FPS firmware/runtime profile with stream pacing and idle Wi-Fi power saving. | Firmware compile passed; physical flash and thermal test are pending. |
+| Camera absence and return | Verified that the websites remain available while unplugged and the camera becomes ready after hot-plug without a service restart. | Live Jetson bootstrap and runtime status; one induced read failure recovered automatically. |
 
 ## Ready next
 
