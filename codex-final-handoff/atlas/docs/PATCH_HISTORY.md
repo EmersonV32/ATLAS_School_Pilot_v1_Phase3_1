@@ -4,6 +4,34 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-18 - Mandarin session activation and one-press capture
+
+**Changed:**
+
+- Promoted the visitor's `zh-Hant` (Traditional Chinese) selection from a
+  presentation-only option to an active ATLAS language. The visitor retains
+  `zh-Hant`; speech, dialogue, retrieval, and configuration boundaries map it
+  to the runtime language code `zh`.
+- Added `zh` to the core language enum, session language parsing, dashboard
+  schemas, Deepgram STT, Cartesia TTS, and Whisper fallback language paths.
+- Set the configured Shokz play/pause control action to `manual_capture`.
+  Any recognized press sequence now creates one manual artwork-capture request;
+  it no longer changes language or resets a session.
+- Updated every visitor headset instruction and invalidated the visitor cache
+  to describe one press for capture.
+- Expanded the visitor deployment script so it backs up and rolls back these
+  core language/button files and runs focused language, button, and visitor
+  tests before restarting ATLAS.
+
+**Validation:** Laptop-safe suite passed: 257 tests, dependency integrity,
+Python compilation, repository secret scan, and artwork SHA-256 checks.
+
+**Deployment result:** Not deployed; prepared locally.
+
+**Remaining limitation:** The Mandarin cloud speech path and single-press
+action are confirmed in code only until tested with the paired Shokz and live
+providers on the Jetson.
+
 ## 2026-08-18 - Corrected independent expertise artwork files
 
 **Changed:**

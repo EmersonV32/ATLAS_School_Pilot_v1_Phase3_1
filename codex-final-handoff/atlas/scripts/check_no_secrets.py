@@ -16,26 +16,39 @@ PATTERNS = {
 }
 
 
-def tracked_files() -> list[Path]:
+def repository_root() -> Path:
+    return Path(
+        subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+
+
+def tracked_files(root: Path) -> list[Path]:
     result = subprocess.run(
-        ["git", "ls-files", "-co", "--exclude-standard"],
-        cwd=ROOT.parent,
+        ["git", "ls-files", "-co", "--exclude-standard", "--full-name"],
+        cwd=root,
         check=True,
         capture_output=True,
         text=True,
     )
-    return [ROOT.parent / line for line in result.stdout.splitlines() if line]
+    return [root / line for line in result.stdout.splitlines() if line]
 
 
 def main() -> int:
+    root = repository_root()
     findings: list[str] = []
-    for path in tracked_files():
+    for path in tracked_files(root):
         if not path.is_file() or path.name in SKIP or path.stat().st_size > 50_000_000:
             continue
         data = path.read_bytes()
         for label, pattern in PATTERNS.items():
             if pattern.search(data):
-                findings.append(f"{label}: {path.relative_to(ROOT.parent)}")
+                findings.append(f"{label}: {path.relative_to(root)}")
     if findings:
         print("Potential secrets found:")
         print("\n".join(f"- {item}" for item in findings))

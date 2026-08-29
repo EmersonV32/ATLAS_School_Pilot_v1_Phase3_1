@@ -193,7 +193,7 @@ class DeepgramSTT(BaseSTT):
 
     def set_language(self, language: str) -> None:
         normalized = str(language).split("-", 1)[0].lower()
-        if normalized not in {"en", "fr", "es", "it", "multi"}:
+        if normalized not in {"en", "fr", "es", "it", "zh", "multi"}:
             normalized = "multi"
         if normalized == self._language:
             return

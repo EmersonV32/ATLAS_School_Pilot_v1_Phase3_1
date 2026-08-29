@@ -1,3 +1,20 @@
+# ATLAS repository source of truth
+
+The current integrated runtime lives in `codex-final-handoff/atlas/`. The
+`archive/atlas/` folder is an earlier snapshot retained for history and is not
+the deployment or recovery source.
+
+For a fresh Jetson rebuild, start with
+`codex-final-handoff/atlas/docs/recovery/REBUILD_FROM_FRESH_FLASH.md`. Verify a
+clone with:
+
+```bash
+cd codex-final-handoff/atlas
+python scripts/verify_recovery_bundle.py
+```
+
+The historical project roadmap follows.
+
 Month 1: Architecture reset and prototype hardening
 Objective
 

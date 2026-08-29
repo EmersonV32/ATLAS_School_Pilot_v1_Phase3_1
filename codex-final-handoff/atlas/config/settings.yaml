@@ -67,6 +67,7 @@ hardware:
   headset_button_device: ""
   headset_button_key_code: 164
   headset_button_click_window_s: 0.55
+  headset_button_action: manual_capture
   enable_servo: false
   enable_ev3: false
   # Device-mode assets. Missing paths make adapters fail gracefully;

@@ -39,7 +39,7 @@ class RagSettings(BaseModel):
     use_cross_encoder_reranker: bool = False  # extension point
     chunk_max_words: int = Field(default=55, ge=20, le=200)
     language_fallback_enabled: bool = True
-    fallback_language: Literal["en", "fr", "es", "it"] = "en"
+    fallback_language: Literal["en", "fr", "es", "it", "zh"] = "en"
 
 
 class LLMSettings(BaseModel):
@@ -89,6 +89,8 @@ class HardwareSettings(BaseModel):
     headset_button_device: str = ""
     headset_button_key_code: int = Field(default=164, ge=1, le=767)
     headset_button_click_window_s: float = Field(default=0.55, ge=0.2, le=1.5)
+    # The Shokz play/pause key has one deliberate in-experience action.
+    headset_button_action: Literal["manual_capture"] = "manual_capture"
     enable_servo: bool = False
     enable_ev3: bool = False
     # Device-mode asset paths / addresses. Empty string = not configured;

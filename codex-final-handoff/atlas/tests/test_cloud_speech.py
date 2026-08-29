@@ -101,6 +101,8 @@ def test_deepgram_language_can_be_pinned_for_dashboard_session():
     stt = DeepgramSTT(language="multi", vad=object())
     stt.set_language("fr-CA")
     assert stt._language == "fr"
+    stt.set_language("zh-Hant")
+    assert stt._language == "zh"
 
 
 def test_deepgram_empty_final_is_noise_not_provider_failure(monkeypatch):

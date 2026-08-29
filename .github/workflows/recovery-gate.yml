@@ -1,0 +1,38 @@
+name: ATLAS recovery gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify-portable-runtime:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: codex-final-handoff/atlas
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: codex-final-handoff/atlas/pyproject.toml
+
+      - name: Install laptop-safe test dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Reject obvious committed secrets
+        run: python scripts/check_no_secrets.py
+
+      - name: Verify recovery bundle
+        run: python scripts/verify_recovery_bundle.py
+
+      - name: Compile Python sources
+        run: python -m compileall -q src scripts tests
+
+      - name: Run laptop-safe test suite
+        run: python -m pytest -q

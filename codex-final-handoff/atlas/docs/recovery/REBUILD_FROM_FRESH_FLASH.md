@@ -17,12 +17,21 @@ This is the shortest authoritative recovery path. Read
 mkdir -p ~/atlas
 git clone https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1.git \
   ~/atlas/ATLAS_School_Pilot_v1_Phase3_1
-cd ~/atlas/ATLAS_School_Pilot_v1_Phase3_1/atlas
+cd ~/atlas/ATLAS_School_Pilot_v1_Phase3_1/codex-final-handoff/atlas
 ```
 
-The old nationals code, dataset, training runs, and weights are under
-`../legacy/nationals_2026`. They are a reference/fallback, not the current
-runtime.
+`codex-final-handoff/atlas` is the authoritative integrated runtime. The
+repository's `archive/atlas/` folder is an earlier application snapshot and
+must not be used for a fresh recovery. The old nationals code, dataset,
+training runs, and weights are under `../legacy/nationals_2026`; they are
+reference/fallback material, not the current runtime.
+
+Before installing anything, verify that the clone contains the complete
+recovery bundle:
+
+```bash
+python scripts/verify_recovery_bundle.py
+```
 
 ## 3. Bootstrap the current runtime
 
@@ -82,6 +91,9 @@ A recovery is not complete until all of these are true:
 4. The admin dashboard shows live camera and runtime logs.
 5. One English and one French spoken question complete STT -> RAG -> Gemini -> TTS.
 6. `sha256sum -c models/manifest.sha256` validates the committed YOLO model.
+7. `python scripts/verify_recovery_bundle.py` confirms that recovery-critical
+   files are tracked and private/generated artifacts are not tracked.
+8. The GitHub `ATLAS recovery gate` passes for the commit being restored.
 
 ## Deliberately excluded private/generated state
 

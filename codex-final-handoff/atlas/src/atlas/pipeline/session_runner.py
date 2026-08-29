@@ -66,6 +66,7 @@ _LANGUAGE_ACKNOWLEDGEMENTS = {
     "fr": "D'accord, je continue en francais.",
     "es": "De acuerdo, continuare en espanol.",
     "it": "Va bene, continuero in italiano.",
+    "zh": "好的，我会继续用中文。",
 }
 
 _LANGUAGE_NAMES = {
@@ -157,7 +158,7 @@ def make_retriever(phase2_retriever) -> RetrieverFn:
 
     def _lang(code: str) -> Language:
         try:
-            return Language(str(code).lower())
+            return Language(str(code).strip().lower().split("-", 1)[0])
         except ValueError:
             return Language.EN
 
@@ -227,7 +228,7 @@ class SessionRunner:
 
     def set_preferred_language(self, language: str) -> None:
         normalized = str(language).split("-", 1)[0].lower()
-        if normalized not in {"en", "fr", "es", "it"}:
+        if normalized not in {"en", "fr", "es", "it", "zh"}:
             normalized = "en"
         self._preferred_language = normalized
         self._last_language = normalized

@@ -75,7 +75,7 @@ def parse_pactl_defaults(output: str) -> dict[str, str]:
 
 def find_pulse_defaults() -> dict[str, str]:
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["pactl", "info"],
             capture_output=True,
             text=True,
@@ -140,7 +140,7 @@ def configure_pulse_capture(requested: str) -> str | None:
         return None
     os.environ["PULSE_SOURCE"] = source
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["pactl", "set-default-source", source],
             capture_output=True,
             text=True,

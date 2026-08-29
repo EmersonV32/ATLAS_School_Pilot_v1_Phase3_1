@@ -29,7 +29,7 @@ _INTERESTS = {
     "color-light",
     "people-society",
 }
-_RUNTIME_LANGUAGES = frozenset({"en", "fr", "es", "it"})
+_RUNTIME_LANGUAGES = frozenset({"en", "fr", "es", "it", "zh"})
 _MAX_CAMERA_FRAME_AGE_S = 3.0
 
 
@@ -131,10 +131,10 @@ class VisitorService:
                 "inactivity_timeout_seconds": 120,
                 # These languages are backed by the current ATLAS speech stack in
                 # both the device runtime and the local visitor preview.
-                "public_languages": ["en", "fr", "es", "it"],
-                # Arabic and Mandarin remain interface previews until their speech
-                # providers are configured and tested on the Jetson.
-                "preview_languages": ["ar", "zh-Hant"],
+                "public_languages": ["en", "fr", "es", "it", "zh-Hant"],
+                # Arabic remains an interface preview until its speech path is
+                # configured and tested on the Jetson.
+                "preview_languages": ["ar"],
                 "interest_manifest_url": "/static/visitor/interests.json",
                 "state": self._projection(),
                 "readiness": self._readiness(),
@@ -529,7 +529,8 @@ class VisitorService:
                 "pending",
                 "Choose a language to continue.",
             )
-        if language not in supported:
+        normalized = str(language).strip().lower().split("-", 1)[0]
+        if normalized not in supported:
             return self._item(
                 "language",
                 "Language support",

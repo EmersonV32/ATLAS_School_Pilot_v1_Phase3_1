@@ -150,8 +150,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v25"' in response.text
-        assert '"/static/visitor.js?v=25"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v26"' in response.text
+        assert '"/static/visitor.js?v=26"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/assets/expertise-mona.webp"' in response.text
@@ -163,8 +163,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=25" in html
-        assert "/static/visitor.js?v=25" in html
+        assert "/static/visitor.css?v=26" in html
+        assert "/static/visitor.js?v=26" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
@@ -302,7 +302,7 @@ class TestVisitorContract:
         body = visitor_client.get("/api/visitor/bootstrap").json()
         assert body["mode"] == "mock"
         assert body["inactivity_timeout_seconds"] == 120
-        assert body["public_languages"] == ["en", "fr", "es", "it"]
+        assert body["public_languages"] == ["en", "fr", "es", "it", "zh-Hant"]
         assert body["state"]["phase"] == "idle"
         assert body["state"]["profile"]["name_entered"] is False
 
@@ -340,7 +340,7 @@ class TestVisitorContract:
         assert readiness["ready"] is True
         assert readiness["blockers"] == []
 
-    @pytest.mark.parametrize("language", ["en", "fr", "es", "it"])
+    @pytest.mark.parametrize("language", ["en", "fr", "es", "it", "zh-Hant"])
     def test_mock_readiness_accepts_all_current_speech_languages(
         self, visitor_client, language
     ):
@@ -543,7 +543,7 @@ class TestRuntimeBridge:
 
         bootstrap = service.bootstrap()
         assert bootstrap["mode"] == "runtime"
-        assert bootstrap["public_languages"] == ["en", "fr", "es", "it"]
+        assert bootstrap["public_languages"] == ["en", "fr", "es", "it", "zh-Hant"]
         assert bootstrap["readiness"]["ready"] is True
 
         started = service.start()

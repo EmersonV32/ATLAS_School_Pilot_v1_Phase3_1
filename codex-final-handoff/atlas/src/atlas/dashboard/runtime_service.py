@@ -104,7 +104,7 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 def _to_language(value: str | None, fallback: str = "en") -> Language:
     try:
-        return Language(str(value).lower())
+        return Language(str(value).strip().lower().split("-", 1)[0])
     except (ValueError, TypeError):
         return Language(fallback)
 

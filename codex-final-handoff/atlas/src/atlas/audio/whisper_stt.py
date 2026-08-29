@@ -37,7 +37,7 @@ class WhisperSTT(BaseSTT):
 
     def set_language(self, language: str) -> None:
         normalized = str(language).split("-", 1)[0].lower()
-        self._language = normalized if normalized in {"en", "fr", "es", "it"} else None
+        self._language = normalized if normalized in {"en", "fr", "es", "it", "zh"} else None
 
     def warm_up(self) -> None:
         if self._model is not None:

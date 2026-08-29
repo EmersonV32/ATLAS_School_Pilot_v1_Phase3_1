@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class SessionProfileRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    language: str | None = None          # en | fr | es | it
+    language: str | None = None          # en | fr | es | it | zh-Hant
     profile: str | None = None           # EducationalLevel value
     pack_id: str | None = None
     accessibility_mode: bool | None = None
@@ -117,7 +117,7 @@ class RagConfigUpdate(BaseModel):
     keyword_top_k: int | None = Field(default=None, ge=1, le=50)
     chunk_max_words: int | None = Field(default=None, ge=20, le=200)
     language_fallback_enabled: bool | None = None
-    fallback_language: Literal["en", "fr", "es", "it"] | None = None
+    fallback_language: Literal["en", "fr", "es", "it", "zh"] | None = None
 
 
 class LoggingConfigUpdate(BaseModel):

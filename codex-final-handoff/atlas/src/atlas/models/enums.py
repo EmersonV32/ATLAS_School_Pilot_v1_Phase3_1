@@ -23,6 +23,7 @@ class Language(str, Enum):
     FR = "fr"
     ES = "es"
     IT = "it"
+    ZH = "zh"
 
 
 class EducationalLevel(str, Enum):

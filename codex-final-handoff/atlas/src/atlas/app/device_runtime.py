@@ -17,9 +17,6 @@ from atlas.vision.detector import ArtworkDetection
 
 logger = logging.getLogger(__name__)
 
-_BUTTON_LANGUAGES = ("en", "fr", "es", "it")
-
-
 class VisionHold:
     """Accumulate a centered gaze while tolerating brief detector flicker."""
 
@@ -165,6 +162,24 @@ class DeviceRuntime:
 
     def _queue_button_action(self, clicks: int) -> None:
         self._button_actions.put(clicks)
+
+    def _handle_headset_button(self, clicks: int) -> bool:
+        """Map every detected Shokz button gesture to a capture request.
+
+        The device uses its play/pause key as one simple visitor-facing action.
+        Click aggregation remains enabled to avoid an accidental duplicate event,
+        but a single, double, or triple press always results in one capture.
+        """
+        if clicks <= 0:
+            return False
+        self.request_manual_capture()
+        logger.info(
+            "[Button] Manual artwork capture requested [clicks=%d action=%s]",
+            clicks,
+            self.settings.headset_button_action,
+        )
+        print("[Button] Manual artwork capture requested")
+        return True
 
     def _start_headset_button_listener(self) -> str:
         if not self.settings.headset_button_enabled:
@@ -427,39 +442,7 @@ class DeviceRuntime:
                     button_clicks = self._button_actions.get_nowait()
                 except queue.Empty:
                     button_clicks = 0
-                if button_clicks == 1:
-                    current = (
-                        self._dashboard_service.language
-                        if self._dashboard_service is not None
-                        else runner.preferred_language
-                    )
-                    try:
-                        index = _BUTTON_LANGUAGES.index(current)
-                    except ValueError:
-                        index = -1
-                    language = _BUTTON_LANGUAGES[(index + 1) % len(_BUTTON_LANGUAGES)]
-                    runner.set_preferred_language(language)
-                    if self._dashboard_service is not None:
-                        self._dashboard_service.set_profile(language=language)
-                    logger.info("[Button] Language changed to %s", language)
-                    print(f"[Button] Language -> {language}")
-                    continue
-                if button_clicks == 2:
-                    self.request_manual_capture()
-                    logger.info("[Button] Manual artwork capture requested")
-                elif button_clicks >= 3:
-                    self._capture_requested.clear()
-                    listener.deactivate()
-                    tracker.clear_manual_override()
-                    vision_hold.reset()
-                    latched_id = None
-                    active_detection = None
-                    clear_count = 0
-                    self.container.hardware.reset_exhibit()
-                    listener.activate()
-                    logger.info("[Button] Artwork context and exhibit reset")
-                    print("[Button] Reset complete")
-                    continue
+                self._handle_headset_button(button_clicks)
 
                 if self._capture_requested.is_set():
                     self._capture_requested.clear()

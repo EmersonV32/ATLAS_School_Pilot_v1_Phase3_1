@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import struct
+import threading
+from types import SimpleNamespace
 
+from atlas.app.device_runtime import DeviceRuntime
 from atlas.app.headset_button import (
     ClickAccumulator,
     decode_input_events,
@@ -42,3 +45,16 @@ def test_button_clicks_are_grouped_into_single_double_and_triple():
     assert triple.press(3.2) is None
     assert triple.press(3.4) is None
     assert triple.flush(3.96) == 3
+
+
+def test_any_headset_gesture_requests_manual_capture():
+    runtime = DeviceRuntime.__new__(DeviceRuntime)
+    runtime.settings = SimpleNamespace(headset_button_action="manual_capture")
+    runtime._capture_requested = threading.Event()
+
+    assert runtime._handle_headset_button(1) is True
+    assert runtime._capture_requested.is_set()
+
+    runtime._capture_requested.clear()
+    assert runtime._handle_headset_button(2) is True
+    assert runtime._capture_requested.is_set()

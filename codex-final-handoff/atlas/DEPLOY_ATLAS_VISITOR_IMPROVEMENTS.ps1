@@ -34,7 +34,18 @@ $files = @(
     "src/atlas/dashboard/visitor_schemas.py",
     "src/atlas/dashboard/api.py",
     "src/atlas/dashboard/runtime_service.py",
+    "src/atlas/dashboard/schemas.py",
+    "src/atlas/app/device_runtime.py",
+    "src/atlas/audio/cartesia_tts.py",
+    "src/atlas/audio/deepgram_stt.py",
+    "src/atlas/audio/whisper_stt.py",
+    "src/atlas/config/settings.py",
+    "src/atlas/models/enums.py",
+    "src/atlas/pipeline/session_runner.py",
+    "config/settings.yaml",
     "tests/test_visitor_dashboard.py",
+    "tests/test_cloud_speech.py",
+    "tests/test_headset_button.py",
     "docs/PATCH_HISTORY.md"
 )
 $files += Get-ChildItem -LiteralPath (Join-Path $repoRoot "src/atlas/dashboard/static/visitor") -File -Recurse |
@@ -57,7 +68,64 @@ try {
     scp -i $key $archive "$RemoteUser@$HostName`:$remoteArchive"
     if ($LASTEXITCODE -ne 0) { throw "Upload to the Jetson failed." }
 
-    $remoteCommand = "set -euo pipefail; root='$RemoteRoot'; archive='$remoteArchive'; backup='/tmp/atlas_visitor_backup_$timestamp'; rollback() { cp -a `"`$backup/dashboard/.`" `"`$root/src/atlas/dashboard/`"; cp -a `"`$backup/test_visitor_dashboard.py`" `"`$root/tests/test_visitor_dashboard.py`"; if [ -f `"`$backup/docs/PATCH_HISTORY.md`" ]; then cp -a `"`$backup/docs/PATCH_HISTORY.md`" `"`$root/docs/PATCH_HISTORY.md`"; fi; systemctl --user restart atlas.service || true; }; mkdir -p `"`$backup`"; cp -a `"`$root/src/atlas/dashboard`" `"`$backup/dashboard`"; cp -a `"`$root/tests/test_visitor_dashboard.py`" `"`$backup/test_visitor_dashboard.py`"; mkdir -p `"`$backup/docs`"; cp -a `"`$root/docs/PATCH_HISTORY.md`" `"`$backup/docs/PATCH_HISTORY.md`" 2>/dev/null || true; tar -xzf `"`$archive`" -C `"`$root`"; cd `"`$root`"; if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest tests/test_visitor_dashboard.py; then rollback; exit 1; fi; if ! systemctl --user restart atlas.service; then rollback; exit 1; fi; ready=0; for attempt in `$(seq 1 25); do if curl -fsS http://127.0.0.1:8765/health > /dev/null; then ready=1; break; fi; sleep 2; done; if [ `"`$ready`" -ne 1 ]; then rollback; exit 1; fi; for asset in /static/visitor/assets/atlas-logo-v2.webp /static/visitor/assets/gallery-mona-lisa.webp /static/visitor/assets/gallery-great-wave.webp /static/visitor/assets/gallery-ambassadors.webp /static/visitor/assets/interest-stories.webp /static/visitor/assets/interest-technique.webp /static/visitor/assets/interest-symbols.webp /static/visitor/assets/interest-history.webp /static/visitor/assets/interest-color-light.webp /static/visitor/assets/interest-people-society.webp; do curl -fsS -o /dev/null `"http://127.0.0.1:8765`$asset`" || { rollback; exit 1; }; done; echo Visitor patch deployed. Backup retained at: `$backup"
+    $remoteCommand = @'
+set -euo pipefail
+root='__ROOT__'
+archive='__ARCHIVE__'
+backup='/tmp/atlas_visitor_backup___STAMP__'
+files=(
+  config/settings.yaml
+  src/atlas/app/device_runtime.py
+  src/atlas/audio/cartesia_tts.py
+  src/atlas/audio/deepgram_stt.py
+  src/atlas/audio/whisper_stt.py
+  src/atlas/config/settings.py
+  src/atlas/dashboard/schemas.py
+  src/atlas/models/enums.py
+  src/atlas/pipeline/session_runner.py
+  tests/test_visitor_dashboard.py
+  tests/test_cloud_speech.py
+  tests/test_headset_button.py
+  docs/PATCH_HISTORY.md
+)
+rollback() {
+  cp -a "$backup/dashboard/." "$root/src/atlas/dashboard/"
+  cp -a "$backup/files/." "$root/"
+  systemctl --user restart atlas.service || true
+}
+mkdir -p "$backup/files"
+cp -a "$root/src/atlas/dashboard" "$backup/dashboard"
+for file in "${files[@]}"; do
+  mkdir -p "$backup/files/$(dirname "$file")"
+  cp -a "$root/$file" "$backup/files/$file"
+done
+tar -xzf "$archive" -C "$root"
+cd "$root"
+if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest tests/test_visitor_dashboard.py tests/test_cloud_speech.py tests/test_headset_button.py; then
+  rollback
+  exit 1
+fi
+if ! systemctl --user restart atlas.service; then
+  rollback
+  exit 1
+fi
+ready=0
+for attempt in $(seq 1 25); do
+  if curl -fsS http://127.0.0.1:8765/health > /dev/null; then
+    ready=1
+    break
+  fi
+  sleep 2
+done
+if [ "$ready" -ne 1 ]; then
+  rollback
+  exit 1
+fi
+for asset in /static/visitor/assets/atlas-logo-v2.webp /static/visitor/assets/gallery-mona-lisa.webp /static/visitor/assets/gallery-great-wave.webp /static/visitor/assets/gallery-ambassadors.webp /static/visitor/assets/interest-stories.webp /static/visitor/assets/interest-technique.webp /static/visitor/assets/interest-symbols.webp /static/visitor/assets/interest-history.webp /static/visitor/assets/interest-color-light.webp /static/visitor/assets/interest-people-society.webp; do
+  curl -fsS -o /dev/null "http://127.0.0.1:8765$asset" || { rollback; exit 1; }
+done
+echo "Visitor patch deployed. Backup retained at: $backup"
+'@.Replace('__ROOT__', $RemoteRoot).Replace('__ARCHIVE__', $remoteArchive).Replace('__STAMP__', $timestamp)
     ssh -i $key "$RemoteUser@$HostName" $remoteCommand
     if ($LASTEXITCODE -ne 0) { throw "Jetson validation or restart failed. The remote backup remains available." }
 

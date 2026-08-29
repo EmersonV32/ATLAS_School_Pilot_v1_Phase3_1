@@ -40,7 +40,7 @@ def build_cartesia_request(
     continue_: bool = False,
 ) -> dict[str, Any]:
     language = str(language).lower().split("-", 1)[0]
-    if language not in {"en", "fr", "es", "it"}:
+    if language not in {"en", "fr", "es", "it", "zh"}:
         language = "en"
     return {
         "model_id": model,

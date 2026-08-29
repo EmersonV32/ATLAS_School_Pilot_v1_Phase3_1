@@ -15,14 +15,15 @@ from atlas.app.device_runtime import (
     DeviceRuntime,
     VisionHold,
 )
-from atlas.audio.stt import TranscriptResult
 from atlas.audio.devices import (
     configure_pulse_capture,
     device_name_score,
+    find_pulse_defaults,
     find_sounddevice_input,
     parse_pactl_defaults,
     select_pulse_device,
 )
+from atlas.audio.stt import TranscriptResult
 from atlas.audio.whisper_stt import WhisperSTT
 from atlas.config.loader import load_settings
 from atlas.config.settings import DashboardSettings, Settings
@@ -41,6 +42,14 @@ def test_camera_source_accepts_usb_index_and_url():
     assert normalize_camera_source(2) == 2
     url = "http://192.168.1.42:81/stream"
     assert normalize_camera_source(url) == url
+
+
+def test_pulse_defaults_fail_closed_when_pactl_is_unavailable(monkeypatch):
+    def missing_pactl(*_args, **_kwargs):
+        raise OSError("pactl is unavailable")
+
+    monkeypatch.setattr("atlas.audio.devices.subprocess.run", missing_pactl)
+    assert find_pulse_defaults() == {}
 
 
 def test_whisper_fallback_defaults_to_cached_files_only():
