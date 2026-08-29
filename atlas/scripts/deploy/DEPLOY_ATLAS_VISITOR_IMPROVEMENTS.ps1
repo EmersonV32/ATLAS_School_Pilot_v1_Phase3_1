@@ -29,60 +29,15 @@ if (-not $key) {
 $files = @(
     # Keep the Jetson's deployment-specific config/settings.yaml in place.
     # It contains LAN binding and admin-auth policy that differ from dev defaults.
-    "src/atlas/dashboard/templates/index.html",
-    "src/atlas/dashboard/templates/admin.html",
-    "src/atlas/dashboard/static/visitor.js",
-    "src/atlas/dashboard/static/visitor.css",
-    "src/atlas/dashboard/static/service-worker.js",
-    "src/atlas/dashboard/static/admin.js",
-    "src/atlas/dashboard/static/style.css",
-    "src/atlas/dashboard/static/manifest.webmanifest",
-    "src/atlas/dashboard/visitor_service.py",
-    "src/atlas/dashboard/visitor_schemas.py",
-    "src/atlas/dashboard/api.py",
-    "src/atlas/dashboard/runtime_service.py",
-    "src/atlas/dashboard/schemas.py",
-    "src/atlas/app/dependency_container.py",
-    "src/atlas/app/device_runtime.py",
-    "src/atlas/app/preflight.py",
-    "src/atlas/audio/cartesia_tts.py",
-    "src/atlas/audio/deepgram_stt.py",
-    "src/atlas/audio/fallback.py",
-    "src/atlas/audio/whisper_stt.py",
-    "src/atlas/config/loader.py",
-    "src/atlas/config/settings.py",
-    "src/atlas/dialogue/dialogue_engine.py",
-    "src/atlas/dialogue/gemini_client.py",
-    "src/atlas/dialogue/openai_compatible_client.py",
-    "src/atlas/dialogue/prompt_builder.py",
-    "src/atlas/dialogue/safety_filter.py",
-    "src/atlas/models/enums.py",
-    "src/atlas/pipeline/session_runner.py",
-    "src/atlas/safety/prompt_injection_filter.py",
-    "src/atlas/vision/camera_source.py",
-    "data/content_packs/demo_pack/artworks/girl_with_a_pearl_earring.json",
-    "data/content_packs/demo_pack/artworks/great_wave_off_kanagawa.json",
-    "data/content_packs/demo_pack/artworks/mona_lisa.json",
-    "data/content_packs/demo_pack/artworks/sunflowers.json",
-    "data/content_packs/demo_pack/artworks/tutankhamun_mask.json",
-    "data/content_packs/demo_pack/manifest.json",
     "firmware/xiao_camera/xiao_camera.ino",
     "pyproject.toml",
     "requirements.txt",
-    "tests/test_camera_source.py",
-    "tests/test_visitor_dashboard.py",
-    "tests/test_cloud_speech.py",
-    "tests/test_dashboard_api.py",
-    "tests/test_device_integrations.py",
-    "tests/test_dialogue.py",
-    "tests/test_fallback_tts.py",
-    "tests/test_headset_button.py",
-    "tests/test_openai_compatible_client.py",
-    "tests/test_safety.py",
     "docs/PATCH_HISTORY.md"
 )
-$files += Get-ChildItem -LiteralPath (Join-Path $repoRoot "src/atlas/dashboard/static/visitor") -File -Recurse |
-    ForEach-Object { $_.FullName.Substring($repoRoot.Length + 1).Replace("\", "/") }
+$trackedTreeFiles = & git -C $repoRoot ls-files -- src/atlas tests data/content_packs/demo_pack
+if ($LASTEXITCODE -ne 0) { throw "Could not list tracked runtime files." }
+$files += $trackedTreeFiles
+$files = @($files | Sort-Object -Unique)
 
 New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
 try {
@@ -106,70 +61,45 @@ set -euo pipefail
 root='__ROOT__'
 archive='__ARCHIVE__'
 backup='/tmp/atlas_visitor_backup___STAMP__'
-files=(
-  data/content_packs/demo_pack/artworks/girl_with_a_pearl_earring.json
-  data/content_packs/demo_pack/artworks/great_wave_off_kanagawa.json
-  data/content_packs/demo_pack/artworks/mona_lisa.json
-  data/content_packs/demo_pack/artworks/sunflowers.json
-  data/content_packs/demo_pack/artworks/tutankhamun_mask.json
-  data/content_packs/demo_pack/manifest.json
+paths=(
+  data/content_packs/demo_pack
   firmware/xiao_camera/xiao_camera.ino
   pyproject.toml
   requirements.txt
-  src/atlas/app/dependency_container.py
-  src/atlas/app/device_runtime.py
-  src/atlas/app/preflight.py
-  src/atlas/audio/cartesia_tts.py
-  src/atlas/audio/deepgram_stt.py
-  src/atlas/audio/fallback.py
-  src/atlas/audio/whisper_stt.py
-  src/atlas/config/loader.py
-  src/atlas/config/settings.py
-  src/atlas/dashboard/schemas.py
-  src/atlas/dialogue/dialogue_engine.py
-  src/atlas/dialogue/gemini_client.py
-  src/atlas/dialogue/openai_compatible_client.py
-  src/atlas/dialogue/prompt_builder.py
-  src/atlas/dialogue/safety_filter.py
-  src/atlas/models/enums.py
-  src/atlas/pipeline/session_runner.py
-  src/atlas/safety/prompt_injection_filter.py
-  src/atlas/vision/camera_source.py
-  tests/test_camera_source.py
-  tests/test_visitor_dashboard.py
-  tests/test_cloud_speech.py
-  tests/test_dashboard_api.py
-  tests/test_device_integrations.py
-  tests/test_dialogue.py
-  tests/test_fallback_tts.py
-  tests/test_headset_button.py
-  tests/test_openai_compatible_client.py
-  tests/test_safety.py
+  src/atlas
+  tests
   docs/PATCH_HISTORY.md
 )
 rollback() {
-  cp -a "$backup/dashboard/." "$root/src/atlas/dashboard/"
-  cp -a "$backup/files/." "$root/"
+  for path in "${paths[@]}"; do
+    rm -rf "$root/$path"
+    mkdir -p "$root/$(dirname "$path")"
+    cp -a "$backup/files/$path" "$root/$path"
+  done
   systemctl --user restart atlas.service || true
 }
 mkdir -p "$backup/files"
-cp -a "$root/src/atlas/dashboard" "$backup/dashboard"
-for file in "${files[@]}"; do
-  mkdir -p "$backup/files/$(dirname "$file")"
-  cp -a "$root/$file" "$backup/files/$file"
+for path in "${paths[@]}"; do
+  mkdir -p "$backup/files/$(dirname "$path")"
+  cp -a "$root/$path" "$backup/files/$path"
 done
+if ! systemctl --user stop atlas.service; then
+  rollback
+  exit 1
+fi
+rm -rf "$root/src/atlas" "$root/tests" "$root/data/content_packs/demo_pack"
 tar -xzf "$archive" -C "$root"
 cd "$root"
 if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest; then
   rollback
   exit 1
 fi
-if ! systemctl --user restart atlas.service; then
+if ! systemctl --user start atlas.service; then
   rollback
   exit 1
 fi
 ready=0
-for attempt in $(seq 1 25); do
+for attempt in $(seq 1 45); do
   if curl -fsS http://127.0.0.1:8765/health > /dev/null; then
     ready=1
     break
