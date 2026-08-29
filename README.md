@@ -97,3 +97,5 @@ dashboard at `http://127.0.0.1:8765/admin` by default.
 ATLAS is an actively developed student prototype. Automated laptop validation
 is included in the repository; camera, audio, headset, CUDA/TensorRT, and
 systemd behavior must also be checked on the target Jetson after deployment.
+
+The old repository for ATLAS is at: https://github.com/alexwithadog/wrofutureinnovators2026 
