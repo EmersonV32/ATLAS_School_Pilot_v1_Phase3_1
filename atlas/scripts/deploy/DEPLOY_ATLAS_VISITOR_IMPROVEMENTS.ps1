@@ -27,6 +27,8 @@ if (-not $key) {
 }
 
 $files = @(
+    # Keep the Jetson's deployment-specific config/settings.yaml in place.
+    # It contains LAN binding and admin-auth policy that differ from dev defaults.
     "src/atlas/dashboard/templates/index.html",
     "src/atlas/dashboard/templates/admin.html",
     "src/atlas/dashboard/static/visitor.js",
@@ -47,7 +49,6 @@ $files = @(
     "src/atlas/config/settings.py",
     "src/atlas/models/enums.py",
     "src/atlas/pipeline/session_runner.py",
-    "config/settings.yaml",
     "tests/test_visitor_dashboard.py",
     "tests/test_cloud_speech.py",
     "tests/test_headset_button.py",
@@ -79,7 +80,6 @@ root='__ROOT__'
 archive='__ARCHIVE__'
 backup='/tmp/atlas_visitor_backup___STAMP__'
 files=(
-  config/settings.yaml
   src/atlas/app/device_runtime.py
   src/atlas/audio/cartesia_tts.py
   src/atlas/audio/deepgram_stt.py
