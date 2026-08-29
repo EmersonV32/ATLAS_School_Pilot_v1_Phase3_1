@@ -29,6 +29,7 @@ if (-not $key) {
 $files = @(
     # Keep the Jetson's deployment-specific config/settings.yaml in place.
     # It contains LAN binding and admin-auth policy that differ from dev defaults.
+    "config/settings.yaml",
     "firmware/xiao_camera/xiao_camera.ino",
     "pyproject.toml",
     "requirements.txt",
@@ -71,6 +72,7 @@ paths=(
   docs/PATCH_HISTORY.md
 )
 rollback() {
+  cp -a "$backup/device_settings.yaml" "$root/config/settings.yaml"
   for path in "${paths[@]}"; do
     rm -rf "$root/$path"
     mkdir -p "$root/$(dirname "$path")"
@@ -79,6 +81,7 @@ rollback() {
   systemctl --user restart atlas.service || true
 }
 mkdir -p "$backup/files"
+cp -a "$root/config/settings.yaml" "$backup/device_settings.yaml"
 for path in "${paths[@]}"; do
   mkdir -p "$backup/files/$(dirname "$path")"
   cp -a "$root/$path" "$backup/files/$path"
@@ -94,6 +97,7 @@ if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest; then
   rollback
   exit 1
 fi
+cp -a "$backup/device_settings.yaml" "$root/config/settings.yaml"
 if ! systemctl --user start atlas.service; then
   rollback
   exit 1
