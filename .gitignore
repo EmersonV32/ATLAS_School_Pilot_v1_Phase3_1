@@ -11,6 +11,7 @@
 **/id_ed25519
 
 # Local environments, caches, and deployment archives.
+/.tools/
 **/.venv/
 **/__pycache__/
 **/*.py[cod]

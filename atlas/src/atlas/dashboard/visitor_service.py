@@ -430,6 +430,21 @@ class VisitorService:
             and isinstance(camera_age, (int, float))
             and 0 <= camera_age <= _MAX_CAMERA_FRAME_AGE_S
         )
+        camera_error = str(camera.get("last_error") or "").strip()
+        camera_disconnected = (
+            not camera_ready and camera_age is None and bool(camera_error)
+        )
+        if camera_ready:
+            camera_detail = "Camera health signal is fresh."
+        elif camera_disconnected:
+            camera_detail = (
+                "Camera disconnected. Reconnect it when ready; this website "
+                "remains available."
+            )
+        else:
+            camera_detail = (
+                "Camera stream is connected but not supplying a fresh image."
+            )
         emergency_stopped = bool(status.get("emergency_stopped"))
         self._state["connection"] = "online" if connection_ready else "offline"
 
@@ -452,7 +467,8 @@ class VisitorService:
                     "Shokz OpenComm2 input and output are ready."
                     if audio_ready
                     else (
-                        "Reconnect the Shokz OpenComm2 USB adapter; this page checks again automatically."
+                        "Reconnect the Shokz OpenComm2 USB adapter; this page "
+                        "checks again automatically."
                         if headset_connected is False
                         else "Audio input or output is unavailable."
                     )
@@ -470,9 +486,7 @@ class VisitorService:
                 "camera",
                 "Camera",
                 "ready" if camera_ready else "unavailable",
-                "Camera health signal is fresh."
-                if camera_ready
-                else "Camera is not supplying a fresh image.",
+                camera_detail,
             ),
             self._item(
                 "content",

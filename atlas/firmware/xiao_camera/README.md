@@ -19,5 +19,15 @@ It serves the current frame as a low-latency MJPEG stream for the Jetson.
 The build uses the `XIAO_ESP32S3` board definition, OPI PSRAM, the 8 MB maximum
 application partition, two PSRAM frame buffers, and latest-frame capture.
 
+The default balanced profile is 800x600 SVGA JPEG at quality 10 and a maximum
+of 15 streamed frames per second. The stream sends only fresh frames, disables
+browser caching, and enables Wi-Fi power saving whenever no stream client is
+connected. This raises artwork detail above the former 640x480 profile while
+limiting unnecessary radio traffic and idle heat.
+
+After flashing, leave the camera streaming for 20 minutes and record the
+observed FPS and enclosure temperature from the admin dashboard before sealing
+the camera into a wearable case.
+
 `app_httpd.cpp`, `camera_index.h`, and `camera_pins.h` are based on Espressif's
 Arduino ESP32 `CameraWebServer` example.

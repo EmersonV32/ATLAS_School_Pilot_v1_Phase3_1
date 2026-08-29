@@ -22,6 +22,7 @@
 #include "sdkconfig.h"
 #include "camera_index.h"
 #include "board_config.h"
+#include "camera_profile.h"
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_ARDUHAL_ESP_LOG)
 #include "esp32-hal-log.h"
@@ -32,9 +33,14 @@
 #define CONFIG_LED_MAX_INTENSITY 255
 
 int led_duty = 0;
-bool isStreaming = false;
 
 #endif
+
+volatile bool isStreaming = false;
+
+bool cameraStreamActive() {
+  return isStreaming;
+}
 
 typedef struct {
   httpd_req_t *req;
@@ -228,10 +234,11 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   }
 
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-  httpd_resp_set_hdr(req, "X-Framerate", "60");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store, no-cache, must-revalidate");
+  httpd_resp_set_hdr(req, "X-Framerate", kAtlasTargetFpsHeader);
 
-#if defined(LED_GPIO_NUM)
   isStreaming = true;
+#if defined(LED_GPIO_NUM)
   enable_led(true);
 #endif
 
@@ -279,6 +286,12 @@ static esp_err_t stream_handler(httpd_req_t *req) {
       break;
     }
     int64_t fr_end = esp_timer_get_time();
+    const int64_t frame_due = last_frame + kAtlasFrameIntervalUs;
+    if (fr_end < frame_due) {
+      const int64_t delay_ms = (frame_due - fr_end + 999) / 1000;
+      vTaskDelay(pdMS_TO_TICKS(delay_ms));
+      fr_end = esp_timer_get_time();
+    }
 
     int64_t frame_time = fr_end - last_frame;
     last_frame = fr_end;
@@ -293,8 +306,8 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     );
   }
 
-#if defined(LED_GPIO_NUM)
   isStreaming = false;
+#if defined(LED_GPIO_NUM)
   enable_led(false);
 #endif
 

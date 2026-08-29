@@ -61,10 +61,15 @@ def _progress(**updates) -> dict:
 
 class _FakeRuntime:
     def __init__(
-        self, *, camera_ready: bool = True, camera_age_s: float | None = 0.1
+        self,
+        *,
+        camera_ready: bool = True,
+        camera_age_s: float | None = 0.1,
+        camera_error: str | None = None,
     ) -> None:
         self.camera_ready = camera_ready
         self.camera_age_s = camera_age_s
+        self.camera_error = camera_error
         self.profile_calls: list[dict] = []
         self.started = 0
         self.stopped = 0
@@ -87,6 +92,7 @@ class _FakeRuntime:
             "camera": {
                 "ready": self.camera_ready,
                 "last_frame_age_s": self.camera_age_s,
+                "last_error": self.camera_error,
             },
             "emergency_stopped": False,
         }
@@ -572,6 +578,24 @@ class TestRuntimeBridge:
         assert camera["status"] == "unavailable"
         with pytest.raises(RuntimeError, match="Camera"):
             service.start()
+
+    def test_runtime_bridge_reports_disconnected_camera_without_hiding_site(self):
+        service = VisitorService(
+            runtime_service=_FakeRuntime(
+                camera_ready=False,
+                camera_age_s=None,
+                camera_error="could not open camera source",
+            )
+        )
+
+        readiness = service.readiness()
+        camera = next(item for item in readiness["items"] if item["id"] == "camera")
+
+        assert camera["status"] == "unavailable"
+        assert camera["detail"] == (
+            "Camera disconnected. Reconnect it when ready; this website "
+            "remains available."
+        )
 
     def test_runtime_bridge_blocks_a_stale_camera_frame(self):
         service = VisitorService(runtime_service=_FakeRuntime(camera_age_s=3.1))

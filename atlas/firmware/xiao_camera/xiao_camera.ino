@@ -4,6 +4,7 @@
 #include "esp_camera.h"
 
 #include "board_config.h"
+#include "camera_profile.h"
 #include "wifi_secrets.h"
 
 namespace {
@@ -104,8 +105,8 @@ bool initializeCamera() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-  config.frame_size = FRAMESIZE_VGA;
-  config.jpeg_quality = 10;
+  config.frame_size = kAtlasFrameSize;
+  config.jpeg_quality = kAtlasJpegQuality;
   config.fb_count = 2;
   config.grab_mode = CAMERA_GRAB_LATEST;
   config.fb_location = CAMERA_FB_IN_PSRAM;
@@ -122,14 +123,21 @@ bool initializeCamera() {
     sensor->set_brightness(sensor, 1);
     sensor->set_saturation(sensor, -2);
   }
-  sensor->set_framesize(sensor, FRAMESIZE_VGA);
-  Serial.println("[Camera] Ready at 640x480 JPEG.");
+  sensor->set_framesize(sensor, kAtlasFrameSize);
+  Serial.printf(
+    "[Camera] Ready at %dx%d JPEG, quality=%d, target=%dfps.\n",
+    kAtlasFrameWidth,
+    kAtlasFrameHeight,
+    kAtlasJpegQuality,
+    kAtlasTargetFps
+  );
   return true;
 }
 
 }  // namespace
 
 void startCameraServer();
+bool cameraStreamActive();
 
 void setup() {
   Serial.begin(115200);
@@ -164,5 +172,15 @@ void setup() {
 
 void loop() {
   maintainWifi();
+  static bool wifiSleepEnabled = false;
+  const bool shouldSleep = !cameraStreamActive();
+  if (wifiSleepEnabled != shouldSleep) {
+    WiFi.setSleep(shouldSleep);
+    wifiSleepEnabled = shouldSleep;
+    Serial.printf(
+      "[WiFi] Power save %s.\n",
+      wifiSleepEnabled ? "enabled while idle" : "disabled while streaming"
+    );
+  }
   delay(100);
 }

@@ -59,8 +59,8 @@ hardware:
   # Stable mDNS name announced by firmware/xiao_camera.
   camera_source: "http://atlas-camera.local:81/stream"
   camera_index: 0
-  camera_width: 640
-  camera_height: 480
+  camera_width: 800
+  camera_height: 600
   camera_fps: 15
   camera_rotation_degrees: 0
   camera_reconnect_s: 1.0
