@@ -87,8 +87,10 @@ rollback() {
   restore_device_config
   for path in "${paths[@]}"; do
     rm -rf "$root/$path"
-    mkdir -p "$root/$(dirname "$path")"
-    cp -a "$backup/files/$path" "$root/$path"
+    if [ -e "$backup/files/$path" ]; then
+      mkdir -p "$root/$(dirname "$path")"
+      cp -a "$backup/files/$path" "$root/$path"
+    fi
   done
   systemctl --user restart atlas.service || true
 }
@@ -98,8 +100,10 @@ if [ -f "$root/config/dashboard_overrides.yaml" ]; then
   cp -a "$root/config/dashboard_overrides.yaml" "$backup/dashboard_overrides.yaml"
 fi
 for path in "${paths[@]}"; do
-  mkdir -p "$backup/files/$(dirname "$path")"
-  cp -a "$root/$path" "$backup/files/$path"
+  if [ -e "$root/$path" ]; then
+    mkdir -p "$backup/files/$(dirname "$path")"
+    cp -a "$root/$path" "$backup/files/$path"
+  fi
 done
 if ! systemctl --user stop atlas.service; then
   rollback
