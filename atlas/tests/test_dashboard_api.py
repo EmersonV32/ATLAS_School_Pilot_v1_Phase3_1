@@ -77,6 +77,16 @@ class TestHealthAndStatus:
         assert '<option value="zh">繁體中文</option>' in res.text
         assert "Live logs" in res.text
         assert "Current state" in res.text
+        assert 'data-admin-tab="main"' in res.text
+        assert 'data-admin-tab="demo"' in res.text
+        assert 'data-admin-tab="audio-vision"' in res.text
+        assert 'data-admin-tab="visitor"' in res.text
+        assert 'data-admin-tab="logs"' in res.text
+        assert 'data-admin-tab="settings"' in res.text
+        assert 'data-audio-route="headset"' in res.text
+        assert 'data-audio-route="speaker"' in res.text
+        assert 'id="btn-test-audio"' in res.text
+        assert 'id="audio-volume"' in res.text
         assert "Apply camera" not in res.text
         assert "sel-camera-profile" not in res.text
 
@@ -119,6 +129,38 @@ class TestSession:
             "/session/profile", json={"accessibility_mode": True}
         ).json()
         assert body["profile"] == "visual_impairment"
+
+
+class TestAudioControls:
+    def test_audio_routes_require_admin_authentication(self, client):
+        assert client.get("/api/admin/audio").status_code == 401
+        assert client.put(
+            "/api/admin/audio", json={"route": "speaker"}
+        ).status_code == 401
+        assert client.post("/api/admin/audio/test").status_code == 401
+
+    def test_output_switch_keeps_microphone_on_headset(self, client):
+        response = client.put(
+            "/api/admin/audio",
+            json={"route": "speaker", "volume_percent": 64},
+            headers=_admin(client),
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["route"] == "speaker"
+        assert body["volume_percent"] == 64
+        assert body["output_device_name"] == "UACDemoV1.0"
+        assert body["microphone_route"] == "headset"
+        assert client.app.state.service.container.tts.volume_percent == 64
+
+    def test_selected_output_can_play_a_test_sound(self, client):
+        response = client.post(
+            "/api/admin/audio/test", headers=_admin(client)
+        )
+
+        assert response.status_code == 200
+        assert response.json()["played"] is True
 
 
 class TestManualArtwork:

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
-  <link rel="stylesheet" href="/static/style.css?v=10">
+  <link rel="stylesheet" href="/static/style.css?v=11">
 </head>
-<body class="admin-page admin-locked">
+<body class="admin-page admin-locked" data-admin-view="main">
   <section id="admin-unlock-gate" class="admin-unlock-gate" aria-labelledby="admin-unlock-title">
     <div class="admin-unlock-card">
       <span class="brand-mark" aria-hidden="true">A</span>
@@ -38,8 +38,74 @@
     </div>
   </header>
 
+  <nav class="admin-view-nav" aria-label="Admin dashboard views">
+    <button type="button" class="active" data-admin-tab="main" aria-pressed="true">Main</button>
+    <button type="button" data-admin-tab="demo" aria-pressed="false">Demo</button>
+    <button type="button" data-admin-tab="audio-vision" aria-pressed="false">Audio / Vision</button>
+    <button type="button" data-admin-tab="visitor" aria-pressed="false">Visitor</button>
+    <button type="button" data-admin-tab="logs" aria-pressed="false">Logs</button>
+    <button type="button" data-admin-tab="settings" aria-pressed="false">Settings</button>
+  </nav>
+
   <main class="ops-dashboard">
-    <section id="visitor-live-panel" class="ops-panel visitor-live-panel" aria-labelledby="visitor-live-title">
+    <section class="ops-panel demo-panel" data-admin-views="main demo" aria-labelledby="demo-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Judge experience</p><h1 id="demo-title">Demo mode</h1></div>
+        <span id="experience-state" class="status-pill neutral">Ready</span>
+      </div>
+      <section class="control-section demo-controls">
+        <div class="dense-form four-columns">
+          <label>Content pack<select id="sel-pack"></select></label>
+          <label>Language
+            <select id="sel-language">
+              <option value="en">English</option><option value="fr">Francais</option>
+              <option value="es">Espanol</option><option value="it">Italiano</option><option value="zh">繁體中文</option>
+            </select>
+          </label>
+          <label>Profile
+            <select id="sel-profile">
+              <option value="child">Child</option><option value="teen">Teen</option>
+              <option value="adult_beginner">Adult beginner</option><option value="expert">Expert</option>
+              <option value="visual_impairment">Visual impairment</option>
+              <option value="simple_language">Simple language</option>
+            </select>
+          </label>
+          <label class="switch-field"><input id="chk-accessibility" type="checkbox"><span>Audio description</span></label>
+        </div>
+        <div class="command-group compact-actions">
+          <button id="btn-apply-experience" type="button">Apply</button>
+          <button id="btn-start-demo" type="button">Start demo</button>
+          <button id="btn-stop" type="button" class="secondary">End</button>
+        </div>
+      </section>
+    </section>
+
+    <section class="ops-panel audio-panel" data-admin-views="main demo audio-vision" aria-labelledby="audio-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Audio reliability</p><h1 id="audio-title">Output controls</h1></div>
+        <span id="audio-state" class="status-pill neutral">Checking</span>
+      </div>
+      <section class="control-section audio-controls">
+        <div class="audio-route-row">
+          <div class="segmented audio-route-toggle" role="group" aria-label="Audio output">
+            <button type="button" data-audio-route="headset" aria-pressed="true">Shokz</button>
+            <button type="button" data-audio-route="speaker" aria-pressed="false">Judge speaker</button>
+          </div>
+          <button id="btn-test-audio" type="button" class="secondary">Test sound</button>
+        </div>
+        <label class="volume-control" for="audio-volume">
+          <span>Output volume <strong id="audio-volume-value">100%</strong></span>
+          <input id="audio-volume" type="range" min="0" max="100" step="1" value="100">
+        </label>
+        <dl class="audio-readout">
+          <div><dt>Playing through</dt><dd id="audio-output-name">--</dd></div>
+          <div><dt>Microphone</dt><dd>Shokz headset</dd></div>
+          <div><dt>Fallback</dt><dd id="audio-provider">--</dd></div>
+        </dl>
+      </section>
+    </section>
+
+    <section id="visitor-live-panel" class="ops-panel visitor-live-panel" data-admin-views="main visitor" aria-labelledby="visitor-live-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Visitor experience</p><h1 id="visitor-live-title">Onboarding live monitor</h1></div>
         <div class="visitor-monitor-actions">
@@ -86,7 +152,7 @@
       </div>
     </section>
 
-    <section class="ops-panel settings-panel" aria-labelledby="settings-title">
+    <section class="ops-panel settings-panel" data-admin-views="main settings" aria-labelledby="settings-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Configuration</p><h1 id="settings-title">Settings</h1></div>
         <div class="settings-header-actions">
@@ -95,33 +161,6 @@
         </div>
       </div>
       <div class="settings-scroll">
-        <section class="control-section">
-          <div class="section-heading"><h2>Experience</h2><span id="experience-state" class="metric">Ready</span></div>
-          <div class="dense-form four-columns">
-            <label>Content pack<select id="sel-pack"></select></label>
-            <label>Language
-              <select id="sel-language">
-                <option value="en">English</option><option value="fr">Francais</option>
-                <option value="es">Espanol</option><option value="it">Italiano</option><option value="zh">繁體中文</option>
-              </select>
-            </label>
-            <label>Profile
-              <select id="sel-profile">
-                <option value="child">Child</option><option value="teen">Teen</option>
-                <option value="adult_beginner">Adult beginner</option><option value="expert">Expert</option>
-                <option value="visual_impairment">Visual impairment</option>
-                <option value="simple_language">Simple language</option>
-              </select>
-            </label>
-            <label class="switch-field"><input id="chk-accessibility" type="checkbox"><span>Audio description</span></label>
-          </div>
-          <div class="command-group compact-actions">
-            <button id="btn-apply-experience" type="button">Apply</button>
-            <button id="btn-start-demo" type="button">Start demo</button>
-            <button id="btn-stop" type="button" class="secondary">End</button>
-          </div>
-        </section>
-
         <form id="config-form">
           <details class="settings-disclosure">
             <summary>Language model</summary>
@@ -177,7 +216,7 @@
       </div>
     </section>
 
-    <section class="ops-panel live-panel" aria-labelledby="camera-title">
+    <section class="ops-panel live-panel" data-admin-views="main audio-vision" aria-labelledby="camera-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Vision</p><h1 id="camera-title">Live camera</h1></div>
         <div class="camera-badges"><span id="camera-state" class="status-pill neutral">Connecting</span><span id="camera-detection" class="status-pill neutral">No artwork</span></div>
@@ -207,7 +246,7 @@
       </div>
     </section>
 
-    <section class="ops-panel logs-panel" aria-labelledby="logs-title">
+    <section class="ops-panel logs-panel" data-admin-views="main logs" aria-labelledby="logs-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Diagnostics</p><h1 id="logs-title">Live logs</h1></div>
         <div class="command-group log-controls">
@@ -221,7 +260,7 @@
       </div>
     </section>
 
-    <section class="ops-panel operations-panel" aria-labelledby="operations-title">
+    <section class="ops-panel operations-panel" data-admin-views="main audio-vision" aria-labelledby="operations-title">
       <div class="ops-panel-header"><div><p class="eyebrow">Control</p><h1 id="operations-title">Operations</h1></div><span id="estop-status" class="status-pill ok">Safety clear</span></div>
       <div class="operations-grid">
         <section class="control-section">
@@ -263,6 +302,6 @@
   </div>
 
   <p id="admin-notice" class="notice hidden" role="status"></p>
-  <script src="/static/admin.js?v=12"></script>
+  <script src="/static/admin.js?v=13"></script>
 </body>
 </html>

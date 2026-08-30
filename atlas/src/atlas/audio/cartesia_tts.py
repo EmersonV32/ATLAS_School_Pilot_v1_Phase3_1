@@ -15,8 +15,10 @@ from urllib.parse import urlencode
 from .playback import (
     finish_raw_player,
     listening_cue_pcm,
+    normalize_volume,
     open_raw_player,
     play_pcm,
+    scale_pcm_s16le,
 )
 from .tts import BaseTTS
 
@@ -71,6 +73,7 @@ class CartesiaTTS(BaseTTS):
         output_device_name: str = "Shokz OpenComm2 UC",
         sample_rate: int = 24000,
         response_timeout_s: float = 15.0,
+        volume_percent: int = 100,
     ) -> None:
         self._api_key_env = api_key_env
         self._model = model
@@ -79,6 +82,7 @@ class CartesiaTTS(BaseTTS):
         self._output_device_name = output_device_name
         self._sample_rate = sample_rate
         self._response_timeout_s = response_timeout_s
+        self._volume_percent = normalize_volume(volume_percent)
         self._connection = None
         self._lock = threading.Lock()
         self.playback_started = False
@@ -92,6 +96,23 @@ class CartesiaTTS(BaseTTS):
         self._utterance_segment_count = 0
         self._utterance_started_at: float | None = None
         self._utterance_completed = False
+
+    def set_output_device(self, output_device_name: str) -> None:
+        with self._lock:
+            if self._utterance_context_id is not None:
+                raise RuntimeError("wait for the current response to finish")
+            self._output_device_name = str(output_device_name).strip()
+
+    def set_volume(self, volume_percent: int) -> None:
+        with self._lock:
+            self._volume_percent = normalize_volume(volume_percent)
+
+    def audio_settings(self) -> dict[str, object]:
+        with self._lock:
+            return {
+                "output_device_name": self._output_device_name,
+                "volume_percent": self._volume_percent,
+            }
 
     def _connect(self):
         from websockets.sync.client import connect
@@ -134,6 +155,7 @@ class CartesiaTTS(BaseTTS):
             listening_cue_pcm(),
             self._output_device_name,
             sample_rate=16000,
+            volume_percent=self._volume_percent,
         )
 
     def begin_utterance(self, language: str = "en") -> bool:
@@ -198,7 +220,12 @@ class CartesiaTTS(BaseTTS):
                         )
                     if player.stdin is None:
                         raise RuntimeError("audio player stdin is unavailable")
-                    player.stdin.write(base64.b64decode(payload["data"]))
+                    player.stdin.write(
+                        scale_pcm_s16le(
+                            base64.b64decode(payload["data"]),
+                            self._volume_percent,
+                        )
+                    )
                 if payload.get("done") or message_type == "done":
                     break
             self._utterance_completed = bool(
@@ -387,7 +414,12 @@ class CartesiaTTS(BaseTTS):
                         ) * 1000.0
                     if player.stdin is None:
                         raise RuntimeError("audio player stdin is unavailable")
-                    player.stdin.write(base64.b64decode(payload["data"]))
+                    player.stdin.write(
+                        scale_pcm_s16le(
+                            base64.b64decode(payload["data"]),
+                            self._volume_percent,
+                        )
+                    )
                 if payload.get("done") or message_type == "done":
                     break
             completed = bool(player and finish_raw_player(player))

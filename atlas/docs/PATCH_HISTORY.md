@@ -4,6 +4,48 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-30 - Audio controls, focused admin views, and public presentation
+
+**Changed:**
+
+- Added live Shokz/judge-speaker output routing, a test sound, and 0-100 volume
+  control without changing the Shokz microphone route. Added availability and
+  active-route telemetry to the admin API and dashboard.
+- Made offline Piper fallback buffer a streamed response and synthesize it once,
+  preventing the fallback model from restarting for every sentence. Cartesia
+  keeps its existing continuous streaming path.
+- Split the admin console into Main, Demo, Audio/Vision, Visitor, Logs, and
+  Settings views. Main retains every panel; focused tabs reuse the same live
+  controls and telemetry instead of maintaining duplicate state.
+- Added a static public ATLAS website with full-bleed artwork, responsive
+  layouts, reduced-motion support, scroll reveals, and a GitHub Pages workflow.
+  The public site contains no admin endpoints, tokens, Jetson address, or local
+  control surface.
+- Added a Roboflow/YOLO artwork release validator. It checks model-label mapping,
+  manifest uniqueness, artwork/chunk IDs, source links, dates, URLs, and declared
+  languages before a detector can be released.
+- Rebuilt the judge runbook and device checklist and added a real-world test
+  plan, booth/slide package, and 60-90 second video storyboard.
+- Expanded the single-command Jetson deployment bundle to include the current
+  artwork-label contract and validator while preserving deployment-specific
+  settings and automatic rollback.
+
+**Validation:** Full laptop-safe suite passed: 303 tests. Ruff, Python
+compilation, JavaScript syntax, workflow YAML, deployment PowerShell parsing,
+secret scanning, recovery-bundle validation, and `git diff --check` passed.
+Live browser checks covered every admin tab, speaker routing, test sound,
+desktop public-site layout, and mobile overflow.
+
+**Deployment result:** Git snapshot tag `snapshot/pre-expansion-2026-08-30`
+was pushed before development. Jetson deployment remains intentionally pending;
+the patch is prepared for the existing one-command deployment script. Public
+GitHub Pages deployment is prepared and will be confirmed after push.
+
+**Remaining limitation:** Real Shokz/speaker switching, Piper audio quality,
+camera recovery, and detector behavior require the hardware acceptance pass.
+The public site needs a one-time GitHub Pages enablement if the repository has
+never published Pages before.
+
 ## 2026-08-30 - Unified judge demo mode
 
 **Changed:**

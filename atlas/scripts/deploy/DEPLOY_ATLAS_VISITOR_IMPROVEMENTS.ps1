@@ -30,11 +30,13 @@ $files = @(
     # Keep the Jetson's deployment-specific config/settings.yaml in place.
     # It contains LAN binding and admin-auth policy that differ from dev defaults.
     "config/settings.yaml",
+    "config/artwork_labels.yaml",
     "firmware/xiao_camera/xiao_camera.ino",
     "pyproject.toml",
     "requirements.txt",
     "scripts/atlas.service",
     "scripts/install_user_service.sh",
+    "scripts/validate_artwork_release.py",
     "docs/PATCH_HISTORY.md"
 )
 $trackedTreeFiles = & git -C $repoRoot ls-files -- src/atlas tests data/content_packs/demo_pack
@@ -66,11 +68,13 @@ archive='__ARCHIVE__'
 backup='/tmp/atlas_visitor_backup___STAMP__'
 paths=(
   data/content_packs/demo_pack
+  config/artwork_labels.yaml
   firmware/xiao_camera/xiao_camera.ino
   pyproject.toml
   requirements.txt
   scripts/atlas.service
   scripts/install_user_service.sh
+  scripts/validate_artwork_release.py
   src/atlas
   tests
   docs/PATCH_HISTORY.md

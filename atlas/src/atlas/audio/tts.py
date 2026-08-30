@@ -17,6 +17,22 @@ class BaseTTS(ABC):
         """Play a short, language-neutral cue before microphone capture."""
         return True
 
+    def set_output_device(self, output_device_name: str) -> None:
+        """Route future playback without changing the microphone input."""
+        return None
+
+    def set_volume(self, volume_percent: int) -> None:
+        """Set software playback gain for future output."""
+        return None
+
+    def audio_settings(self) -> dict[str, object]:
+        """Return privacy-safe playback settings for the admin dashboard."""
+        return {}
+
+    def test_sound(self) -> bool:
+        """Play the local cue through the currently selected output."""
+        return self.cue()
+
     def begin_utterance(self, language: str = "en") -> bool:
         """Start an optional multi-segment synthesis context.
 

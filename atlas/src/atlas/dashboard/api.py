@@ -23,6 +23,7 @@ from atlas.dashboard.schemas import (
     AdminDemoStartRequest,
     AskRequest,
     AskResponse,
+    AudioOutputRequest,
     DashboardConfigUpdate,
     DemoSimulateRequest,
     IngestRequest,
@@ -156,6 +157,27 @@ def create_app(
                 pack_id=req.pack_id,
                 accessibility_mode=req.accessibility_mode,
             )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.get("/api/admin/audio", dependencies=[Depends(require_admin)])
+    def admin_audio_status() -> dict:
+        return service.audio_status()
+
+    @app.put("/api/admin/audio", dependencies=[Depends(require_admin)])
+    def update_admin_audio(req: AudioOutputRequest) -> dict:
+        try:
+            return service.set_audio_output(
+                route=req.route,
+                volume_percent=req.volume_percent,
+            )
+        except (LookupError, RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/api/admin/audio/test", dependencies=[Depends(require_admin)])
+    def test_admin_audio() -> dict:
+        try:
+            return service.test_audio_output()
         except RuntimeError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 

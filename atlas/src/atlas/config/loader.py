@@ -114,6 +114,7 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
         "ATLAS_CAMERA_SOURCE": "camera_source",
         "ATLAS_HEADSET_NAME": "headset_name",
         "ATLAS_AUDIO_OUTPUT_NAME": "audio_output_name",
+        "ATLAS_JUDGE_SPEAKER_NAME": "judge_speaker_name",
         "ATLAS_EV3_ADDRESS": "ev3_bt_address",
         "ATLAS_YOLO_BACKEND": "yolo_backend",
     }
@@ -121,6 +122,10 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
         value = os.getenv(env_name)
         if value:
             raw.setdefault("hardware", {})[field_name] = value
+
+    audio_volume = os.getenv("ATLAS_AUDIO_VOLUME_PERCENT")
+    if audio_volume:
+        raw.setdefault("hardware", {})["audio_volume_percent"] = int(audio_volume)
 
     enable_ev3 = os.getenv("ATLAS_ENABLE_EV3")
     if enable_ev3 is not None:

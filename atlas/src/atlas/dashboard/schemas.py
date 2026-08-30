@@ -39,6 +39,13 @@ class AdminDemoStartRequest(BaseModel):
     accessibility_mode: bool = False
 
 
+class AudioOutputRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    route: Literal["headset", "speaker"] | None = None
+    volume_percent: int | None = Field(default=None, ge=0, le=100)
+
+
 class ManualArtworkRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

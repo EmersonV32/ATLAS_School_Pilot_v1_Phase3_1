@@ -14,6 +14,7 @@ import wave
 from pathlib import Path
 
 from .devices import find_alsa_playback, find_pulse_playback
+from .playback import normalize_volume, scale_pcm_s16le
 from .tts import BaseTTS
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class PiperTTS(BaseTTS):
         voice_zh: str = "",
         piper_binary: str = "piper",
         output_device_name: str = "Shokz OpenComm2 UC",
+        volume_percent: int = 100,
     ) -> None:
         self._voices = {
             "en": Path(voice_en).expanduser(),
@@ -43,7 +45,20 @@ class PiperTTS(BaseTTS):
                 self._voices[language] = Path(voice).expanduser()
         self._binary = piper_binary
         self._output_device_name = output_device_name
+        self._volume_percent = normalize_volume(volume_percent)
         self._command: list[str] | None = None
+
+    def set_output_device(self, output_device_name: str) -> None:
+        self._output_device_name = str(output_device_name).strip()
+
+    def set_volume(self, volume_percent: int) -> None:
+        self._volume_percent = normalize_volume(volume_percent)
+
+    def audio_settings(self) -> dict[str, object]:
+        return {
+            "output_device_name": self._output_device_name,
+            "volume_percent": self._volume_percent,
+        }
 
     def _resolve_command(self) -> list[str]:
         if self._command is not None:
@@ -82,6 +97,15 @@ class PiperTTS(BaseTTS):
         )
 
     def _play_wav(self, output_path: str) -> bool:
+        if self._volume_percent < 100:
+            with wave.open(output_path, "rb") as wav_file:
+                params = wav_file.getparams()
+                frames = wav_file.readframes(wav_file.getnframes())
+            if params.sampwidth == 2:
+                frames = scale_pcm_s16le(frames, self._volume_percent)
+                with wave.open(output_path, "wb") as wav_file:
+                    wav_file.setparams(params)
+                    wav_file.writeframes(frames)
         pulse_device = find_pulse_playback(self._output_device_name)
         if pulse_device and shutil.which("paplay"):
             playback = ["paplay", f"--device={pulse_device}", output_path]
@@ -106,7 +130,7 @@ class PiperTTS(BaseTTS):
         os.close(fd)
         try:
             sample_rate = 16000
-            amplitude = 7000
+            amplitude = int(7000 * self._volume_percent / 100.0)
             with wave.open(output_path, "wb") as wav_file:
                 wav_file.setnchannels(1)
                 wav_file.setsampwidth(2)

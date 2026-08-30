@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ATLAS is a wearable AI museum guide built by Team Touchdown for WRO 2026 Future Innovators.">
+  <meta name="theme-color" content="#071f20">
+  <title>ATLAS | Art that speaks with you</title>
+  <link rel="icon" href="assets/atlas-logo.webp">
+  <link rel="stylesheet" href="styles.css">
+  <script src="main.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header" data-header>
+    <a class="brand" href="#top" aria-label="ATLAS home">
+      <img src="assets/atlas-logo.webp" alt="">
+      <span>ATLAS</span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#experience">Experience</a>
+      <a href="#system">System</a>
+      <a href="#project">Project</a>
+    </nav>
+    <a class="header-cta" href="#demo">See the demo</a>
+  </header>
+
+  <main id="main">
+    <section id="top" class="hero" aria-labelledby="hero-title">
+      <div class="hero-art" aria-hidden="true">
+        <img src="assets/mona-lisa.webp" alt="">
+        <img src="assets/great-wave.webp" alt="">
+        <img src="assets/ambassadors.webp" alt="">
+      </div>
+      <div class="hero-scrim" aria-hidden="true"></div>
+      <div class="hero-copy reveal is-visible">
+        <p class="eyebrow">WRO 2026 Future Innovators</p>
+        <h1 id="hero-title">ATLAS</h1>
+        <p class="hero-line">Art that speaks with you.</p>
+        <p class="hero-summary">A wearable AI museum guide that sees the artwork, listens to the visitor, and turns curiosity into a continuing conversation.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#experience">Enter the experience</a>
+          <a class="button quiet" href="#system">Explore the system</a>
+        </div>
+      </div>
+      <a class="scroll-cue" href="#experience">Scroll to discover <span aria-hidden="true">↓</span></a>
+    </section>
+
+    <section id="experience" class="intro-band">
+      <div class="section-inner intro-layout reveal">
+        <p class="eyebrow">One guide, personal to every visitor</p>
+        <h2>Look. Ask. Keep exploring.</h2>
+        <p class="large-copy">ATLAS recognizes the work in front of you and keeps the thread of the conversation, so a simple follow-up can become a deeper encounter with art.</p>
+      </div>
+    </section>
+
+    <section class="journey-band" aria-labelledby="journey-title">
+      <div class="section-inner">
+        <div class="section-heading reveal">
+          <p class="eyebrow">The visitor journey</p>
+          <h2 id="journey-title">Curiosity is the interface.</h2>
+        </div>
+        <ol class="journey">
+          <li class="reveal"><span>01</span><h3>Choose your lens</h3><p>Set a language, comfort level, interests, and accessibility preferences.</p></li>
+          <li class="reveal"><span>02</span><h3>Face the artwork</h3><p>The wearable camera establishes the artwork context while keeping the visitor’s attention on the gallery.</p></li>
+          <li class="reveal"><span>03</span><h3>Start a dialogue</h3><p>Ask naturally, request a manual capture, or stay with an artwork long enough for ATLAS to offer more.</p></li>
+          <li class="reveal"><span>04</span><h3>Follow the idea</h3><p>Short-term context supports follow-up questions about the current work, artist, technique, and story.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="demo" class="artwork-stage" aria-labelledby="artwork-title">
+      <div class="artwork-visual reveal">
+        <img id="featured-artwork" src="assets/mona-lisa.webp" alt="Mona Lisa">
+      </div>
+      <div class="artwork-copy reveal">
+        <p class="eyebrow">A conversation, not an audio track</p>
+        <h2 id="artwork-title">Every work opens a different door.</h2>
+        <p id="artwork-description">Begin with the familiar face, then ask about the painter, the landscape, or why the portrait still holds our attention.</p>
+        <div class="artwork-tabs" role="group" aria-label="Choose an artwork">
+          <button type="button" class="active" data-artwork="mona" aria-pressed="true">Mona Lisa</button>
+          <button type="button" data-artwork="wave" aria-pressed="false">The Great Wave</button>
+          <button type="button" data-artwork="ambassadors" aria-pressed="false">The Ambassadors</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="system" class="system-band" aria-labelledby="system-title">
+      <div class="section-inner">
+        <div class="section-heading split-heading reveal">
+          <div><p class="eyebrow">Inside ATLAS</p><h2 id="system-title">Designed as one responsive system.</h2></div>
+          <p>Edge hardware handles the live museum experience while carefully scoped cloud services support speech and language intelligence.</p>
+        </div>
+        <div class="system-grid">
+          <article class="system-item reveal"><img src="assets/stories.webp" alt=""><div><span>01</span><h3>Vision</h3><p>Artwork recognition and manual capture establish what the visitor is looking at.</p></div></article>
+          <article class="system-item reveal"><img src="assets/technique.webp" alt=""><div><span>02</span><h3>Conversation</h3><p>Speech recognition, retrieval, and language generation turn a question into an informed response.</p></div></article>
+          <article class="system-item reveal"><img src="assets/symbols.webp" alt=""><div><span>03</span><h3>Guidance</h3><p>Short-term context and visitor preferences keep the answer relevant without replacing museum staff.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="languages-band" aria-labelledby="languages-title">
+      <div class="section-inner languages-layout reveal">
+        <div><p class="eyebrow">Built for more visitors</p><h2 id="languages-title">Meet people in their language.</h2></div>
+        <ul aria-label="Supported visitor interface languages">
+          <li>English</li><li>Francais</li><li>Espanol</li><li>Italiano</li><li>العربية</li><li>繁體中文</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="project" class="project-band" aria-labelledby="project-title">
+      <div class="section-inner project-layout">
+        <div class="project-copy reveal">
+          <p class="eyebrow">The project</p>
+          <h2 id="project-title">Built by students. Tested in the real world.</h2>
+          <p>Team Touchdown at College Bourget is developing ATLAS for WRO 2026 Future Innovators: combining industrial design, embedded computing, computer vision, conversational AI, and a museum-ready visitor experience.</p>
+        </div>
+        <dl class="project-facts reveal">
+          <div><dt>Platform</dt><dd>NVIDIA Jetson</dd></div>
+          <div><dt>Experience</dt><dd>Wearable, voice-first</dd></div>
+          <div><dt>Knowledge</dt><dd>Curated museum content</dd></div>
+          <div><dt>Goal</dt><dd>Make art easier to approach</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="closing-band">
+      <div class="section-inner closing-copy reveal">
+        <img src="assets/atlas-logo.webp" alt="ATLAS logo">
+        <p class="eyebrow">The museum stays at the center</p>
+        <h2>ATLAS helps the next question happen.</h2>
+        <a class="button primary" href="#top">Return to the beginning</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <strong>ATLAS</strong>
+    <span>Team Touchdown · College Bourget · WRO 2026</span>
+    <a href="https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1">View the project on GitHub</a>
+  </footer>
+</body>
+</html>

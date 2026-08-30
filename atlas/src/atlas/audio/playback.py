@@ -6,9 +6,31 @@ import math
 import shutil
 import struct
 import subprocess
+from array import array
 from typing import BinaryIO
 
 from .devices import find_alsa_playback, find_pulse_playback
+
+
+def normalize_volume(volume_percent: int) -> int:
+    return min(100, max(0, int(volume_percent)))
+
+
+def scale_pcm_s16le(pcm_s16le: bytes, volume_percent: int) -> bytes:
+    """Apply deterministic software gain to little-endian signed 16-bit PCM."""
+    volume = normalize_volume(volume_percent)
+    if volume >= 100 or not pcm_s16le:
+        return pcm_s16le
+    samples = array("h")
+    samples.frombytes(pcm_s16le)
+    if struct.pack("=h", 1) != struct.pack("<h", 1):
+        samples.byteswap()
+    gain = volume / 100.0
+    for index, sample in enumerate(samples):
+        samples[index] = int(sample * gain)
+    if struct.pack("=h", 1) != struct.pack("<h", 1):
+        samples.byteswap()
+    return samples.tobytes()
 
 
 def raw_playback_command(
@@ -91,12 +113,13 @@ def play_pcm(
     pcm_s16le: bytes,
     output_device_name: str,
     sample_rate: int,
+    volume_percent: int = 100,
 ) -> bool:
     process = open_raw_player(output_device_name, sample_rate)
     try:
         if process.stdin is None:
             return False
-        process.stdin.write(pcm_s16le)
+        process.stdin.write(scale_pcm_s16le(pcm_s16le, volume_percent))
         return finish_raw_player(process)
     except (BrokenPipeError, OSError):
         process.kill()

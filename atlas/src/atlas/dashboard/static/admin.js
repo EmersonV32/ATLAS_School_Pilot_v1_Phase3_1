@@ -13,6 +13,7 @@ let experienceDirty = false;
 let visitorMonitorCollapsed = false;
 let cameraRequestInFlight = false;
 let cameraObjectUrl = null;
+let audioVolumeTimer = null;
 const logFormats = { runtime: "human", events: "human" };
 
 function token() {
@@ -169,6 +170,63 @@ async function refreshVisitorStatus() {
   }
 }
 
+function setAdminView(view, { persist = true } = {}) {
+  const supported = new Set(["main", "demo", "audio-vision", "visitor", "logs", "settings"]);
+  const nextView = supported.has(view) ? view : "main";
+  document.body.dataset.adminView = nextView;
+  document.querySelectorAll("[data-admin-tab]").forEach((button) => {
+    const active = button.dataset.adminTab === nextView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-admin-views]").forEach((panel) => {
+    panel.classList.toggle("view-hidden", !panel.dataset.adminViews.split(" ").includes(nextView));
+  });
+  if (persist) window.sessionStorage.setItem("atlasAdminView", nextView);
+}
+
+function providerLabel(provider) {
+  if (typeof provider === "string") return provider;
+  if (!provider || typeof provider !== "object") return "Unknown";
+  return provider.active || provider.provider || provider.primary || "Fallback ready";
+}
+
+function renderAudioStatus(status) {
+  document.querySelectorAll("[data-audio-route]").forEach((button) => {
+    const active = button.dataset.audioRoute === status.route;
+    button.setAttribute("aria-pressed", String(active));
+  });
+  $("audio-volume").value = status.volume_percent;
+  $("audio-volume-value").textContent = `${status.volume_percent}%`;
+  $("audio-output-name").textContent = status.output_device_name;
+  $("audio-provider").textContent = providerLabel(status.provider);
+  $("audio-state").textContent = `${titleCase(status.route)} active`;
+  $("audio-state").className = "status-pill ok";
+  const headset = document.querySelector('[data-audio-route="headset"]');
+  const speaker = document.querySelector('[data-audio-route="speaker"]');
+  headset.title = status.headset_available ? "Shokz output is available" : "Shokz output is not currently detected";
+  speaker.title = status.speaker_available ? "Judge speaker is available" : "Judge speaker is not currently detected";
+}
+
+async function refreshAudio() {
+  try {
+    renderAudioStatus(await api("/api/admin/audio", {}, true));
+  } catch (error) {
+    $("audio-state").textContent = "Unavailable";
+    $("audio-state").className = "status-pill danger";
+    if (adminUnlocked) console.warn("Audio status unavailable", error);
+  }
+}
+
+async function applyAudioChange(patch) {
+  const status = await api("/api/admin/audio", {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  }, true);
+  renderAudioStatus(status);
+  return status;
+}
+
 async function refreshStatus() {
   try {
     const status = await api("/status");
@@ -188,7 +246,6 @@ async function refreshStatus() {
       ? `${Math.round(status.last_answer.latency_ms)} ms` : "--";
     $("vision-last-answer").textContent = status.last_answer && status.last_answer.answer
       ? status.last_answer.answer : "No answer yet.";
-    $("btn-start").disabled = status.session_active;
     $("btn-stop").disabled = !status.session_active;
     if (!experienceDirty) {
       $("experience-state").textContent = status.session_active ? "Session active" : "Session idle";
@@ -335,6 +392,7 @@ function startRefreshLoops() {
     window.setInterval(refreshHealth, 12000),
     window.setInterval(refreshLogs, 1500),
     window.setInterval(refreshVisitorStatus, 1000),
+    window.setInterval(refreshAudio, 5000),
   ];
 }
 
@@ -342,7 +400,7 @@ async function unlockAdmin({ quiet = false } = {}) {
   try {
     await loadConfig();
     setAdminLocked(false);
-    await Promise.all([refreshStatus(), refreshHealth(), refreshContentChoices(), refreshLogs(true)]);
+    await Promise.all([refreshStatus(), refreshHealth(), refreshContentChoices(), refreshLogs(true), refreshAudio()]);
     refreshCamera();
     startRefreshLoops();
     if (!quiet) notice("Admin dashboard unlocked");
@@ -510,8 +568,33 @@ $("config-form").addEventListener("submit", async (event) => {
 });
 
 $("btn-refresh").addEventListener("click", () => Promise.all([
-  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(),
+  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(), refreshAudio(),
 ]));
+document.querySelectorAll("[data-admin-tab]").forEach((button) => {
+  button.addEventListener("click", () => setAdminView(button.dataset.adminTab));
+});
+document.querySelectorAll("[data-audio-route]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    try {
+      await applyAudioChange({ route: button.dataset.audioRoute });
+      notice(`Audio output changed to ${button.textContent}.`);
+    } catch (error) { notice(error.message, true); }
+  });
+});
+$("audio-volume").addEventListener("input", () => {
+  const volume = Number($("audio-volume").value);
+  $("audio-volume-value").textContent = `${volume}%`;
+  window.clearTimeout(audioVolumeTimer);
+  audioVolumeTimer = window.setTimeout(() => applyAudioChange({ volume_percent: volume })
+    .catch((error) => notice(error.message, true)), 180);
+});
+$("btn-test-audio").addEventListener("click", async () => {
+  try {
+    const result = await api("/api/admin/audio/test", { method: "POST" }, true);
+    renderAudioStatus(result.audio);
+    notice("Test sound played through the selected output.");
+  } catch (error) { notice(error.message, true); }
+});
 $("btn-start-demo").addEventListener("click", async () => {
   try {
     await api("/api/admin/demo/start", {
@@ -611,6 +694,7 @@ $("btn-visitor-simulate").addEventListener("click", async () => {
 });
 
 async function initialize() {
+  setAdminView(window.sessionStorage.getItem("atlasAdminView") || "main", { persist: false });
   setVisitorMonitorCollapsed(window.sessionStorage.getItem("atlasVisitorMonitorCollapsed") === "true", { persist: false });
   const access = await api("/admin/access");
   authRequired = Boolean(access.auth_required);

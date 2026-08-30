@@ -24,6 +24,7 @@ from atlas.audio.devices import (
     parse_pactl_defaults,
     select_pulse_device,
 )
+from atlas.audio.playback import scale_pcm_s16le
 from atlas.audio.stt import TranscriptResult
 from atlas.audio.whisper_stt import WhisperSTT
 from atlas.config.loader import load_settings
@@ -43,6 +44,13 @@ def test_camera_source_accepts_usb_index_and_url():
     assert normalize_camera_source(2) == 2
     url = "http://192.168.1.42:81/stream"
     assert normalize_camera_source(url) == url
+
+
+def test_pcm_volume_scaling_preserves_shape_and_applies_gain():
+    pcm = struct.pack("<hhh", -10000, 0, 10000)
+    assert scale_pcm_s16le(pcm, 100) == pcm
+    assert struct.unpack("<hhh", scale_pcm_s16le(pcm, 50)) == (-5000, 0, 5000)
+    assert struct.unpack("<hhh", scale_pcm_s16le(pcm, 0)) == (0, 0, 0)
 
 
 def test_pulse_defaults_fail_closed_when_pactl_is_unavailable(monkeypatch):

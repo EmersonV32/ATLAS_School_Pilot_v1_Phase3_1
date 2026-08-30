@@ -161,6 +161,7 @@ class FallbackTTS(BaseTTS):
         self._stream_segments: list[str] = []
         self._stream_language = "en"
         self._locked_adapter: BaseTTS | None = None
+        self._buffered_adapter: BaseTTS | None = None
         self._utterance_had_audio = False
 
     def warm_up(self) -> None:
@@ -190,11 +191,34 @@ class FallbackTTS(BaseTTS):
         provider = self.primary if self.primary_ready else self.fallback
         return provider.cue()
 
+    def set_output_device(self, output_device_name: str) -> None:
+        self.primary.set_output_device(output_device_name)
+        self.fallback.set_output_device(output_device_name)
+
+    def set_volume(self, volume_percent: int) -> None:
+        self.primary.set_volume(volume_percent)
+        self.fallback.set_volume(volume_percent)
+
+    def audio_settings(self) -> dict[str, object]:
+        active = self._last_adapter or (
+            self.primary if self.primary_ready else self.fallback
+        )
+        result = dict(active.audio_settings())
+        result.update(
+            {
+                "primary_provider": type(self.primary).__name__,
+                "fallback_provider": type(self.fallback).__name__,
+                "last_provider": self.last_provider,
+            }
+        )
+        return result
+
     def begin_utterance(self, language: str = "en") -> bool:
         self._streaming_primary = False
         self._stream_segments = []
         self._stream_language = language
         self._locked_adapter = None
+        self._buffered_adapter = None
         self._utterance_had_audio = False
         if self.primary_ready:
             try:
@@ -217,18 +241,28 @@ class FallbackTTS(BaseTTS):
                 )
                 return True
 
-        # When a provider cannot stream, lock one voice for the *whole*
-        # response. This prevents sentence two from suddenly switching voice.
-        self._locked_adapter = (
-            self.primary if self.primary_ready else self.fallback
+        # Piper is deterministic per synthesis call, but restarting it for every
+        # streamed sentence can shift cadence enough to sound like a new voice.
+        # Buffer one complete fallback answer and synthesize it exactly once.
+        self._buffered_adapter = (
+            self.fallback
+            if self.fallback_ready
+            else (self.primary if self.primary_ready else None)
         )
+        self._locked_adapter = self._buffered_adapter
+        if self._buffered_adapter is None:
+            logger.error("[TTS] No provider is ready for buffered synthesis")
+            return False
         logger.info(
-            "[TTS] Response voice locked [provider=%s mode=per_sentence]",
-            type(self._locked_adapter).__name__,
+            "[TTS] Response voice locked [provider=%s mode=buffered]",
+            type(self._buffered_adapter).__name__,
         )
-        return False
+        return True
 
     def speak_segment(self, text: str, language: str = "en") -> bool:
+        if self._buffered_adapter is not None:
+            self._stream_segments.append(text)
+            return True
         if not self._streaming_primary:
             return self.speak(text, language)
         self._stream_segments.append(text)
@@ -253,6 +287,34 @@ class FallbackTTS(BaseTTS):
             return False
 
     def end_utterance(self) -> bool:
+        if self._buffered_adapter is not None:
+            adapter = self._buffered_adapter
+            text = " ".join(segment.strip() for segment in self._stream_segments)
+            language = self._stream_language
+            self._buffered_adapter = None
+            self._locked_adapter = None
+            self._stream_segments = []
+            try:
+                result = bool(adapter.speak(text, language))
+            except Exception as exc:
+                logger.error(
+                    "[TTS] Buffered %s synthesis failed: %s",
+                    type(adapter).__name__,
+                    exc,
+                )
+                result = False
+            self.last_provider = type(adapter).__name__
+            self._last_adapter = adapter
+            self._utterance_had_audio = result
+            logger.info(
+                "[TTS] Buffered response complete "
+                "[provider=%s chars=%d audio_played=%s]",
+                self.last_provider,
+                len(text),
+                result,
+            )
+            self._utterance_had_audio = False
+            return result
         if not self._streaming_primary:
             self._locked_adapter = None
             self._utterance_had_audio = False
@@ -294,6 +356,7 @@ class FallbackTTS(BaseTTS):
         self._streaming_primary = False
         self._stream_segments = []
         self._locked_adapter = None
+        self._buffered_adapter = None
         self._utterance_had_audio = False
         try:
             self.primary.abort_utterance()

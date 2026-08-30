@@ -1,44 +1,51 @@
 # ATLAS device demo checklist
 
-Climb the ladder one rung at a time. Each stage must run clean before the
-next. Dev mode (all mocks) must stay green at every point:
-`python -m pytest -q && python -m atlas.app.main --run 3`.
+Run this in order. Stop at the first failed gate; do not hide one failure by
+changing multiple systems at once.
 
-Target hardware: Jetson Orin Nano (now) / Orin NX 16 GB (planned),
-JetPack 6.x, USB UVC camera (optional Arducam IMX477), Shokz OpenComm2 UC
-headset (optional ReSpeaker XVF3800), optional EV3 stand.
+## Before leaving for the venue
 
-## Validation ladder
+- [ ] Current commit and rollback tag are pushed to GitHub.
+- [ ] Deployment command and SSH key location are known to the operator.
+- [ ] Judge video, public website, and slides work without the Jetson network.
+- [ ] Shokz, judge speaker, camera, Jetson PSU, display, network adapter, and
+      charging cables are packed and labeled.
+- [ ] Previous working YOLO `.pt` and TensorRT `.engine` remain available.
 
-| Stage | Real | Mock | Preconditions |
-|-------|------|------|---------------|
-| A | Gemini + RAG | vision, STT, TTS, EV3 | `.[llm]` installed, `GEMINI_API_KEY`, `cloud_llm_enabled: true`, pack ingested |
-| B | Piper + Gemini + RAG | vision, STT, EV3 | + piper binary, EN/FR `.onnx` voices at configured paths |
-| C | Whisper + Gemini + RAG | vision, Piper, EV3 | + `.[audio]`, mic detected, `whisper_model_size` fits the board |
-| D | YOLO + RAG | dialogue, audio, EV3 | + `.[vision]`, trained weights at `yolo_model_path`, labels map to artwork_ids |
-| E | YOLO + Whisper + Gemini | Piper, EV3 | stages C and D pass |
-| F | Full system + Piper + EV3 | — | + EV3 paired, `ev3_bt_address`, `enable_ev3: true` |
+## Thirty minutes before judges
 
-For each stage:
+1. Boot the Jetson and wait for `atlas.service`.
+2. Open `/admin`, unlock it, and use the **Main** tab for the complete check.
+3. Confirm camera feed and observed FPS in **Audio / Vision**.
+4. Confirm Shokz microphone input. Test Shokz output at a safe volume.
+5. Switch to judge speaker, play **Test sound**, and return to the intended
+   presentation route.
+6. Confirm Cartesia. Temporarily exercise Piper fallback and listen for one
+   consistent voice across a multi-sentence answer.
+7. Run the artwork contract validator and one physical-camera pass for every
+   detector class.
+8. Start Demo, complete two conversation cycles, switch language verbally,
+   manual-capture once, and stop manually.
+9. Disconnect and reconnect the camera and Shokz. Dashboards must remain open;
+   readiness must recover without restarting the website.
+10. Clear simulations, temporary visitor data, manual artwork override, and
+    emergency stop state.
 
-1. Set `config/settings.yaml` mode (`demo` for A–C, `device` for D–F).
-2. Run 3 cycles: `python -m atlas.app.main --run 3` → all clean.
-3. Run 10 cycles: `python -m atlas.app.main --run 10` → all clean.
-4. 30-minute stability test: repeat cycles for 30 min (script or loop),
-   watching memory and latency.
-5. Capture logs from `data/logs/` and file issues. **Fix only critical
-   bugs** before moving on.
+## Five minutes before judges
 
-## Reminders
+- [ ] Admin **Demo** tab is open and unlocked.
+- [ ] Correct language, profile, content pack, output route, and volume are set.
+- [ ] Camera is cool, connected, and aimed forward.
+- [ ] One operator owns the controls; one presenter owns the narration.
+- [ ] Prerecorded video is paused at frame zero and locally available.
+- [ ] No API keys, raw logs, home IP information, or admin token are visible.
 
-- Hardware is never required for development; every adapter fails
-  gracefully back to a mock-friendly behaviour.
-- The KY-016 RGB LED GPIO is broken on JetPack 6.x (pins 29/31/33). Use the
-  EV3 status LED. Not critical path — do not debug it during a demo.
-- FeeTech FT5478M servo expects ~7.4 V; verify the PSU before
-  `enable_servo: true`.
-- Emergency stop: dashboard red button latches all movement off; clearing
-  requires the admin token.
-- Cloud LLM stages (A+) send question text + relevant retrieved excerpts to
-  Gemini; confirm the school has seen
-  `../policies/CLOUD_LLM_DISCLOSURE.md` first.
+## Pass criteria
+
+- [ ] ATLAS stays active until **End** is pressed.
+- [ ] Immediate follow-up context survives at least three visitor turns.
+- [ ] Spoken language switching changes both recognition and response language.
+- [ ] A five-second stable artwork prompts once, not repeatedly.
+- [ ] Manual capture works from both headset and dashboard.
+- [ ] Audio route and volume changes take effect without changing microphone.
+- [ ] Camera disconnect never makes visitor or admin dashboard unreachable.

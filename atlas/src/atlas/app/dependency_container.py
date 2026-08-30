@@ -320,6 +320,7 @@ class Container:
                     voice_zh=self.settings.hardware.piper_voice_zh,
                     piper_binary=self.settings.hardware.piper_binary_path or "piper",
                     output_device_name=output_name,
+                    volume_percent=self.settings.hardware.audio_volume_percent,
                 )
                 speech = self.settings.speech
                 use_cartesia = (
@@ -338,6 +339,7 @@ class Container:
                         output_device_name=output_name,
                         sample_rate=speech.cartesia_sample_rate,
                         response_timeout_s=speech.cartesia_response_timeout_s,
+                        volume_percent=self.settings.hardware.audio_volume_percent,
                     )
                     self._tts = (
                         FallbackTTS(cloud_tts, offline_tts)

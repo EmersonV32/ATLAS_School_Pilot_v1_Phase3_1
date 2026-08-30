@@ -92,6 +92,8 @@ class HardwareSettings(BaseModel):
     headset_name: str = "Shokz OpenComm2 UC"
     # Empty keeps speech output on the headset; set to a speaker for split routing.
     audio_output_name: str = ""
+    judge_speaker_name: str = "UACDemoV1.0"
+    audio_volume_percent: int = Field(default=100, ge=0, le=100)
     headset_button_enabled: bool = True
     # Empty means discover the Shokz Consumer Control evdev node by name.
     headset_button_device: str = ""

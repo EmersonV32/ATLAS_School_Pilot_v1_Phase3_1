@@ -17,6 +17,7 @@ from typing import Any
 import yaml
 
 from atlas.app.dependency_container import Container
+from atlas.audio.devices import find_alsa_playback, find_pulse_playback
 from atlas.config.settings import Settings
 from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.retrieval import RetrievalQuery
@@ -166,6 +167,20 @@ class RuntimeService:
         self.pack_id: str = container.settings.default_pack_id
         self.accessibility_mode: bool = False
         self.demo_active: bool = False
+        hardware = container.settings.hardware
+        configured_output = str(hardware.audio_output_name).strip()
+        self._headset_output_name = str(hardware.headset_name).strip()
+        self._speaker_output_name = (
+            configured_output
+            if configured_output and configured_output != self._headset_output_name
+            else str(hardware.judge_speaker_name).strip()
+        )
+        self.audio_route = (
+            "speaker"
+            if configured_output and configured_output != self._headset_output_name
+            else "headset"
+        )
+        self.audio_volume_percent = int(hardware.audio_volume_percent)
         self.last_answer: dict[str, Any] | None = None
         self._pending_settings: Settings | None = None
         # Demo-only simulation flags (never active outside dev/demo mode).
@@ -220,6 +235,87 @@ class RuntimeService:
             "pack_id": self.pack_id,
             "accessibility_mode": self.accessibility_mode,
         }
+
+    # -- live audio routing -------------------------------------------------
+    def _audio_output_name(self, route: str) -> str:
+        if route == "headset":
+            return self._headset_output_name
+        if route == "speaker" and self._speaker_output_name:
+            return self._speaker_output_name
+        raise ValueError("judge speaker name is not configured")
+
+    @staticmethod
+    def _audio_device_available(output_name: str) -> bool:
+        return bool(
+            find_pulse_playback(output_name) or find_alsa_playback(output_name)
+        )
+
+    def audio_status(self) -> dict[str, Any]:
+        active_name = self._audio_output_name(self.audio_route)
+        tts = self.container.tts
+        provider_status = getattr(tts, "provider_status", None)
+        return {
+            "route": self.audio_route,
+            "volume_percent": self.audio_volume_percent,
+            "output_device_name": active_name,
+            "headset_name": self._headset_output_name,
+            "speaker_name": self._speaker_output_name,
+            "headset_available": self._audio_device_available(
+                self._headset_output_name
+            ),
+            "speaker_available": bool(
+                self._speaker_output_name
+                and self._audio_device_available(self._speaker_output_name)
+            ),
+            "microphone_route": "headset",
+            "provider": (
+                provider_status()
+                if callable(provider_status)
+                else type(tts).__name__
+            ),
+        }
+
+    def set_audio_output(
+        self,
+        *,
+        route: str | None = None,
+        volume_percent: int | None = None,
+    ) -> dict[str, Any]:
+        next_route = route or self.audio_route
+        next_volume = (
+            self.audio_volume_percent
+            if volume_percent is None
+            else min(100, max(0, int(volume_percent)))
+        )
+        output_name = self._audio_output_name(next_route)
+        if (
+            self.container.settings.mode == RunMode.DEVICE
+            and not self._audio_device_available(output_name)
+        ):
+            raise LookupError(f"audio output is unavailable: {output_name}")
+        tts = self.container.tts
+        tts.set_output_device(output_name)
+        tts.set_volume(next_volume)
+        self.audio_route = next_route
+        self.audio_volume_percent = next_volume
+        logger.info(
+            "[Audio] Output changed [route=%s device=%s volume=%d%%]",
+            self.audio_route,
+            output_name,
+            self.audio_volume_percent,
+        )
+        return self.audio_status()
+
+    def test_audio_output(self) -> dict[str, Any]:
+        played = bool(self.container.tts.test_sound())
+        if not played:
+            raise RuntimeError("test sound did not reach the selected output")
+        logger.info(
+            "[Audio] Test sound played [route=%s volume=%d%%]",
+            self.audio_route,
+            self.audio_volume_percent,
+        )
+        return {"played": True, "audio": self.audio_status()}
 
     # -- artwork context -----------------------------------------------------
     def set_manual_artwork(self, artwork_id: str) -> dict[str, Any]:

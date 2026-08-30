@@ -11,6 +11,8 @@ class FakeTTS(BaseTTS):
         self.streams = streams
         self.spoken: list[str] = []
         self.playback_started = False
+        self.output_device_name = "initial"
+        self.volume_percent = 100
 
     def warm_up(self) -> None:
         return None
@@ -23,6 +25,12 @@ class FakeTTS(BaseTTS):
         result = self.answers.pop(0) if self.answers else True
         self.playback_started = result
         return result
+
+    def set_output_device(self, output_device_name: str) -> None:
+        self.output_device_name = output_device_name
+
+    def set_volume(self, volume_percent: int) -> None:
+        self.volume_percent = volume_percent
 
 
 class LateFailingStreamTTS(FakeTTS):
@@ -39,33 +47,35 @@ class LateFailingStreamTTS(FakeTTS):
         return False
 
 
-def test_response_lock_moves_to_fallback_only_before_any_audio() -> None:
+def test_non_streaming_fallback_synthesizes_one_complete_answer() -> None:
     primary = FakeTTS([False])
-    fallback = FakeTTS([True, True])
-    tts = FallbackTTS(primary, fallback)
-    tts.warm_up()
-
-    assert tts.begin_utterance("en") is False
-    assert tts.speak("First sentence.", "en") is True
-    assert tts.speak("Second sentence.", "en") is True
-
-    assert primary.spoken == ["First sentence."]
-    assert fallback.spoken == ["First sentence.", "Second sentence."]
-    assert tts.last_provider == "FakeTTS"
-
-
-def test_response_lock_never_switches_after_audio_has_started() -> None:
-    primary = FakeTTS([True, False])
     fallback = FakeTTS([True])
     tts = FallbackTTS(primary, fallback)
     tts.warm_up()
 
-    assert tts.begin_utterance("en") is False
-    assert tts.speak("First sentence.", "en") is True
-    assert tts.speak("Second sentence.", "en") is False
+    assert tts.begin_utterance("en") is True
+    assert tts.speak_segment("First sentence.", "en") is True
+    assert tts.speak_segment("Second sentence.", "en") is True
+    assert tts.end_utterance() is True
 
-    assert primary.spoken == ["First sentence.", "Second sentence."]
-    assert fallback.spoken == []
+    assert primary.spoken == []
+    assert fallback.spoken == ["First sentence. Second sentence."]
+    assert tts.last_provider == "FakeTTS"
+
+
+def test_audio_controls_propagate_to_primary_and_fallback() -> None:
+    primary = FakeTTS([True])
+    fallback = FakeTTS([True])
+    tts = FallbackTTS(primary, fallback)
+    tts.warm_up()
+
+    tts.set_output_device("Judge speaker")
+    tts.set_volume(72)
+
+    assert primary.output_device_name == "Judge speaker"
+    assert fallback.output_device_name == "Judge speaker"
+    assert primary.volume_percent == 72
+    assert fallback.volume_percent == 72
 
 
 def test_continuous_failure_never_replays_answer_with_another_voice() -> None:
