@@ -308,6 +308,10 @@ class Container:
             if self.settings.mode == RunMode.DEVICE:
                 from atlas.audio.piper_tts import PiperTTS
 
+                output_name = (
+                    self.settings.hardware.audio_output_name
+                    or self.settings.hardware.headset_name
+                )
                 offline_tts = PiperTTS(
                     voice_en=self.settings.hardware.piper_voice_en,
                     voice_fr=self.settings.hardware.piper_voice_fr,
@@ -315,7 +319,7 @@ class Container:
                     voice_it=self.settings.hardware.piper_voice_it,
                     voice_zh=self.settings.hardware.piper_voice_zh,
                     piper_binary=self.settings.hardware.piper_binary_path or "piper",
-                    output_device_name=self.settings.hardware.headset_name,
+                    output_device_name=output_name,
                 )
                 speech = self.settings.speech
                 use_cartesia = (
@@ -331,7 +335,7 @@ class Container:
                         model=speech.cartesia_model,
                         voice_id=speech.cartesia_voice_id,
                         api_version=speech.cartesia_api_version,
-                        output_device_name=self.settings.hardware.headset_name,
+                        output_device_name=output_name,
                         sample_rate=speech.cartesia_sample_rate,
                         response_timeout_s=speech.cartesia_response_timeout_s,
                     )

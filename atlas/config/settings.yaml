@@ -65,6 +65,7 @@ hardware:
   camera_rotation_degrees: 0
   camera_reconnect_s: 1.0
   headset_name: "Shokz OpenComm2 UC"
+  audio_output_name: ""               # "" -> headset; set for external speaker
   headset_button_enabled: true
   # Discover the Shokz Consumer Control node; 164 is Linux KEY_PLAYPAUSE.
   headset_button_device: ""

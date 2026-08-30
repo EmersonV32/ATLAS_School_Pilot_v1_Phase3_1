@@ -113,6 +113,7 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
     hardware_overrides = {
         "ATLAS_CAMERA_SOURCE": "camera_source",
         "ATLAS_HEADSET_NAME": "headset_name",
+        "ATLAS_AUDIO_OUTPUT_NAME": "audio_output_name",
         "ATLAS_EV3_ADDRESS": "ev3_bt_address",
         "ATLAS_YOLO_BACKEND": "yolo_backend",
     }

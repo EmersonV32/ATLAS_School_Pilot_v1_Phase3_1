@@ -536,6 +536,42 @@ class TestRuntimeBridge:
         )
         assert reconnected["status"] == "ready"
 
+    def test_runtime_bridge_supports_split_input_and_output(self, monkeypatch):
+        runtime = _FakeRuntime()
+        runtime.container = SimpleNamespace(
+            settings=SimpleNamespace(
+                hardware=SimpleNamespace(
+                    headset_name="Shokz OpenComm2",
+                    audio_output_name="UACDemoV1.0",
+                )
+            )
+        )
+        requested = {"playback": [], "capture": [], "alsa": []}
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_pulse_playback",
+            lambda name: requested["playback"].append(name) or "speaker",
+        )
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_pulse_capture",
+            lambda name: requested["capture"].append(name) or "shokz",
+        )
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service.find_alsa_playback",
+            lambda name: requested["alsa"].append(name) or "plughw:3,0",
+        )
+
+        service = VisitorService(runtime_service=runtime)
+        headset = next(
+            item for item in service.readiness()["items"] if item["id"] == "headset"
+        )
+
+        assert headset["status"] == "ready"
+        assert requested == {
+            "playback": ["UACDemoV1.0"],
+            "capture": ["Shokz OpenComm2"],
+            "alsa": ["UACDemoV1.0"],
+        }
+
     def test_runtime_bridge_transfers_coarse_profile_and_controls_session(self):
         runtime = _FakeRuntime()
         service = VisitorService(runtime_service=runtime)

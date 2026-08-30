@@ -90,6 +90,8 @@ class HardwareSettings(BaseModel):
     camera_rotation_degrees: int = 0
     camera_reconnect_s: float = 1.0
     headset_name: str = "Shokz OpenComm2 UC"
+    # Empty keeps speech output on the headset; set to a speaker for split routing.
+    audio_output_name: str = ""
     headset_button_enabled: bool = True
     # Empty means discover the Shokz Consumer Control evdev node by name.
     headset_button_device: str = ""

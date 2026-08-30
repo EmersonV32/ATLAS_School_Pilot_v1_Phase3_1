@@ -112,19 +112,25 @@ def main() -> None:
         for kind, name in pulse_defaults.items()
         if device_name_score(name, hw.headset_name)
     ]
-    pulse_sink = find_pulse_playback(hw.headset_name)
+    output_name = hw.audio_output_name or hw.headset_name
+    pulse_sink = find_pulse_playback(output_name)
     pulse_source = find_pulse_capture(hw.headset_name)
     if pulse_sink and not any(pulse_sink in match for match in pulse_matches):
         pulse_matches.append(f"PulseAudio sink={pulse_sink}")
     if pulse_source and not any(pulse_source in match for match in pulse_matches):
         pulse_matches.append(f"PulseAudio source={pulse_source}")
     matches.extend(pulse_matches)
-    playback_device = find_alsa_playback(hw.headset_name)
+    playback_device = find_alsa_playback(output_name)
     if playback_device:
         matches.append(f"ALSA playback={playback_device}")
     audio_ok = bool(pulse_sink) and bool(pulse_source) and bool(playback_device)
     failures += int(not audio_ok)
-    _line(audio_ok, "Shokz audio", ", ".join(matches) if matches else "not connected")
+    _line(
+        audio_ok,
+        "Split audio route",
+        f"input={hw.headset_name}; output={output_name}; "
+        + (", ".join(matches) if matches else "not connected"),
+    )
 
     if hw.enable_ev3:
         bluetooth_ok = all(

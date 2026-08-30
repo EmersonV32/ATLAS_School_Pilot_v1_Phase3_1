@@ -73,11 +73,13 @@ def _runtime_headset_ready(runtime: RuntimeBridge) -> bool | None:
     headset_name = str(getattr(hardware, "headset_name", "")).strip()
     if not headset_name:
         return None
+    output_name = str(getattr(hardware, "audio_output_name", "")).strip()
+    output_name = output_name or headset_name
     try:
         return bool(
-            find_pulse_playback(headset_name)
+            find_pulse_playback(output_name)
             and find_pulse_capture(headset_name)
-            and find_alsa_playback(headset_name)
+            and find_alsa_playback(output_name)
         )
     except Exception:
         logger.exception("Visitor headset readiness probe failed")
