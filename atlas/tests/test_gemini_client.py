@@ -58,6 +58,47 @@ def test_generate_uses_new_genai_client_without_network(monkeypatch):
     assert calls["config"].thinking_config.thinking_budget == 0
 
 
+def test_generate_sends_ordered_conversation_history(monkeypatch):
+    calls = {}
+
+    class FakeConfig:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            calls.update(kwargs)
+            return SimpleNamespace(text="The Last Supper.")
+
+    class FakeClient:
+        def __init__(self, api_key):
+            self.models = FakeModels()
+
+    google_module = ModuleType("google")
+    genai_module = ModuleType("google.genai")
+    genai_module.Client = FakeClient
+    genai_module.types = SimpleNamespace(GenerateContentConfig=FakeConfig)
+    google_module.genai = genai_module
+    monkeypatch.setitem(sys.modules, "google", google_module)
+    monkeypatch.setitem(sys.modules, "google.genai", genai_module)
+
+    client = GeminiClient(model="gemini-test", api_key="private-test-key")
+    client.generate(
+        [
+            {"role": "system", "content": "Use conversation context."},
+            {"role": "user", "content": "Who created the Mona Lisa?"},
+            {"role": "assistant", "content": "Leonardo da Vinci."},
+            {"role": "user", "content": "What were his famous paintings?"},
+        ]
+    )
+
+    assert calls["contents"] == (
+        "VISITOR: Who created the Mona Lisa?\n\n"
+        "ATLAS: Leonardo da Vinci.\n\n"
+        "VISITOR: What were his famous paintings?"
+    )
+
+
 def test_generate_stream_yields_sdk_chunks_without_network(monkeypatch):
     calls = {}
 

@@ -130,7 +130,8 @@ class VisitorService:
         with self._lock:
             return {
                 "mode": self.mode,
-                "inactivity_timeout_seconds": 120,
+                # A running visit ends only through an explicit visitor/staff stop.
+                "inactivity_timeout_seconds": 0,
                 # These languages are backed by the current ATLAS speech stack in
                 # both the device runtime and the local visitor preview.
                 "public_languages": ["en", "fr", "es", "it", "zh-Hant"],

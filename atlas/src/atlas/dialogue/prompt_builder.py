@@ -260,8 +260,19 @@ class PromptBuilder:
                 f"{intended_question}"
             )
         artwork_state = ctx.artwork_id or "none confirmed"
+        live_vision_rule = (
+            "LIVE VISION RULE: CURRENT ARTWORK is the authoritative live "
+            "camera identification. When the visitor asks what artwork they "
+            "are looking at, name CURRENT ARTWORK directly."
+            if ctx.artwork_id
+            else (
+                "LIVE VISION RULE: No artwork is currently identified. Ask one "
+                "short clarification if the question depends on the camera view."
+            )
+        )
         user_content = (
             f"CURRENT ARTWORK: {artwork_state}\n\n"
+            f"{live_vision_rule}\n\n"
             f"REQUIRED RESPONSE LANGUAGE: {_OUTPUT_LANGUAGE_NAMES[lang]} ({lang})\n\n"
             f"CONTEXT:\n{context_block}\n\n{question_block}{level_hint}"
         )

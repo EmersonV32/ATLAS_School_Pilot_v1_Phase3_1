@@ -212,6 +212,29 @@ class TestPromptBuilder:
             )
         )
         assert "CURRENT ARTWORK: starry_night" in messages[1]["content"]
+        assert "authoritative live camera identification" in messages[1]["content"]
+
+    def test_conversation_memory_is_limited_to_three_completed_turns(self):
+        from atlas.dialogue.dialogue_engine import DialogueEngine
+
+        class RecordingLLM:
+            def __init__(self):
+                self.calls = []
+
+            def generate(self, messages):
+                self.calls.append(messages)
+                return f"answer {len(self.calls)}"
+
+        llm = RecordingLLM()
+        engine = DialogueEngine(llm)
+        for number in range(1, 5):
+            engine.respond(f"question {number}", [])
+        engine.respond("follow up", [])
+
+        final_prompt = str(llm.calls[-1])
+        assert "question 1" not in final_prompt
+        for number in range(2, 5):
+            assert f"question {number}" in final_prompt
 
 
 # ---------------------------------------------------------------------------

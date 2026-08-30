@@ -383,6 +383,7 @@ class RuntimeService:
                 artwork_chunks=chunks,
                 language=lang.value,
                 profile=level.value,
+                artwork_id=artwork_id,
             )
 
         answer = {

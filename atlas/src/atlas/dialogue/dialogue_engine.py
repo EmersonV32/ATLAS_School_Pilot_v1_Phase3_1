@@ -134,7 +134,7 @@ class DialogueEngine:
 
     def _remember(self, question: str, answer: str) -> None:
         self._conversation_turns.append((question[:500], answer[:1000]))
-        self._conversation_turns = self._conversation_turns[-4:]
+        self._conversation_turns = self._conversation_turns[-3:]
 
     def respond(
         self,

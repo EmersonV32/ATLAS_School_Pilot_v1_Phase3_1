@@ -311,7 +311,7 @@ class TestVisitorContract:
     def test_bootstrap_is_mock_backed_and_private(self, visitor_client):
         body = visitor_client.get("/api/visitor/bootstrap").json()
         assert body["mode"] == "mock"
-        assert body["inactivity_timeout_seconds"] == 120
+        assert body["inactivity_timeout_seconds"] == 0
         assert body["public_languages"] == ["en", "fr", "es", "it", "zh-Hant"]
         assert body["state"]["phase"] == "idle"
         assert body["state"]["profile"]["name_entered"] is False

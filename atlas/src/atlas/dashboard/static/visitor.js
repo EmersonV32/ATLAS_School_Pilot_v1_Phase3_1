@@ -537,6 +537,7 @@ async function resetExperience(timedOut = false) {
 function restartInactivityTimer() {
   if (!steps.includes(steps[visitor.step])) return;
   window.clearTimeout(inactivityTimer);
+  if (!Number.isFinite(visitor.timeoutSeconds) || visitor.timeoutSeconds <= 0) return;
   inactivityTimer = window.setTimeout(() => resetExperience(true), visitor.timeoutSeconds * 1000);
 }
 
@@ -729,7 +730,7 @@ async function initialize() {
   await setLocale("en");
   await loadInterests();
   const bootstrap = await api("/api/visitor/bootstrap");
-  visitor.timeoutSeconds = bootstrap.inactivity_timeout_seconds;
+  visitor.timeoutSeconds = Number(bootstrap.inactivity_timeout_seconds || 0);
   const visibleLanguages = new Set([
     ...(bootstrap.public_languages || []),
     ...(bootstrap.preview_languages || []),

@@ -77,6 +77,17 @@ class GeminiClient:
             options["thinking_config"] = thinking_config(thinking_budget=0)
         return types.GenerateContentConfig(**options)
 
+    @staticmethod
+    def _conversation_text(messages: list[dict]) -> str:
+        turns = [message for message in messages if message["role"] != "system"]
+        if len(turns) == 1:
+            return str(turns[0]["content"])
+        labels = {"user": "VISITOR", "assistant": "ATLAS"}
+        return "\n\n".join(
+            f"{labels.get(turn['role'], turn['role'].upper())}: {turn['content']}"
+            for turn in turns
+        )
+
     def _log_usage(self, response) -> None:
         """Record provider usage metadata when Gemini supplies it, never prompts."""
         usage = getattr(response, "usage_metadata", None)
@@ -98,10 +109,8 @@ class GeminiClient:
         logger.info("[Gemini] Generation started [model=%s]", self.model_name)
 
         system_parts = [m["content"] for m in messages if m["role"] == "system"]
-        user_parts = [m["content"] for m in messages if m["role"] == "user"]
-
         system_instruction = system_parts[0] if system_parts else None
-        user_text = user_parts[0] if user_parts else ""
+        user_text = self._conversation_text(messages)
 
         from google.genai import types  # type: ignore[import]
 
@@ -138,9 +147,8 @@ class GeminiClient:
         produced_chars = 0
         logger.info("[Gemini] Stream started [model=%s]", self.model_name)
         system_parts = [m["content"] for m in messages if m["role"] == "system"]
-        user_parts = [m["content"] for m in messages if m["role"] == "user"]
         system_instruction = system_parts[0] if system_parts else None
-        user_text = user_parts[0] if user_parts else ""
+        user_text = self._conversation_text(messages)
 
         from google.genai import types  # type: ignore[import]
 
