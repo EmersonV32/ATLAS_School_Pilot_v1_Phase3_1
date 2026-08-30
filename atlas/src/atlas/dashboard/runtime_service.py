@@ -172,6 +172,7 @@ class RuntimeService:
 
     # -- session -----------------------------------------------------------
     def start_session(self) -> dict[str, Any]:
+        self.container.dialogue_engine.reset_conversation()
         self.session_id = new_session_id()
         self.container.logger.log(
             session_id=self.session_id, state="session", event="session_start"
@@ -185,6 +186,7 @@ class RuntimeService:
             )
         stopped = self.session_id
         self.session_id = None
+        self.container.dialogue_engine.reset_conversation()
         return {"stopped_session_id": stopped}
 
     def set_profile(

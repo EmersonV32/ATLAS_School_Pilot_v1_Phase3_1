@@ -126,6 +126,15 @@ class DialogueEngine:
         self._validator = GroundingValidator()
         self._safety = SafetyFilter()
         self._injection = PromptInjectionFilter()
+        self._conversation_turns: list[tuple[str, str]] = []
+
+    def reset_conversation(self) -> None:
+        """Clear privacy-bounded in-memory context at a session boundary."""
+        self._conversation_turns.clear()
+
+    def _remember(self, question: str, answer: str) -> None:
+        self._conversation_turns.append((question[:500], answer[:1000]))
+        self._conversation_turns = self._conversation_turns[-4:]
 
     def respond(
         self,
@@ -157,6 +166,7 @@ class DialogueEngine:
             visitor_language=language,
             profile=profile,
             artwork_id=artwork_id,
+            conversation_turns=list(self._conversation_turns),
         )
         messages = self._prompt_builder.build(ctx, json_output=self._expect_json)
 
@@ -221,7 +231,7 @@ class DialogueEngine:
         if was_filtered:
             logger.warning("Response was blocked by safety filter.")
 
-        return DialogueResult(
+        result = DialogueResult(
             response=final_response,
             language=language,
             grounded=is_grounded,
@@ -231,6 +241,8 @@ class DialogueEngine:
             confidence=confidence,
             fallback_used=fallback_used,
         )
+        self._remember(question, result.response)
+        return result
 
     def respond_stream(
         self,
@@ -268,6 +280,7 @@ class DialogueEngine:
             visitor_language=language,
             profile=profile,
             artwork_id=artwork_id,
+            conversation_turns=list(self._conversation_turns),
         )
         messages = self._prompt_builder.build(ctx, streaming_output=True)
         events: queue.Queue[tuple[str, object]] = queue.Queue()
@@ -354,6 +367,7 @@ class DialogueEngine:
                 confidence="medium" if grounded else "low",
                 fallback_used=fallback_used,
             )
+            self._remember(question, result.response)
             events.put(("done", result))
 
         thread = threading.Thread(

@@ -342,6 +342,38 @@ class TestDialogueEngine:
         assert isinstance(result.response, str)
         assert len(result.response) > 0
 
+    def test_follow_up_keeps_previous_artist_context_in_memory(self):
+        from atlas.dialogue.dialogue_engine import DialogueEngine
+
+        class RecordingLLM:
+            def __init__(self):
+                self.calls = []
+
+            def generate(self, messages):
+                self.calls.append(messages)
+                if len(self.calls) == 1:
+                    return "Leonardo da Vinci created the Mona Lisa."
+                return "His famous paintings include The Last Supper."
+
+        llm = RecordingLLM()
+        engine = DialogueEngine(llm)
+        engine.respond("Who created the Mona Lisa?", [])
+        engine.respond("What were his famous paintings?", [])
+
+        second_prompt = llm.calls[1]
+        assert {
+            "role": "assistant",
+            "content": "Leonardo da Vinci created the Mona Lisa.",
+        } in second_prompt
+        assert {
+            "role": "user",
+            "content": "Who created the Mona Lisa?",
+        } in second_prompt
+
+        engine.reset_conversation()
+        engine.respond("What were his famous paintings?", [])
+        assert "Leonardo da Vinci created the Mona Lisa." not in str(llm.calls[2])
+
     def test_result_has_expected_fields(self):
         engine = self._engine()
         result = engine.respond(

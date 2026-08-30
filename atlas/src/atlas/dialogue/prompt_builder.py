@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -17,6 +17,7 @@ class DialogueContext:
     profile: str | None = None
     # Populated only when vision/manual capture has identified the artwork.
     artwork_id: str | None = None
+    conversation_turns: list[tuple[str, str]] = field(default_factory=list)
     max_context_chars: int = 3000
 
 
@@ -265,7 +266,13 @@ class PromptBuilder:
             f"CONTEXT:\n{context_block}\n\n{question_block}{level_hint}"
         )
 
-        return [
-            {"role": "system", "content": system_text},
-            {"role": "user", "content": user_content},
-        ]
+        messages = [{"role": "system", "content": system_text}]
+        for previous_question, previous_answer in ctx.conversation_turns:
+            messages.extend(
+                [
+                    {"role": "user", "content": previous_question},
+                    {"role": "assistant", "content": previous_answer},
+                ]
+            )
+        messages.append({"role": "user", "content": user_content})
+        return messages
