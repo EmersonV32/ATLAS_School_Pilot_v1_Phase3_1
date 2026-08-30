@@ -74,6 +74,7 @@ _OUTPUT_LANGUAGE_NAMES = {
     "fr": "French",
     "es": "Spanish",
     "it": "Italian",
+    "zh": "Traditional Chinese",
 }
 
 

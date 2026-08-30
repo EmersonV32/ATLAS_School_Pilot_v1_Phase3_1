@@ -24,6 +24,9 @@ class PiperTTS(BaseTTS):
         self,
         voice_en: str,
         voice_fr: str,
+        voice_es: str = "",
+        voice_it: str = "",
+        voice_zh: str = "",
         piper_binary: str = "piper",
         output_device_name: str = "Shokz OpenComm2 UC",
     ) -> None:
@@ -31,6 +34,13 @@ class PiperTTS(BaseTTS):
             "en": Path(voice_en).expanduser(),
             "fr": Path(voice_fr).expanduser(),
         }
+        for language, voice in {
+            "es": voice_es,
+            "it": voice_it,
+            "zh": voice_zh,
+        }.items():
+            if voice.strip():
+                self._voices[language] = Path(voice).expanduser()
         self._binary = piper_binary
         self._output_device_name = output_device_name
         self._command: list[str] | None = None
@@ -51,7 +61,11 @@ class PiperTTS(BaseTTS):
 
     def _voice_for(self, language: str) -> Path:
         language = str(language).lower().split("-", 1)[0]
-        return self._voices.get(language, self._voices["en"])
+        voice = self._voices.get(language)
+        if voice is not None:
+            return voice
+        logger.warning("No Piper voice configured for %s; using English", language)
+        return self._voices["en"]
 
     def warm_up(self) -> None:
         for voice in self._voices.values():

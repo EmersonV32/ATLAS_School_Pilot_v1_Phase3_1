@@ -103,6 +103,9 @@ hardware:
   piper_binary_path: ""            # "" -> use `piper` from PATH
   piper_voice_en: ~/piper_voices/en_US-ryan-low.onnx
   piper_voice_fr: ~/piper_voices/fr_FR-siwis-medium.onnx
+  piper_voice_es: ""                 # Optional local Spanish fallback voice
+  piper_voice_it: ""                 # Optional local Italian fallback voice
+  piper_voice_zh: ""                 # Optional local Traditional Chinese fallback voice
   ev3_bt_address: ""               # e.g. "00:16:53:AA:BB:CC"
   ev3_mailbox_name: atlas
   ev3_connect_timeout_s: 12.0

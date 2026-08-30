@@ -311,6 +311,9 @@ class Container:
                 offline_tts = PiperTTS(
                     voice_en=self.settings.hardware.piper_voice_en,
                     voice_fr=self.settings.hardware.piper_voice_fr,
+                    voice_es=self.settings.hardware.piper_voice_es,
+                    voice_it=self.settings.hardware.piper_voice_it,
+                    voice_zh=self.settings.hardware.piper_voice_zh,
                     piper_binary=self.settings.hardware.piper_binary_path or "piper",
                     output_device_name=self.settings.hardware.headset_name,
                 )

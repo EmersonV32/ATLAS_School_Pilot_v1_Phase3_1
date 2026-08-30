@@ -74,6 +74,7 @@ class TestHealthAndStatus:
         assert res.status_code == 200
         assert "ATLAS Admin" in res.text
         assert "Live camera" in res.text
+        assert '<option value="zh">繁體中文</option>' in res.text
         assert "Live logs" in res.text
         assert "Current state" in res.text
         assert "Apply camera" not in res.text

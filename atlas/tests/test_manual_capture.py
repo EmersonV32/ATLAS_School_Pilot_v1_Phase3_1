@@ -28,6 +28,7 @@ def test_capture_commands_work_across_supported_languages():
     assert is_capture_command("Capture cette œuvre, s'il te plaît")
     assert is_capture_command("Identifica esta obra")
     assert is_capture_command("Cattura quest'opera")
+    assert is_capture_command("請拍攝這件作品")
     assert not is_capture_command("Who painted this artwork?")
 
 

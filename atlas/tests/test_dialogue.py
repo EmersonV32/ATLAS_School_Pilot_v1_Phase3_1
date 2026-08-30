@@ -130,7 +130,7 @@ class TestPromptBuilder:
 
     @pytest.mark.parametrize(
         ("language", "language_name"),
-        [("es", "Spanish"), ("it", "Italian")],
+        [("es", "Spanish"), ("it", "Italian"), ("zh", "Traditional Chinese")],
     )
     def test_selected_language_is_mandatory_for_all_supported_languages(
         self, language, language_name

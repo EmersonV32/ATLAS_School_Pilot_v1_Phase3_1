@@ -52,6 +52,7 @@ _CAPTURE_CONFIRMATIONS = {
     "fr": "J'ai identifié cette œuvre comme {title}. Que voulez-vous savoir?",
     "es": "Identifiqué esta obra como {title}. ¿Qué le gustaría saber?",
     "it": "Ho identificato quest'opera come {title}. Cosa vorrebbe sapere?",
+    "zh": "我已將這件作品辨識為 {title}。您想了解什麼？",
 }
 
 _CAPTURE_FAILURES = {
@@ -59,6 +60,7 @@ _CAPTURE_FAILURES = {
     "fr": "Je n'ai pas pu identifier cette œuvre. Centrez-la et réessayez.",
     "es": "No pude identificar la obra. Céntrela e inténtelo de nuevo.",
     "it": "Non ho riconosciuto l'opera. La centri e riprovi.",
+    "zh": "我無法辨識這件作品。請將作品置中後再試一次。",
 }
 
 _LANGUAGE_ACKNOWLEDGEMENTS = {
@@ -74,6 +76,7 @@ _LANGUAGE_NAMES = {
     "fr": {"french", "francais", "frances", "francese"},
     "es": {"spanish", "espagnol", "espanol", "spagnolo"},
     "it": {"italian", "italien", "italiano"},
+    "zh": {"chinese", "mandarin", "中文", "國語", "普通話"},
 }
 
 _LANGUAGE_SWITCH_WORDS = {

@@ -19,6 +19,9 @@ _CAPTURE_PHRASES = (
     "identifica esta obra",
     "cattura quest opera",
     "identifica quest opera",
+    "拍攝這件作品",
+    "拍下這幅畫",
+    "識別這件作品",
 )
 
 
@@ -32,8 +35,12 @@ def _normalise_text(text: str) -> str:
 
 def is_capture_command(text: str) -> bool:
     """Recognise the explicit command in every supported spoken language."""
+    if any(phrase in text for phrase in _CAPTURE_PHRASES if not phrase.isascii()):
+        return True
     normalised = _normalise_text(text)
-    return any(phrase in normalised for phrase in _CAPTURE_PHRASES)
+    return any(
+        phrase in normalised for phrase in _CAPTURE_PHRASES if phrase.isascii()
+    )
 
 
 def center_crop(frame: Any, ratio: float) -> Any:

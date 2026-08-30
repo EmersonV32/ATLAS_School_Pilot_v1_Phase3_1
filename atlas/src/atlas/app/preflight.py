@@ -77,6 +77,18 @@ def main() -> None:
         "English voice": Path(hw.piper_voice_en).expanduser(),
         "French voice": Path(hw.piper_voice_fr).expanduser(),
     }
+    optional_voices = {
+        "Spanish voice": hw.piper_voice_es,
+        "Italian voice": hw.piper_voice_it,
+        "Traditional Chinese voice": hw.piper_voice_zh,
+    }
+    assets.update(
+        {
+            name: Path(path).expanduser()
+            for name, path in optional_voices.items()
+            if path.strip()
+        }
+    )
     for name, path in assets.items():
         exists = path.is_file()
         failures += int(not exists)

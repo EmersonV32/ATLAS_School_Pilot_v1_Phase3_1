@@ -129,6 +129,9 @@ class HardwareSettings(BaseModel):
     piper_binary_path: str = ""  # "" -> use piper from PATH
     piper_voice_en: str = "~/piper_voices/en_US-ryan-low.onnx"
     piper_voice_fr: str = "~/piper_voices/fr_FR-siwis-medium.onnx"
+    piper_voice_es: str = ""
+    piper_voice_it: str = ""
+    piper_voice_zh: str = ""
     ev3_bt_address: str = ""  # e.g. "00:16:53:AA:BB:CC"; "" = EV3 disabled
     ev3_mailbox_name: str = "atlas"
     ev3_connect_timeout_s: float = 12.0

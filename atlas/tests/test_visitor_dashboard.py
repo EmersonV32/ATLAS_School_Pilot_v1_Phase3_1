@@ -240,6 +240,8 @@ class TestVisitorShell:
                 .read_text(encoding="utf-8")
             )
             assert html_keys <= set(locale["strings"])
+            if locale_name == "zh-Hant":
+                assert locale["status"] == "validated"
 
     def test_age_is_entered_with_private_numeric_keypad(self, visitor_client):
         html = visitor_client.get("/").text
