@@ -55,5 +55,5 @@ The validated labels are `starry_night`, `mona_lisa`,
 - Run the deployment script and retain its remote backup path before the live
   judge rehearsal.
 
-GitHub Pages publication is intentionally postponed until the repository owner
-can enable GitHub Actions as the Pages source.
+GitHub Pages publication was subsequently enabled and verified at
+`https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/`.

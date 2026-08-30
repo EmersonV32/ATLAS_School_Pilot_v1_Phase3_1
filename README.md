@@ -8,6 +8,9 @@ conversational guidance, visitor preferences, and a museum control dashboard
 to make an exhibit easier to explore without replacing the museum staff or the
 artwork itself.
 
+Public project website:
+https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/
+
 ## What makes ATLAS different
 
 - **Eyes on the artwork:** a wearable camera can identify or manually capture

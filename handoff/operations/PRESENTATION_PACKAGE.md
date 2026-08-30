@@ -43,6 +43,7 @@ feature in editing; label simulated or prerecorded behavior when applicable.
 - Demo video in two common formats.
 - Slides as editable source and PDF.
 - Public website as the complete `website/` directory.
+- Public URL: `https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/`.
 - Current deployment archive or Git commit identifier.
 - Judge runbook, device checklist, test evidence, and architecture diagram.
 

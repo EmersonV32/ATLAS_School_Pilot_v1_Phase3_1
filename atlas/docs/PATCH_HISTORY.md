@@ -43,15 +43,12 @@ visually checked with no observed clipping or distortion.
 **Deployment result:** Git snapshot tag `snapshot/pre-expansion-2026-08-30`
 was pushed before development. Jetson deployment remains intentionally pending;
 the patch is prepared for the existing one-command deployment script. The public
-site and GitHub Pages workflow were pushed, but the first workflow run stopped at
-GitHub's `Get Pages site` check because Pages has not yet been enabled for this
-repository. The repository owner must select GitHub Actions once in Settings >
-Pages and then rerun the workflow.
+site was deployed successfully from `main` through GitHub Pages and verified at
+`https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/`; the page and all
+local CSS, JavaScript, and image references returned HTTP 200.
 
 **Remaining limitation:** Real Shokz/speaker switching, Piper audio quality,
 camera recovery, and detector behavior require the hardware acceptance pass.
-The public site needs a one-time GitHub Pages enablement if the repository has
-never published Pages before.
 
 ## 2026-08-30 - Unified judge demo mode
 
