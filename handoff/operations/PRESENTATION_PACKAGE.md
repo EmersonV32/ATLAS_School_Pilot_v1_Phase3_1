@@ -45,3 +45,12 @@ feature in editing; label simulated or prerecorded behavior when applicable.
 - Public website as the complete `website/` directory.
 - Current deployment archive or Git commit identifier.
 - Judge runbook, device checklist, test evidence, and architecture diagram.
+
+## Current package files
+
+- `ATLAS_JUDGE_PRESENTATION.pptx`: editable judge-facing slide deck.
+- `RELEASE_EVIDENCE_2026-08-30.md`: laptop validation evidence and the exact
+  physical checks that remain.
+- `DEMO_SCRIPT.md`: the live speaking and interaction sequence.
+- `DEVICE_DEMO_CHECKLIST.md`: setup, rehearsal, and recovery checklist.
+- `REAL_WORLD_TEST_PLAN.md`: hardware acceptance procedure.

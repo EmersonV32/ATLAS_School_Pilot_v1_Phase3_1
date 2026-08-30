@@ -25,7 +25,9 @@ result, and any remaining limitation. Do not remove older entries.
   manifest uniqueness, artwork/chunk IDs, source links, dates, URLs, and declared
   languages before a detector can be released.
 - Rebuilt the judge runbook and device checklist and added a real-world test
-  plan, booth/slide package, and 60-90 second video storyboard.
+  plan, booth/slide package, 60-90 second video storyboard, permanent laptop
+  release evidence, and an editable seven-slide judge deck with source-backed
+  speaker notes.
 - Expanded the single-command Jetson deployment bundle to include the current
   artwork-label contract and validator while preserving deployment-specific
   settings and automatic rollback.
@@ -34,7 +36,9 @@ result, and any remaining limitation. Do not remove older entries.
 compilation, JavaScript syntax, workflow YAML, deployment PowerShell parsing,
 secret scanning, recovery-bundle validation, and `git diff --check` passed.
 Live browser checks covered every admin tab, speaker routing, test sound,
-desktop public-site layout, and mobile overflow.
+desktop public-site layout, and mobile overflow. The presentation was rendered
+before and after PowerPoint export; all seven slides and source-note blocks were
+visually checked with no observed clipping or distortion.
 
 **Deployment result:** Git snapshot tag `snapshot/pre-expansion-2026-08-30`
 was pushed before development. Jetson deployment remains intentionally pending;

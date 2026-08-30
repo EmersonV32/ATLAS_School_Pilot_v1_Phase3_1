@@ -7,6 +7,10 @@
   and release metrics.
 - [`PRESENTATION_PACKAGE.md`](PRESENTATION_PACKAGE.md) - booth, slide, video,
   and offline fallback package.
+- [`ATLAS_JUDGE_PRESENTATION.pptx`](ATLAS_JUDGE_PRESENTATION.pptx) - editable
+  seven-slide judge presentation with source-backed speaker notes.
+- [`RELEASE_EVIDENCE_2026-08-30.md`](RELEASE_EVIDENCE_2026-08-30.md) - current
+  laptop validation evidence and remaining physical acceptance checks.
 - [`SCHOOL_PILOT_RUNBOOK.md`](SCHOOL_PILOT_RUNBOOK.md) - pilot operation and
   incident procedure.
 - [`TEACHER_GUIDE.md`](TEACHER_GUIDE.md) - classroom and supervision guidance.

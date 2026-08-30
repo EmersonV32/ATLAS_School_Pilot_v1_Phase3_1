@@ -12,6 +12,7 @@
 
 # Local environments, caches, and deployment archives.
 /.tools/
+/.deck-build/
 **/.venv/
 **/__pycache__/
 **/*.py[cod]
