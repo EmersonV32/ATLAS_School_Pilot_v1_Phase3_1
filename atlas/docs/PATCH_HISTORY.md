@@ -38,8 +38,11 @@ desktop public-site layout, and mobile overflow.
 
 **Deployment result:** Git snapshot tag `snapshot/pre-expansion-2026-08-30`
 was pushed before development. Jetson deployment remains intentionally pending;
-the patch is prepared for the existing one-command deployment script. Public
-GitHub Pages deployment is prepared and will be confirmed after push.
+the patch is prepared for the existing one-command deployment script. The public
+site and GitHub Pages workflow were pushed, but the first workflow run stopped at
+GitHub's `Get Pages site` check because Pages has not yet been enabled for this
+repository. The repository owner must select GitHub Actions once in Settings >
+Pages and then rerun the workflow.
 
 **Remaining limitation:** Real Shokz/speaker switching, Piper audio quality,
 camera recovery, and detector behavior require the hardware acceptance pass.
