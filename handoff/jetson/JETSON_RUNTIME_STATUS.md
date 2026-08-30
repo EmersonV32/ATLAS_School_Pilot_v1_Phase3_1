@@ -5,7 +5,7 @@ Updated: 2026-08-29
 ## Source and recovery authority
 
 - Integration branch: `codex/jetson-runtime-reconcile`.
-- Camera-independent dashboard and firmware-profile commit: `92421f0`.
+- Latest deployed source commit: `6ec6197`.
 - Live runtime: `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`.
 - Recovery clone: `/home/super-alex/atlas/ATLAS_School_Pilot_v1_Phase3_1`.
 - Python environment: `/home/super-alex/atlas/venvs/atlas-school-pilot`.
@@ -22,8 +22,9 @@ has passed review and been merged.
 
 ## Verified on 2026-08-29
 
-- The full reconciled runtime deployment passed `276` Jetson tests. The local
-  suite then passed `277` tests after adding the disconnected-camera regression.
+- The latest Chinese-support deployment passed `280` Jetson tests. The local
+  suite also passed `280` tests, with the single existing Starlette deprecation
+  warning.
 - `atlas.service` starts and remains healthy while the camera is unplugged.
 - Visitor, staff, health, and bootstrap endpoints return HTTP 200 from another
   computer on the LAN while the camera is unplugged.
@@ -33,13 +34,17 @@ has passed review and been merged.
 - A competing direct capture briefly stalled the MJPEG reader. ATLAS reported
   the failure, reconnected automatically, and returned to fresh frames with
   `reconnect_count: 1` and zero consecutive failures.
-- The public language list contains English, French, Spanish, Italian, and
-  Traditional Chinese. Arabic remains a preview language.
+- Traditional Chinese is a validated visitor language: the onboarding locale,
+  admin controls, Gemini response prompt, manual-capture phrases, timeout
+  fallback, and Piper fallback are all wired to `zh` / `zh-Hant`. A live typed
+  question returned a Chinese answer while the visitor session remained idle.
+  Arabic remains a preview language.
 - Shokz input/output readiness is healthy. The multifunction button is exposed
   as `/dev/input/event2`, key code `164`, and is configured for manual capture.
 - Gemini and Deepgram are ready. Local Whisper is available as speech-to-text
-  fallback. Cartesia currently returns HTTP 402, so Piper is the verified
-  text-to-speech fallback.
+  fallback. Cartesia is unavailable after the latest restart, so Piper is the
+  verified text-to-speech fallback. The verified Chinese Piper model is
+  `/home/super-alex/piper_voices/zh_CN-huayan-medium.onnx`.
 - The balanced XIAO camera firmware profile compiles for
   `esp32:esp32:XIAO_ESP32S3` with OPI PSRAM and the 8 MB application partition.
   The compiled sketch uses 1,031,466 bytes of flash and 70,616 bytes of global
@@ -74,7 +79,8 @@ The pre-deployment snapshot is retained on the Jetson at:
 | Camera firmware profile | Flashed and short-tested | SVGA 800x600 JPEG, quality 10, maximum 15 streamed FPS, idle Wi-Fi power saving. |
 | Gemini | Ready | Cloud response provider is available. |
 | Deepgram / Whisper | Ready with fallback | Deepgram is primary; local Whisper is fallback. |
-| Cartesia / Piper | Degraded with fallback | Cartesia returns HTTP 402; Piper keeps speech output available. |
+| Cartesia / Piper | Degraded with fallback | Cartesia is unavailable at the latest service check; Piper is ready for English, French, and Traditional Chinese. |
+| Traditional Chinese | Runtime verified | `zh-Hant` onboarding maps to `zh`; a live typed answer was Chinese and the local Piper model synthesized a valid WAV. |
 | YOLO artwork detection | Runtime present, hardware test pending | Cannot verify visual detection while the camera is unplugged. |
 | EV3 / mechanical outputs | Disabled | `enable_ev3: false`; no current physical verification. |
 
@@ -99,18 +105,20 @@ from GitHub.
 2. Confirm the flashed stream remains fresh with ATLAS as its only MJPEG client.
 3. Trigger manual capture using the Shokz multifunction button and verify that
    the selected artwork context updates.
-4. Run one live artwork identification and spoken question through the complete
-   Deepgram, Gemini, and Piper fallback path.
+4. Run one live artwork identification and spoken Chinese question through the
+   complete Deepgram, Gemini, and Piper fallback path on the Shokz headset.
 
 ## Known risks
 
-- The XIAO firmware has passed compilation but not a physical flash or thermal
-  test. Do not seal it into the wearable enclosure yet.
+- The XIAO firmware has passed physical flash and short-run streaming checks,
+  but not the required 20-minute thermal test. Do not seal it into the wearable
+  enclosure yet.
 - The current camera server can be disrupted by a competing capture client.
   Route previews through ATLAS's `/camera/frame.jpg` endpoint instead of opening
   a second direct connection to the XIAO stream.
-- Cartesia speech will remain unavailable until its account/billing issue is
-  resolved; Piper is the current operational fallback.
+- Cartesia speech is unavailable at the latest service check. Verify the new
+  Scale-plan credential/billing state before relying on it; Piper is the
+  current operational fallback.
 - The dashboard URLs use the Jetson's current LAN address. A public Vercel site
   would require a separate hosted frontend and a secure relay/API to the Jetson;
   replacing the LAN URL alone would not expose the local runtime safely.

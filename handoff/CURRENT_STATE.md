@@ -25,8 +25,9 @@ Implemented behavior includes:
 
 Reconciliation and device validation on 2026-08-29 produced:
 
-- `276 passed` from the complete suite during the successful Jetson deployment;
-- `277 passed` locally after adding the disconnected-camera regression;
+- `280 passed` from the complete suite during the latest successful Jetson
+  deployment;
+- `280 passed` locally after the same Chinese-support changes;
 - passing obvious-secret and recovery-bundle checks;
 - a successful XIAO ESP32-S3 Sense firmware compile for the balanced
   800x600/15 FPS profile;
@@ -40,6 +41,11 @@ Reconciliation and device validation on 2026-08-29 produced:
 - one non-failing Starlette deprecation warning from the installed FastAPI
   test client.
 
+Traditional Chinese is now a validated visitor/runtime path: `zh-Hant`
+onboarding maps to `zh`, the live Gemini path returned a Chinese museum answer,
+and the configured Jetson Piper model synthesized a valid Chinese WAV. Cartesia
+remains unavailable, so Piper is the active speech fallback.
+
 The active work is on `codex/jetson-runtime-reconcile`. It has not been merged
 into GitHub `main`. The exact device state and rollback information are in
 [`jetson/JETSON_RUNTIME_STATUS.md`](jetson/JETSON_RUNTIME_STATUS.md).
@@ -51,7 +57,7 @@ The following cannot be proven from a laptop-only session:
 - XIAO firmware flashing and a 20-minute sustained thermal/FPS test;
 - sustained camera streaming, thermal behavior, and live artwork detection
   with the flashed 800x600 profile;
-- Traditional Chinese live STT and TTS provider behavior;
+- physical Chinese STT and headset playback through the complete live flow;
 - a physical Shokz multifunction-button manual capture;
 - headset disconnect/reconnect recovery after boot; and
 - Cartesia recovery after its HTTP 402 account/billing failure is resolved.
