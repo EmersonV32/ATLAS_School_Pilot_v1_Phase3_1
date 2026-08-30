@@ -607,6 +607,19 @@ class TestRuntimeBridge:
         assert stopped["stopped"] is True
         assert runtime.stopped == 1
 
+    def test_runtime_bridge_ignores_kiosk_reset_during_active_visit(self):
+        runtime = _FakeRuntime()
+        service = VisitorService(runtime_service=runtime)
+        service.progress(VisitorProgressRequest(**_progress(step="privacy")))
+        service.start()
+
+        reset_state = service.reset()
+
+        assert reset_state["phase"] == "in_use"
+        assert runtime.stopped == 0
+        assert service.stop()["stopped"] is True
+        assert runtime.stopped == 1
+
     def test_runtime_bridge_blocks_start_without_a_fresh_camera(self):
         service = VisitorService(runtime_service=_FakeRuntime(camera_ready=False))
         service.progress(VisitorProgressRequest(**_progress(step="privacy")))

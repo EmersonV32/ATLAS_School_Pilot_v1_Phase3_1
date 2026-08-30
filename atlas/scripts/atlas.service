@@ -6,7 +6,7 @@ Type=simple
 WorkingDirectory=/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m atlas.app.main --mode device --device-loop
-Restart=on-failure
+Restart=always
 RestartSec=5
 TimeoutStopSec=20
 KillSignal=SIGINT

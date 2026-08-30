@@ -240,6 +240,10 @@ class VisitorService:
 
     def reset(self) -> dict:
         with self._lock:
+            # A stale kiosk tab must never terminate an active wearable session.
+            # Active visits are ended only through the explicit staff stop route.
+            if self._state["phase"] == "in_use":
+                return self._projection()
             self._stop_runtime_session()
             self._scenario = "ready"
             self._help_request = None

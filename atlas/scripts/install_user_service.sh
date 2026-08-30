@@ -19,7 +19,7 @@ Type=simple
 WorkingDirectory=$PROJECT_DIR
 Environment=PYTHONUNBUFFERED=1
 ExecStart=$VENV/bin/python -m atlas.app.main --mode device --device-loop
-Restart=on-failure
+Restart=always
 RestartSec=5
 TimeoutStopSec=20
 KillSignal=SIGINT

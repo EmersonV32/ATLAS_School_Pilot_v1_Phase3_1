@@ -33,6 +33,8 @@ $files = @(
     "firmware/xiao_camera/xiao_camera.ino",
     "pyproject.toml",
     "requirements.txt",
+    "scripts/atlas.service",
+    "scripts/install_user_service.sh",
     "docs/PATCH_HISTORY.md"
 )
 $trackedTreeFiles = & git -C $repoRoot ls-files -- src/atlas tests data/content_packs/demo_pack
@@ -67,6 +69,8 @@ paths=(
   firmware/xiao_camera/xiao_camera.ino
   pyproject.toml
   requirements.txt
+  scripts/atlas.service
+  scripts/install_user_service.sh
   src/atlas
   tests
   docs/PATCH_HISTORY.md
@@ -110,6 +114,8 @@ if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest; then
   exit 1
 fi
 restore_device_config
+install -m 0644 "$root/scripts/atlas.service" "$HOME/.config/systemd/user/atlas.service"
+systemctl --user daemon-reload
 if ! systemctl --user start atlas.service; then
   rollback
   exit 1
