@@ -442,6 +442,7 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .dense-form.three-columns { grid-template-columns: repeat(3, minmax(8rem, 1fr)); }
 .dense-form.four-columns { grid-template-columns: repeat(4, minmax(7rem, 1fr)); }
 .dense-form input, .dense-form select { min-height: 2.2rem; padding: 0.38rem 0.5rem; }
+.field-note { margin: 0.42rem 0 0; color: var(--muted); font-size: 0.68rem; font-weight: 500; line-height: 1.3; }
 .compact-actions { margin-top: 0.7rem; flex-wrap: wrap; }
 .compact-actions button { min-height: 2.2rem; padding: 0.38rem 0.7rem; font-size: 0.8rem; }
 .settings-disclosure { border-top: 1px solid var(--border); }

@@ -26,6 +26,7 @@ from atlas.audio.stt import BaseSTT, TranscriptResult
 from atlas.audio.tts import BaseTTS
 from atlas.dialogue.dialogue_engine import DialogueEngine, DialogueResult
 from atlas.hardware.base import BaseHardware
+from atlas.models.languages import normalize_language_code
 from atlas.vision.detector import ArtworkDetection, BaseDetector
 from atlas.vision.manual_capture import is_capture_command
 
@@ -49,42 +50,126 @@ RetrieverFn = Callable[[str | None, str], list[dict]]
 
 _CAPTURE_CONFIRMATIONS = {
     "en": "I captured this as {title}. What would you like to know?",
-    "fr": "J'ai identifié cette œuvre comme {title}. Que voulez-vous savoir?",
-    "es": "Identifiqué esta obra como {title}. ¿Qué le gustaría saber?",
-    "it": "Ho identificato quest'opera come {title}. Cosa vorrebbe sapere?",
     "zh": "我已將這件作品辨識為 {title}。您想了解什麼？",
+    "hi": "मैंने इसे {title} के रूप में पहचाना है। आप क्या जानना चाहेंगे?",
+    "es": "Identifiqué esta obra como {title}. ¿Qué le gustaría saber?",
+    "fr": "J'ai identifié cette œuvre comme {title}. Que voulez-vous savoir?",
+    "ar": "تعرّفت على هذا العمل على أنه {title}. ماذا تود أن تعرف؟",
+    "bn": "আমি এটিকে {title} হিসেবে শনাক্ত করেছি। আপনি কী জানতে চান?",
+    "pt": "Identifiquei esta obra como {title}. O que gostaria de saber?",
+    "ru": "Я распознал это произведение как {title}. Что вы хотели бы узнать?",
+    "id": "Saya mengenali karya ini sebagai {title}. Apa yang ingin Anda ketahui?",
+    "de": "Ich habe dieses Werk als {title} erkannt. Was möchten Sie wissen?",
+    "ja": "この作品は{title}です。何を知りたいですか？",
+    "te": "నేను ఈ కళాఖండాన్ని {title}గా గుర్తించాను. మీరు ఏమి తెలుసుకోవాలనుకుంటున్నారు?",
+    "tr": "Bu eseri {title} olarak tanıdım. Ne öğrenmek istersiniz?",
+    "ko": "이 작품은 {title}입니다. 무엇이 궁금하신가요?",
+    "vi": "Tôi nhận diện tác phẩm này là {title}. Bạn muốn biết điều gì?",
+    "it": "Ho identificato quest'opera come {title}. Cosa vorrebbe sapere?",
+    "ta": (
+        "இந்தக் கலைப்படைப்பை {title} என அடையாளம் கண்டேன். "
+        "நீங்கள் என்ன தெரிந்துகொள்ள விரும்புகிறீர்கள்?"
+    ),
+    "th": "ฉันระบุผลงานนี้ว่าเป็น {title} คุณอยากรู้อะไรเพิ่มเติม?",
+    "pl": "Rozpoznałem to dzieło jako {title}. Co chcesz wiedzieć?",
 }
 
 _CAPTURE_FAILURES = {
     "en": "I could not identify that artwork. Please center it and try again.",
-    "fr": "Je n'ai pas pu identifier cette œuvre. Centrez-la et réessayez.",
-    "es": "No pude identificar la obra. Céntrela e inténtelo de nuevo.",
-    "it": "Non ho riconosciuto l'opera. La centri e riprovi.",
     "zh": "我無法辨識這件作品。請將作品置中後再試一次。",
+    "hi": "मैं उस कलाकृति को पहचान नहीं सका। उसे बीच में रखें और फिर प्रयास करें।",
+    "es": "No pude identificar la obra. Céntrela e inténtelo de nuevo.",
+    "fr": "Je n'ai pas pu identifier cette œuvre. Centrez-la et réessayez.",
+    "ar": "لم أتمكن من التعرف على العمل. ضعه في المنتصف وحاول مرة أخرى.",
+    "bn": "আমি শিল্পকর্মটি শনাক্ত করতে পারিনি। এটিকে মাঝখানে রেখে আবার চেষ্টা করুন।",
+    "pt": "Não consegui identificar a obra. Centralize-a e tente novamente.",
+    "ru": (
+        "Не удалось распознать произведение. "
+        "Поместите его в центр и попробуйте снова."
+    ),
+    "id": "Saya tidak dapat mengenali karya itu. Posisikan di tengah lalu coba lagi.",
+    "de": (
+        "Ich konnte das Werk nicht erkennen. "
+        "Zentrieren Sie es und versuchen Sie es erneut."
+    ),
+    "ja": "作品を特定できませんでした。中央に合わせて、もう一度お試しください。",
+    "te": "ఆ కళాఖండాన్ని గుర్తించలేకపోయాను. దాన్ని మధ్యలో ఉంచి మళ్లీ ప్రయత్నించండి.",
+    "tr": "Eseri tanıyamadım. Ortalayın ve yeniden deneyin.",
+    "ko": "작품을 식별하지 못했습니다. 중앙에 맞추고 다시 시도해 주세요.",
+    "vi": "Tôi không thể nhận diện tác phẩm. Hãy đặt nó ở giữa rồi thử lại.",
+    "it": "Non ho riconosciuto l'opera. La centri e riprovi.",
+    "ta": "அந்தக் கலைப்படைப்பை அடையாளம் காண முடியவில்லை. அதை நடுவில் வைத்து மீண்டும் முயற்சிக்கவும்.",
+    "th": "ฉันไม่สามารถระบุผลงานได้ กรุณาจัดให้อยู่ตรงกลางแล้วลองอีกครั้ง",
+    "pl": "Nie udało mi się rozpoznać dzieła. Ustaw je na środku i spróbuj ponownie.",
 }
 
 _ARTWORK_INVITATIONS = {
     "en": "Would you like to know more about {title}?",
-    "fr": "Voulez-vous en savoir plus sur {title} ?",
-    "es": "¿Le gustaría saber más sobre {title}?",
-    "it": "Vuole saperne di più su {title}?",
     "zh": "您想進一步了解{title}嗎？",
+    "hi": "क्या आप {title} के बारे में और जानना चाहेंगे?",
+    "es": "¿Le gustaría saber más sobre {title}?",
+    "fr": "Voulez-vous en savoir plus sur {title} ?",
+    "ar": "هل تود معرفة المزيد عن {title}؟",
+    "bn": "আপনি কি {title} সম্পর্কে আরও জানতে চান?",
+    "pt": "Gostaria de saber mais sobre {title}?",
+    "ru": "Хотите узнать больше о {title}?",
+    "id": "Apakah Anda ingin tahu lebih banyak tentang {title}?",
+    "de": "Möchten Sie mehr über {title} erfahren?",
+    "ja": "{title}についてもっと知りたいですか？",
+    "te": "మీరు {title} గురించి మరింత తెలుసుకోవాలనుకుంటున్నారా?",
+    "tr": "{title} hakkında daha fazla bilgi ister misiniz?",
+    "ko": "{title}에 대해 더 알고 싶으신가요?",
+    "vi": "Bạn có muốn biết thêm về {title} không?",
+    "it": "Vuole saperne di più su {title}?",
+    "ta": "{title} பற்றி மேலும் தெரிந்துகொள்ள விரும்புகிறீர்களா?",
+    "th": "คุณอยากทราบข้อมูลเพิ่มเติมเกี่ยวกับ {title} ไหม?",
+    "pl": "Czy chcesz dowiedzieć się więcej o {title}?",
 }
 
 _LANGUAGE_ACKNOWLEDGEMENTS = {
     "en": "Okay, I will continue in English.",
-    "fr": "D'accord, je continue en francais.",
-    "es": "De acuerdo, continuare en espanol.",
-    "it": "Va bene, continuero in italiano.",
     "zh": "好的，我会继续用中文。",
+    "hi": "ठीक है, मैं हिंदी में जारी रखूँगा।",
+    "es": "De acuerdo, continuare en espanol.",
+    "fr": "D'accord, je continue en francais.",
+    "ar": "حسنًا، سأتابع باللغة العربية.",
+    "bn": "ঠিক আছে, আমি বাংলায় কথা চালিয়ে যাব।",
+    "pt": "Certo, vou continuar em português.",
+    "ru": "Хорошо, я продолжу на русском языке.",
+    "id": "Baik, saya akan melanjutkan dalam bahasa Indonesia.",
+    "de": "In Ordnung, ich spreche auf Deutsch weiter.",
+    "ja": "わかりました。日本語で続けます。",
+    "te": "సరే, నేను తెలుగులో కొనసాగిస్తాను.",
+    "tr": "Tamam, Türkçe devam edeceğim.",
+    "ko": "알겠습니다. 한국어로 계속하겠습니다.",
+    "vi": "Được, tôi sẽ tiếp tục bằng tiếng Việt.",
+    "it": "Va bene, continuero in italiano.",
+    "ta": "சரி, நான் தமிழில் தொடர்கிறேன்.",
+    "th": "ตกลง ฉันจะพูดภาษาไทยต่อ",
+    "pl": "Dobrze, będę kontynuować po polsku.",
 }
 
 _LANGUAGE_NAMES = {
     "en": {"english", "anglais", "ingles", "inglese"},
-    "fr": {"french", "francais", "frances", "francese"},
+    "zh": {"chinese", "mandarin"},
+    "hi": {"hindi"},
     "es": {"spanish", "espagnol", "espanol", "spagnolo"},
+    "fr": {"french", "francais", "frances", "francese"},
+    "ar": {"arabic"},
+    "bn": {"bengali", "bangla"},
+    "pt": {"portuguese", "portugues"},
+    "ru": {"russian"},
+    "id": {"indonesian", "bahasa"},
+    "de": {"german", "deutsch"},
+    "ja": {"japanese"},
+    "te": {"telugu"},
+    "tr": {"turkish"},
+    "ko": {"korean"},
+    "vi": {"vietnamese"},
     "it": {"italian", "italien", "italiano"},
-    "zh": {"chinese", "mandarin", "中文", "國語", "普通話"},
+    "ta": {"tamil"},
+    "th": {"thai"},
+    "pl": {"polish"},
 }
 
 _LANGUAGE_SWITCH_WORDS = {
@@ -168,10 +253,7 @@ def make_retriever(phase2_retriever) -> RetrieverFn:
     from atlas.rag.retriever import RetrievalQuery
 
     def _lang(code: str) -> Language:
-        try:
-            return Language(str(code).strip().lower().split("-", 1)[0])
-        except ValueError:
-            return Language.EN
+        return Language(normalize_language_code(code))
 
     def _retrieve(
         artwork_id: str | None,
@@ -238,9 +320,7 @@ class SessionRunner:
         self._preferred_profile = "adult_beginner"
 
     def set_preferred_language(self, language: str) -> None:
-        normalized = str(language).split("-", 1)[0].lower()
-        if normalized not in {"en", "fr", "es", "it", "zh"}:
-            normalized = "en"
+        normalized = normalize_language_code(language)
         self._preferred_language = normalized
         self._last_language = normalized
 
@@ -344,7 +424,7 @@ class SessionRunner:
         detection: ArtworkDetection | None,
         language: str,
     ) -> None:
-        language = language if language in _CAPTURE_CONFIRMATIONS else "en"
+        language = normalize_language_code(language)
         if detection is None:
             message = _CAPTURE_FAILURES[language]
         else:
@@ -361,9 +441,9 @@ class SessionRunner:
         language: str | None = None,
     ) -> bool:
         """Offer a localized follow-up without opening another listen cycle."""
-        selected_language = str(language or self._preferred_language).split("-", 1)[0]
-        if selected_language not in _ARTWORK_INVITATIONS:
-            selected_language = "en"
+        selected_language = normalize_language_code(
+            language or self._preferred_language
+        )
         message = _ARTWORK_INVITATIONS[selected_language].format(
             title=detection.label
         )

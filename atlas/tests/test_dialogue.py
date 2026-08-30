@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pytest
 
+from atlas.models.languages import OUTPUT_LANGUAGE_NAMES
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -130,7 +132,7 @@ class TestPromptBuilder:
 
     @pytest.mark.parametrize(
         ("language", "language_name"),
-        [("es", "Spanish"), ("it", "Italian"), ("zh", "Traditional Chinese")],
+        list(OUTPUT_LANGUAGE_NAMES.items()),
     )
     def test_selected_language_is_mandatory_for_all_supported_languages(
         self, language, language_name

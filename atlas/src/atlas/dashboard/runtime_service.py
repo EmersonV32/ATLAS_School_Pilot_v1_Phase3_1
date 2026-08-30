@@ -20,6 +20,7 @@ from atlas.app.dependency_container import Container
 from atlas.audio.devices import find_alsa_playback, find_pulse_playback
 from atlas.config.settings import Settings
 from atlas.models.enums import EducationalLevel, Language, RunMode
+from atlas.models.languages import OUTPUT_LANGUAGE_NAMES, normalize_language_code
 from atlas.models.retrieval import RetrievalQuery
 from atlas.utils.ids import new_session_id
 from atlas.utils.time import Timer
@@ -49,16 +50,10 @@ def _human_runtime_line(line: str) -> str:
     if "[STT] Preparing to listen" in cleaned:
         language = re.search(r"language=([a-z-]+)", cleaned)
         timeout = re.search(r"timeout=([\d.]+s)", cleaned)
-        names = {
-            "en": "English",
-            "fr": "French",
-            "es": "Spanish",
-            "it": "Italian",
-            "ar": "Arabic",
-            "zh": "Mandarin",
-        }
         language_code = (language.group(1) if language else "").split("-")[0]
-        language_name = names.get(language_code, "the selected language")
+        language_name = OUTPUT_LANGUAGE_NAMES.get(
+            language_code, "the selected language"
+        )
         timeout_text = timeout.group(1) if timeout else "the configured window"
         return (
             f"ATLAS is listening in {language_name} for up to {timeout_text}."
@@ -140,10 +135,7 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 
 def _to_language(value: str | None, fallback: str = "en") -> Language:
-    try:
-        return Language(str(value).strip().lower().split("-", 1)[0])
-    except (ValueError, TypeError):
-        return Language(fallback)
+    return Language(normalize_language_code(value, fallback))
 
 
 def _to_level(value: str | None) -> EducationalLevel:

@@ -13,17 +13,28 @@ from enum import Enum
 
 
 class Language(str, Enum):
-    """Supported visitor languages.
-
-    English and French are required for the school-pilot MVP.
-    Spanish and Italian are optional/demo-level.
-    """
+    """Languages accepted by the ATLAS dialogue and speech pipeline."""
 
     EN = "en"
-    FR = "fr"
-    ES = "es"
-    IT = "it"
     ZH = "zh"
+    HI = "hi"
+    ES = "es"
+    FR = "fr"
+    AR = "ar"
+    BN = "bn"
+    PT = "pt"
+    RU = "ru"
+    ID = "id"
+    DE = "de"
+    JA = "ja"
+    TE = "te"
+    TR = "tr"
+    KO = "ko"
+    VI = "vi"
+    IT = "it"
+    TA = "ta"
+    TH = "th"
+    PL = "pl"
 
 
 class EducationalLevel(str, Enum):

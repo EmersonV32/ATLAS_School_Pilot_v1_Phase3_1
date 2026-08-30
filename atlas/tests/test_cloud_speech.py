@@ -28,6 +28,7 @@ from atlas.audio.fallback import FallbackSTT, FallbackTTS
 from atlas.audio.silero_vad import SileroVAD
 from atlas.audio.stt import BaseSTT, TranscriptResult
 from atlas.audio.tts import BaseTTS
+from atlas.models.languages import ADMIN_LANGUAGE_OPTIONS
 
 
 def test_deepgram_url_uses_nova_multilingual_privacy_and_keyterms():
@@ -99,10 +100,13 @@ def test_deepgram_result_uses_requested_language_when_metadata_is_absent():
 
 def test_deepgram_language_can_be_pinned_for_dashboard_session():
     stt = DeepgramSTT(language="multi", vad=object())
-    stt.set_language("fr-CA")
-    assert stt._language == "fr"
+    for option in ADMIN_LANGUAGE_OPTIONS:
+        stt.set_language(option.code)
+        assert stt._language == option.code
     stt.set_language("zh-Hant")
     assert stt._language == "zh"
+    stt.set_language("not-a-language")
+    assert stt._language == "multi"
 
 
 def test_deepgram_empty_final_is_noise_not_provider_failure(monkeypatch):
@@ -245,6 +249,19 @@ def test_cartesia_request_is_raw_pcm_and_language_normalized():
         "encoding": "pcm_s16le",
         "sample_rate": 24000,
     }
+
+
+def test_cartesia_preserves_every_admin_language():
+    for option in ADMIN_LANGUAGE_OPTIONS:
+        request = build_cartesia_request(
+            text="Museum test",
+            language=option.code,
+            model="sonic-3.5",
+            voice_id="voice-id",
+            sample_rate=24000,
+            context_id=f"context-{option.code}",
+        )
+        assert request["language"] == option.code
 
 
 def test_cartesia_records_first_audio_and_total_timing(monkeypatch):

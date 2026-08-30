@@ -22,11 +22,13 @@ dashboard is local only — it is not on the internet.
 
 1. **Start session** — press *Start session*. The session ID shown is
    anonymous; ATLAS never asks for or stores student names.
-2. **Experience Settings** — choose the content pack, language (English and
-   French are fully supported; Spanish/Italian are demo-level), and profile
-   (child, teen, adult beginner, expert, visual impairment, simple
-   language). *Accessibility mode* switches to rich audio descriptions of
-   shape, colour and composition. Press **Apply**.
+2. **Experience Settings** — choose the content pack, language, and profile
+   (child, teen, adult beginner, expert, visual impairment, or simple
+   language). The admin Demo tab offers 20 staff-selectable languages ordered
+   by broad usefulness. Choices beyond the visitor onboarding list require the
+   configured Deepgram and Cartesia cloud-speech path. *Accessibility mode*
+   switches to rich audio descriptions of shape, colour and composition. Press
+   **Apply**.
 3. **Artwork Context** — shows what ATLAS currently thinks the student is
    looking at, with confidence and stable/unstable state.
    - If detection is wrong or the camera is unavailable, pick the artwork in

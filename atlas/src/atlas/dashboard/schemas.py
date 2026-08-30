@@ -9,13 +9,15 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from atlas.models.languages import ADMIN_LANGUAGE_CODES
 
 
 class SessionProfileRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    language: str | None = None          # en | fr | es | it | zh-Hant
+    language: str | None = None          # normalized by the runtime registry
     profile: str | None = None           # EducationalLevel value
     pack_id: str | None = None
     accessibility_mode: bool | None = None
@@ -26,7 +28,7 @@ class AdminDemoStartRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    language: Literal["en", "fr", "es", "it", "zh"] = "en"
+    language: str = "en"
     profile: Literal[
         "child",
         "teen",
@@ -37,6 +39,14 @@ class AdminDemoStartRequest(BaseModel):
     ] = "adult_beginner"
     pack_id: str | None = None
     accessibility_mode: bool = False
+
+    @field_validator("language")
+    @classmethod
+    def validate_admin_language(cls, value: str) -> str:
+        normalized = str(value).strip().lower().split("-", 1)[0]
+        if normalized not in ADMIN_LANGUAGE_CODES:
+            raise ValueError("language is not enabled in the ATLAS admin")
+        return normalized
 
 
 class AudioOutputRequest(BaseModel):

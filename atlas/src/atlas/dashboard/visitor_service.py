@@ -18,6 +18,7 @@ from atlas.dashboard.visitor_schemas import (
     VisitorHelpRequest,
     VisitorProgressRequest,
 )
+from atlas.models.languages import ADMIN_LANGUAGE_CODES
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +265,9 @@ class VisitorService:
         with self._lock:
             previous_language = self._state["language"]
             self._state["language"] = language
-            readiness = self._readiness()
+            readiness = self._readiness(
+                supported_languages=ADMIN_LANGUAGE_CODES
+            )
             if readiness["blockers"]:
                 self._state["language"] = previous_language
                 raise RuntimeError(readiness["blockers"][0])
@@ -386,13 +389,20 @@ class VisitorService:
         result["help"] = deepcopy(self._help_request)
         return result
 
-    def _readiness(self) -> dict:
+    def _readiness(
+        self,
+        supported_languages: frozenset[str] = _RUNTIME_LANGUAGES,
+    ) -> dict:
         scenario = self._scenario
         language = self._state["language"]
         if self._runtime_service is None:
-            items = self._mock_readiness_items(scenario, language)
+            items = self._mock_readiness_items(
+                scenario, language, supported_languages
+            )
         else:
-            items = self._runtime_readiness_items(scenario, language)
+            items = self._runtime_readiness_items(
+                scenario, language, supported_languages
+            )
         blocking_states = {"unavailable", "unsupported", "pending"}
         blockers = [
             item["detail"] for item in items if item["status"] in blocking_states
@@ -404,7 +414,12 @@ class VisitorService:
             "checked_at": _now(),
         }
 
-    def _mock_readiness_items(self, scenario: str, language: str | None) -> list[dict]:
+    def _mock_readiness_items(
+        self,
+        scenario: str,
+        language: str | None,
+        supported_languages: frozenset[str],
+    ) -> list[dict]:
         return [
             self._item(
                 "unit",
@@ -437,7 +452,7 @@ class VisitorService:
                 "ready",
                 "The local content pack is available.",
             ),
-            self._language_item(language, supported=_RUNTIME_LANGUAGES),
+            self._language_item(language, supported=supported_languages),
             self._item(
                 "safety", "Safety controls", "ready", "Emergency stop is clear."
             ),
@@ -450,13 +465,22 @@ class VisitorService:
         ]
 
     def _runtime_readiness_items(
-        self, scenario: str, language: str | None
+        self,
+        scenario: str,
+        language: str | None,
+        supported_languages: frozenset[str],
     ) -> list[dict]:
         if scenario == "unit_unavailable":
-            return self._runtime_unavailable_items(language, "ATLAS is not responding.")
+            return self._runtime_unavailable_items(
+                language,
+                "ATLAS is not responding.",
+                supported_languages,
+            )
         if scenario == "connection_lost":
             return self._runtime_unavailable_items(
-                language, "Connection to the ATLAS unit is unavailable."
+                language,
+                "Connection to the ATLAS unit is unavailable.",
+                supported_languages,
             )
         try:
             health = self._runtime_service.health()
@@ -464,7 +488,9 @@ class VisitorService:
         except Exception:
             logger.exception("Visitor readiness check could not read the runtime")
             return self._runtime_unavailable_items(
-                language, "ATLAS is not responding. Please ask a staff member."
+                language,
+                "ATLAS is not responding. Please ask a staff member.",
+                supported_languages,
             )
 
         components = health.get("components", {})
@@ -560,7 +586,7 @@ class VisitorService:
                 if content_ready
                 else "Museum content is unavailable.",
             ),
-            self._language_item(language, supported=_RUNTIME_LANGUAGES),
+            self._language_item(language, supported=supported_languages),
             self._item(
                 "safety",
                 "Safety controls",
@@ -578,7 +604,10 @@ class VisitorService:
         ]
 
     def _runtime_unavailable_items(
-        self, language: str | None, detail: str
+        self,
+        language: str | None,
+        detail: str,
+        supported_languages: frozenset[str],
     ) -> list[dict]:
         self._state["connection"] = "offline"
         return [
@@ -587,7 +616,7 @@ class VisitorService:
             self._item("connection", "Local connection", "unavailable", detail),
             self._item("camera", "Camera", "pending", "Waiting for ATLAS."),
             self._item("content", "Museum content", "pending", "Waiting for ATLAS."),
-            self._language_item(language, supported=_RUNTIME_LANGUAGES),
+            self._language_item(language, supported=supported_languages),
             self._item("safety", "Safety controls", "pending", "Waiting for ATLAS."),
             self._item(
                 "profile",

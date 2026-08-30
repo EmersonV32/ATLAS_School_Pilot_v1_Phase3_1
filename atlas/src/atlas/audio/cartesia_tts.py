@@ -12,6 +12,8 @@ import uuid
 from typing import Any
 from urllib.parse import urlencode
 
+from atlas.models.languages import normalize_language_code
+
 from .playback import (
     finish_raw_player,
     listening_cue_pcm,
@@ -41,9 +43,7 @@ def build_cartesia_request(
     context_id: str,
     continue_: bool = False,
 ) -> dict[str, Any]:
-    language = str(language).lower().split("-", 1)[0]
-    if language not in {"en", "fr", "es", "it", "zh"}:
-        language = "en"
+    language = normalize_language_code(language)
     return {
         "model_id": model,
         "transcript": text,

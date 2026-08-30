@@ -30,6 +30,7 @@ from atlas.audio.whisper_stt import WhisperSTT
 from atlas.config.loader import load_settings
 from atlas.config.settings import DashboardSettings, Settings
 from atlas.hardware.ev3_hardware import EV3Hardware, _MailboxClient
+from atlas.models.languages import ADMIN_LANGUAGE_OPTIONS
 from atlas.vision.camera_source import normalize_camera_source
 from atlas.vision.detector import ArtworkDetection
 from atlas.vision.yolo_detector import (
@@ -64,6 +65,15 @@ def test_pulse_defaults_fail_closed_when_pactl_is_unavailable(monkeypatch):
 def test_whisper_fallback_defaults_to_cached_files_only():
     stt = WhisperSTT()
     assert stt._local_files_only is True
+
+
+def test_whisper_accepts_every_admin_language():
+    stt = WhisperSTT()
+    for option in ADMIN_LANGUAGE_OPTIONS:
+        stt.set_language(option.code)
+        assert stt._language == option.code
+    stt.set_language("not-a-language")
+    assert stt._language is None
 
 
 def test_device_runtime_can_disable_integrated_dashboard():

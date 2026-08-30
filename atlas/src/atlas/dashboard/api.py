@@ -10,6 +10,7 @@ environment variable configured by settings.dashboard.admin_token_env.
 from __future__ import annotations
 
 from collections.abc import Callable
+from html import escape
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -36,9 +37,20 @@ from atlas.dashboard.visitor_schemas import (
     VisitorSimulationRequest,
 )
 from atlas.dashboard.visitor_service import VisitorService
+from atlas.models.languages import ADMIN_LANGUAGE_OPTIONS
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
+_ADMIN_LANGUAGE_OPTIONS_MARKER = "<!-- ATLAS_ADMIN_LANGUAGE_OPTIONS -->"
+
+
+def _render_admin_page() -> str:
+    options = "\n".join(
+        f'<option value="{escape(option.code)}">{escape(option.label)}</option>'
+        for option in ADMIN_LANGUAGE_OPTIONS
+    )
+    template = (_TEMPLATES_DIR / "admin.html").read_text(encoding="utf-8")
+    return template.replace(_ADMIN_LANGUAGE_OPTIONS_MARKER, options)
 
 
 def create_app(
@@ -81,7 +93,7 @@ def create_app(
 
     @app.get("/admin", response_class=HTMLResponse)
     def admin() -> str:
-        return (_TEMPLATES_DIR / "admin.html").read_text(encoding="utf-8")
+        return _render_admin_page()
 
     @app.get("/service-worker.js", response_class=FileResponse)
     def service_worker() -> FileResponse:

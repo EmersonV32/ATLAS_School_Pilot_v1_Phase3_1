@@ -10,7 +10,13 @@ from atlas.audio.stt import TranscriptResult
 from atlas.dialogue.dialogue_engine import DialogueEngine, DialogueResult
 from atlas.dialogue.mock_llm_client import MockLLMClient
 from atlas.hardware.mock_hardware import MockHardware
+from atlas.models.languages import ADMIN_LANGUAGE_CODES
 from atlas.pipeline.session_runner import (
+    _ARTWORK_INVITATIONS,
+    _CAPTURE_CONFIRMATIONS,
+    _CAPTURE_FAILURES,
+    _LANGUAGE_ACKNOWLEDGEMENTS,
+    _LANGUAGE_NAMES,
     SessionResult,
     SessionRunner,
     requested_language,
@@ -232,6 +238,16 @@ def test_language_switch_is_local_and_skips_rag_and_llm():
     assert result.dialogue.language == "en"
     assert result.dialogue.grounding_reason == "local_language_switch"
     assert runner.preferred_language == "en"
+
+
+def test_demo_messages_cover_every_admin_language():
+    assert set(_CAPTURE_CONFIRMATIONS) == ADMIN_LANGUAGE_CODES
+    assert set(_CAPTURE_FAILURES) == ADMIN_LANGUAGE_CODES
+    assert set(_ARTWORK_INVITATIONS) == ADMIN_LANGUAGE_CODES
+    assert set(_LANGUAGE_ACKNOWLEDGEMENTS) == ADMIN_LANGUAGE_CODES
+    assert set(_LANGUAGE_NAMES) == ADMIN_LANGUAGE_CODES
+    for code, names in _LANGUAGE_NAMES.items():
+        assert requested_language(f"Switch to {next(iter(names))}") == code
 
 
 @pytest.mark.parametrize(

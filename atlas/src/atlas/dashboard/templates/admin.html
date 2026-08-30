@@ -58,8 +58,7 @@
           <label>Content pack<select id="sel-pack"></select></label>
           <label>Language
             <select id="sel-language">
-              <option value="en">English</option><option value="fr">Francais</option>
-              <option value="es">Espanol</option><option value="it">Italiano</option><option value="zh">繁體中文</option>
+              <!-- ATLAS_ADMIN_LANGUAGE_OPTIONS -->
             </select>
           </label>
           <label>Profile
@@ -72,6 +71,7 @@
           </label>
           <label class="switch-field"><input id="chk-accessibility" type="checkbox"><span>Audio description</span></label>
         </div>
+        <p class="field-note">Additional language choices use cloud speech; the visitor setup stays unchanged.</p>
         <div class="command-group compact-actions">
           <button id="btn-apply-experience" type="button">Apply</button>
           <button id="btn-start-demo" type="button">Start demo</button>
@@ -208,7 +208,7 @@
               <label>Keyword candidates<input id="cfg-keyword-top-k" type="number" min="1" max="50"></label>
               <label>Chunk words<input id="cfg-chunk-words" type="number" min="20" max="200"></label>
               <label class="switch-field"><input id="cfg-language-fallback" type="checkbox"><span>Language fallback</span></label>
-              <label>Fallback language<select id="cfg-fallback-language"><option value="en">English</option><option value="fr">Francais</option><option value="es">Espanol</option><option value="it">Italiano</option><option value="zh">繁體中文</option></select></label>
+              <label>RAG fallback language<select id="cfg-fallback-language"><option value="en">English</option><option value="fr">Francais</option><option value="es">Espanol</option><option value="it">Italiano</option><option value="zh">繁體中文</option></select></label>
             </div>
           </details>
           <div class="settings-save-bar"><button id="btn-save-config" type="submit">Save settings</button></div>

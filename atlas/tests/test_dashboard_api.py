@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from atlas.app.dependency_container import Container
 from atlas.config.settings import DashboardSettings, PathsSettings, RunMode, Settings
 from atlas.dashboard.api import create_app
+from atlas.models.languages import ADMIN_LANGUAGE_OPTIONS
 from atlas.rag.ingest import load_content_pack
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -90,6 +91,19 @@ class TestHealthAndStatus:
         assert "Apply camera" not in res.text
         assert "sel-camera-profile" not in res.text
 
+        language_select = res.text.partition('<select id="sel-language">')[2]
+        language_select = language_select.partition("</select>")[0]
+        expected_options = [
+            f'<option value="{option.code}">{option.label}</option>'
+            for option in ADMIN_LANGUAGE_OPTIONS
+        ]
+        assert language_select.count("<option") == 20
+        assert all(option in language_select for option in expected_options)
+        assert [language_select.index(option) for option in expected_options] == sorted(
+            language_select.index(option) for option in expected_options
+        )
+        assert "ATLAS_ADMIN_LANGUAGE_OPTIONS" not in res.text
+
 
 class TestSession:
     def test_start_and_stop(self, client):
@@ -123,6 +137,28 @@ class TestSession:
         body = res.json()
         assert body["language"] == "fr"
         assert body["profile"] == "child"
+
+    @pytest.mark.parametrize(
+        "language", [option.code for option in ADMIN_LANGUAGE_OPTIONS]
+    )
+    def test_admin_demo_accepts_every_admin_language(self, client, language):
+        response = client.post(
+            "/api/admin/demo/start",
+            json={"language": language, "profile": "adult_beginner"},
+            headers=_admin(client),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["language"] == language
+
+    def test_admin_demo_rejects_unknown_language(self, client):
+        response = client.post(
+            "/api/admin/demo/start",
+            json={"language": "xx", "profile": "adult_beginner"},
+            headers=_admin(client),
+        )
+
+        assert response.status_code == 422
 
     def test_accessibility_mode_sets_profile(self, client):
         body = client.post(

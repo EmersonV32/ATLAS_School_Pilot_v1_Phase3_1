@@ -6,6 +6,8 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 
+from atlas.models.languages import OUTPUT_LANGUAGE_NAMES
+
 
 @dataclass
 class DialogueContext:
@@ -70,18 +72,9 @@ _SYSTEM_FR = (
     "posez une courte question de clarification au lieu de deviner."
 )
 
-_OUTPUT_LANGUAGE_NAMES = {
-    "en": "English",
-    "fr": "French",
-    "es": "Spanish",
-    "it": "Italian",
-    "zh": "Traditional Chinese",
-}
-
-
 def _output_language_instruction(language: str) -> str:
     """Make the dashboard language authoritative for every LLM response."""
-    name = _OUTPUT_LANGUAGE_NAMES.get(language, "English")
+    name = OUTPUT_LANGUAGE_NAMES.get(language, "English")
     return (
         f"\nOUTPUT LANGUAGE (mandatory): {name} ({language}). "
         f"Write every word of the visitor-facing answer in {name}. "
@@ -221,7 +214,7 @@ class PromptBuilder:
     ) -> list[dict]:
         lang = (
             ctx.visitor_language
-            if ctx.visitor_language in _OUTPUT_LANGUAGE_NAMES
+            if ctx.visitor_language in OUTPUT_LANGUAGE_NAMES
             else "en"
         )
         system_text = _SYSTEM_FR if lang == "fr" else _SYSTEM_EN
@@ -273,7 +266,7 @@ class PromptBuilder:
         user_content = (
             f"CURRENT ARTWORK: {artwork_state}\n\n"
             f"{live_vision_rule}\n\n"
-            f"REQUIRED RESPONSE LANGUAGE: {_OUTPUT_LANGUAGE_NAMES[lang]} ({lang})\n\n"
+            f"REQUIRED RESPONSE LANGUAGE: {OUTPUT_LANGUAGE_NAMES[lang]} ({lang})\n\n"
             f"CONTEXT:\n{context_block}\n\n{question_block}{level_hint}"
         )
 

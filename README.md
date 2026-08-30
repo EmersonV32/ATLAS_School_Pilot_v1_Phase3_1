@@ -47,6 +47,8 @@ The current codebase includes:
 - short-term conversational context;
 - Deepgram speech recognition and Cartesia speech synthesis integrations;
 - visitor and staff dashboards;
+- 20 staff-selectable spoken languages in the admin demo controls, while the
+  visitor onboarding retains its smaller validated public-language list;
 - English, French, Spanish, Italian, Arabic, and Traditional Chinese visitor
   interface resources;
 - headset button integration, readiness checks, session controls, and local

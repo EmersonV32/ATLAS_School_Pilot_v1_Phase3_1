@@ -4,6 +4,40 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-30 - Admin-only 20-language expansion
+
+**Changed:**
+
+- Expanded the admin Demo language selector from 5 to 20 ordered choices:
+  English, Mandarin Chinese, Hindi, Spanish, French, Arabic, Bengali,
+  Portuguese, Russian, Indonesian, German, Japanese, Telugu, Turkish, Korean,
+  Vietnamese, Italian, Tamil, Thai, and Polish.
+- Kept the visitor onboarding and its public language list unchanged. The wider
+  list is accepted only by staff-controlled profile and demo activation paths.
+- Added one shared language registry for API validation, runtime normalization,
+  LLM output instructions, Deepgram, Whisper, Cartesia, and readable logs.
+- Added localized manual-capture confirmations, capture failures, artwork
+  invitations, and spoken language-change acknowledgements for all 20 choices.
+- Added regression coverage for selector order, invalid-language rejection,
+  every provider boundary, every prompt language, every localized demo message,
+  and the unchanged visitor language contract.
+
+**Validation:** Full laptop-safe suite passed: 344 tests, with one existing
+Starlette/httpx deprecation warning. Patch-scoped Ruff, Python compilation,
+secret scanning, recovery-bundle verification, and `git diff --check` passed.
+The rendered admin page showed all 20 options in the intended order, retained a
+new selection through the refresh interval, aligned every control, and had no
+horizontal page or panel overflow. The visitor regression suite confirmed its
+public list remains `en`, `fr`, `es`, `it`, and `zh-Hant`.
+
+**Deployment result:** Not deployed; prepared locally for the existing
+single-command Jetson deployment script.
+
+**Remaining limitation:** The 15 added choices require the configured cloud
+speech path for credible audio. Piper remains an emergency fallback only for
+locally installed voices, and live pronunciation still needs a Jetson speaker
+acceptance pass before a judged demo.
+
 ## 2026-08-30 - Audio controls, focused admin views, and public presentation
 
 **Changed:**
