@@ -347,6 +347,7 @@ class RuntimeService:
                     "Mi dispiace, non posso generare una respuesta in questo "
                     "momento."
                 ),
+                Language.ZH: "抱歉，我現在無法產生回應。",
             }
             fallback = timeout_fallbacks[lang]
             return {

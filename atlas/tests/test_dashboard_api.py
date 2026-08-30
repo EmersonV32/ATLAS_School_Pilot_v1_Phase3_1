@@ -393,6 +393,11 @@ class TestDemoControls:
         body = client.post("/ask", json={"question": "Who painted this?"}).json()
         assert body["error"] == "simulated_llm_timeout"
         assert body["fallback_used"] is True
+        chinese = client.post(
+            "/ask", json={"question": "這是什麼作品？", "language": "zh-Hant"}
+        ).json()
+        assert chinese["answer"] == "抱歉，我現在無法產生回應。"
+        assert chinese["language"] == "zh"
         # reset restores normal answers
         client.post(
             "/demo/simulate", json={"scenario": "reset"}, headers=_admin(client)
