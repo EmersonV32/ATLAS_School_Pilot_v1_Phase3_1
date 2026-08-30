@@ -165,19 +165,23 @@ class RuntimeService:
         self.profile: str = _DEFAULT_PROFILE
         self.pack_id: str = container.settings.default_pack_id
         self.accessibility_mode: bool = False
+        self.demo_active: bool = False
         self.last_answer: dict[str, Any] | None = None
         self._pending_settings: Settings | None = None
         # Demo-only simulation flags (never active outside dev/demo mode).
         self.demo_flags: set[str] = set()
 
     # -- session -----------------------------------------------------------
-    def start_session(self) -> dict[str, Any]:
+    def start_session(self, *, demo: bool = False) -> dict[str, Any]:
         self.container.dialogue_engine.reset_conversation()
+        self.demo_active = bool(demo)
         self.session_id = new_session_id()
         self.container.logger.log(
-            session_id=self.session_id, state="session", event="session_start"
+            session_id=self.session_id,
+            state="session",
+            event="demo_start" if self.demo_active else "session_start",
         )
-        return {"session_id": self.session_id}
+        return {"session_id": self.session_id, "demo_active": self.demo_active}
 
     def stop_session(self) -> dict[str, Any]:
         if self.session_id:
@@ -186,8 +190,9 @@ class RuntimeService:
             )
         stopped = self.session_id
         self.session_id = None
+        self.demo_active = False
         self.container.dialogue_engine.reset_conversation()
-        return {"stopped_session_id": stopped}
+        return {"stopped_session_id": stopped, "demo_active": False}
 
     def set_profile(
         self,
@@ -680,6 +685,7 @@ class RuntimeService:
             "mode": settings.mode.value,
             "session_id": self.session_id,
             "session_active": self.session_id is not None,
+            "demo_active": self.demo_active,
             "experience": self.experience_settings(),
             "artwork": self.artwork_status(),
             "camera": camera_status,

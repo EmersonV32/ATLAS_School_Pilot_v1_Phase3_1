@@ -72,6 +72,7 @@ class _FakeRuntime:
         self.camera_error = camera_error
         self.profile_calls: list[dict] = []
         self.started = 0
+        self.start_modes: list[bool] = []
         self.stopped = 0
 
     def health(self) -> dict:
@@ -101,9 +102,10 @@ class _FakeRuntime:
         self.profile_calls.append(kwargs)
         return kwargs
 
-    def start_session(self) -> dict:
+    def start_session(self, *, demo: bool = False) -> dict:
         self.started += 1
-        return {"session_id": "anonymous-session"}
+        self.start_modes.append(demo)
+        return {"session_id": "anonymous-session", "demo_active": demo}
 
     def stop_session(self) -> dict:
         self.stopped += 1
@@ -133,6 +135,7 @@ class TestVisitorShell:
         assert "Live logs" in response.text
         assert "Stop &amp; clear" in response.text
         assert 'id="admin-unlock-gate"' in response.text
+        assert 'id="btn-start-demo"' in response.text
         assert 'id="admin-workspace"' in response.text
         assert 'class="admin-page admin-locked"' in response.text
         assert "/static/style.css?v=10" in response.text
@@ -420,8 +423,33 @@ class TestVisitorLifecycle:
         assert visitor_client.get("/api/admin/live-status").status_code == 401
         assert visitor_client.post("/api/admin/session/stop").status_code == 401
         assert visitor_client.post(
+            "/api/admin/demo/start",
+            json={"language": "en", "profile": "adult_beginner"},
+        ).status_code == 401
+        assert visitor_client.post(
             "/api/admin/visitor/simulate", json={"scenario": "ready"}
         ).status_code == 401
+
+    def test_admin_can_start_and_restart_demo_atomically(self, visitor_client):
+        payload = {
+            "language": "fr",
+            "profile": "expert",
+            "accessibility_mode": False,
+        }
+        first = visitor_client.post(
+            "/api/admin/demo/start", json=payload, headers=_admin()
+        )
+        second = visitor_client.post(
+            "/api/admin/demo/start", json=payload, headers=_admin()
+        )
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.json()["phase"] == "in_use"
+        assert second.json()["language"] == "fr"
+        assert second.json()["demo_mode"] is True
+        source = (STATIC_DIR / "admin.js").read_text(encoding="utf-8")
+        assert 'api("/api/admin/demo/start"' in source
 
     def test_help_request_is_idempotent_and_acknowledgeable(self, visitor_client):
         first = visitor_client.post(
@@ -497,6 +525,7 @@ class TestVisitorLifecycle:
         live = visitor_client.get("/api/admin/live-status", headers=_admin()).json()
         assert live["state"]["phase"] == "ready"
         assert live["state"]["transfer"] == "failed"
+        assert live["state"]["demo_mode"] is False
 
 
 class TestRuntimeBridge:
@@ -594,11 +623,14 @@ class TestRuntimeBridge:
 
         started = service.start()
         assert started["phase"] == "in_use"
+        assert started["demo_mode"] is True
         assert runtime.started == 1
+        assert runtime.start_modes == [True]
         assert runtime.profile_calls == [
             {
                 "language": "fr",
                 "profile": "teen",
+                "pack_id": None,
                 "accessibility_mode": False,
             }
         ]
@@ -606,6 +638,52 @@ class TestRuntimeBridge:
         stopped = service.stop()
         assert stopped["stopped"] is True
         assert runtime.stopped == 1
+
+    def test_runtime_bridge_admin_demo_applies_settings_and_restarts(self):
+        runtime = _FakeRuntime()
+        service = VisitorService(runtime_service=runtime)
+
+        first = service.start_demo(
+            language="zh",
+            profile="expert",
+            pack_id="default",
+            accessibility_mode=False,
+        )
+        second = service.start_demo(
+            language="it",
+            profile="adult_beginner",
+            pack_id="default",
+            accessibility_mode=False,
+        )
+
+        assert first["demo_mode"] is True
+        assert second["language"] == "it"
+        assert runtime.started == 2
+        assert runtime.start_modes == [True, True]
+        assert runtime.stopped == 1
+        assert runtime.profile_calls[-1] == {
+            "language": "it",
+            "profile": "adult_beginner",
+            "pack_id": "default",
+            "accessibility_mode": False,
+        }
+
+    def test_admin_demo_keeps_running_session_when_readiness_is_blocked(self):
+        runtime = _FakeRuntime()
+        service = VisitorService(runtime_service=runtime)
+        service.start_demo(language="en", profile="adult_beginner")
+        runtime.camera_ready = False
+        runtime.camera_age_s = None
+        runtime.camera_error = "camera disconnected"
+
+        with pytest.raises(RuntimeError, match="Camera"):
+            service.start_demo(language="fr", profile="expert")
+
+        state = service.live_status()["state"]
+        assert state["phase"] == "in_use"
+        assert state["language"] == "en"
+        assert runtime.started == 1
+        assert runtime.stopped == 0
 
     def test_runtime_bridge_ignores_kiosk_reset_during_active_visit(self):
         runtime = _FakeRuntime()

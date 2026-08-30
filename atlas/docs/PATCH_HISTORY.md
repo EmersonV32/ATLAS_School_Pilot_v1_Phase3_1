@@ -4,6 +4,44 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-30 - Unified judge demo mode
+
+**Changed:**
+
+- Added one authenticated `Start demo` control to the admin Experience panel.
+  Visitor onboarding and the admin control now activate the same runtime-backed
+  demo lifecycle, and both retain the existing explicit stop behavior.
+- Made demo activation atomic: it applies language, response profile, content
+  pack, and accessibility mode before creating a fresh session and resetting
+  bounded conversation memory. A failed readiness check does not replace a
+  session that is already running.
+- Marked demo state in both privacy-bounded visitor status and runtime status so
+  the admin dashboard and device loop agree on the active mode.
+- Added a demo-only five-second centered-artwork hold. It selects the current
+  artwork and asks a localized follow-up in English, French, Spanish, Italian,
+  or Traditional Chinese.
+- Scheduled proactive artwork speech between microphone windows so ATLAS does
+  not speak over its own STT capture. Manual multifunction-button capture uses
+  the same follow-up path while demo mode is active.
+- Let a spoken artwork question use the current stable YOLO detection even
+  before the five-second invitation has fired. Existing spoken language changes
+  continue to synchronize the runtime and dashboard for later cycles.
+- Replaced the admin panel's split direct start/stop controls with the shared
+  visitor-session endpoints. The runtime remains active until an explicit End
+  or Stop & clear action.
+
+**Validation:** Full laptop-safe suite passed: 296 tests. Focused demo tests
+cover authenticated start/restart, readiness-preserving failure, onboarding
+activation, runtime state, five-second timing, queued speech, all five localized
+invitations, language switching, and continuous listening. Python compilation,
+Ruff checks, JavaScript syntax validation, and `git diff --check` passed.
+
+**Deployment result:** Not deployed; prepared locally for the existing
+single-command Jetson deployment script.
+
+**Remaining limitation:** Live microphone, Cartesia voice, Shokz button, YOLO,
+and camera timing still require one hardware acceptance pass after deployment.
+
 ## 2026-08-18 - Mandarin session activation and one-press capture
 
 **Changed:**

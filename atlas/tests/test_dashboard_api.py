@@ -91,6 +91,19 @@ class TestSession:
         assert stopped["stopped_session_id"] == started["session_id"]
         assert client.get("/status").json()["session_active"] is False
 
+    def test_runtime_service_tracks_demo_lifecycle(self, client):
+        service = client.app.state.service
+
+        started = service.start_session(demo=True)
+        active = service.status()
+        stopped = service.stop_session()
+
+        assert started["demo_active"] is True
+        assert active["session_active"] is True
+        assert active["demo_active"] is True
+        assert stopped["demo_active"] is False
+        assert service.status()["demo_active"] is False
+
     def test_profile_update(self, client):
         res = client.post(
             "/session/profile",

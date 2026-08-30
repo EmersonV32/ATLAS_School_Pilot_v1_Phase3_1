@@ -63,6 +63,14 @@ _CAPTURE_FAILURES = {
     "zh": "我無法辨識這件作品。請將作品置中後再試一次。",
 }
 
+_ARTWORK_INVITATIONS = {
+    "en": "Would you like to know more about {title}?",
+    "fr": "Voulez-vous en savoir plus sur {title} ?",
+    "es": "¿Le gustaría saber más sobre {title}?",
+    "it": "Vuole saperne di più su {title}?",
+    "zh": "您想進一步了解{title}嗎？",
+}
+
 _LANGUAGE_ACKNOWLEDGEMENTS = {
     "en": "Okay, I will continue in English.",
     "fr": "D'accord, je continue en francais.",
@@ -346,6 +354,33 @@ class SessionRunner:
             self._tts.speak(message, language=language)
         except Exception as exc:
             logger.warning("Manual capture announcement failed: %s", exc)
+
+    def invite_about_artwork(
+        self,
+        detection: ArtworkDetection,
+        language: str | None = None,
+    ) -> bool:
+        """Offer a localized follow-up without opening another listen cycle."""
+        selected_language = str(language or self._preferred_language).split("-", 1)[0]
+        if selected_language not in _ARTWORK_INVITATIONS:
+            selected_language = "en"
+        message = _ARTWORK_INVITATIONS[selected_language].format(
+            title=detection.label
+        )
+        self._hw.focus_artwork(detection.artwork_id)
+        self._hw.set_status_led("amber")
+        logger.info(
+            "[Demo] Inviting artwork follow-up [artwork_id=%s language=%s]",
+            detection.artwork_id,
+            selected_language,
+        )
+        try:
+            return bool(self._tts.speak(message, language=selected_language))
+        except Exception as exc:
+            logger.warning("Artwork invitation failed: %s", exc)
+            return False
+        finally:
+            self._hw.set_status_led("off")
 
     def _identify_manually(self, frame: Any) -> ArtworkDetection | None:
         if self._manual_capture is None:

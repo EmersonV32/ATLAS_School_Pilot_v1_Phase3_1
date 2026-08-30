@@ -122,6 +122,8 @@ function renderVisitorStatus(payload) {
     .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   $("visitor-readiness-state").textContent = readiness.ready ? "Ready" : "Needs attention";
   $("visitor-readiness-state").className = `status-pill ${readiness.ready ? "ok" : "warning"}`;
+  $("btn-start-demo").textContent = state.demo_mode && state.phase === "in_use"
+    ? "Restart demo" : "Start demo";
 
   const readinessList = $("visitor-readiness-list");
   readinessList.replaceChildren();
@@ -510,11 +512,31 @@ $("config-form").addEventListener("submit", async (event) => {
 $("btn-refresh").addEventListener("click", () => Promise.all([
   refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(),
 ]));
-$("btn-start").addEventListener("click", async () => {
-  try { await applyExperience(); await api("/session/start", { method: "POST" }); await refreshStatus(); }
-  catch (error) { notice(error.message, true); }
+$("btn-start-demo").addEventListener("click", async () => {
+  try {
+    await api("/api/admin/demo/start", {
+      method: "POST",
+      body: JSON.stringify({
+        language: $("sel-language").value,
+        profile: $("sel-profile").value,
+        pack_id: $("sel-pack").value || null,
+        accessibility_mode: $("chk-accessibility").checked,
+      }),
+    }, true);
+    experienceDirty = false;
+    $("experience-state").textContent = "Demo active";
+    notice("Demo mode active. ATLAS will continue until End is pressed.");
+    await Promise.all([refreshStatus(), refreshVisitorStatus()]);
+  } catch (error) { notice(error.message, true); }
 });
-$("btn-stop").addEventListener("click", () => api("/session/stop", { method: "POST" }).then(refreshStatus).catch((error) => notice(error.message, true)));
+$("btn-stop").addEventListener("click", () => api("/api/admin/session/stop", { method: "POST" }, true)
+  .then(() => {
+    experienceDirty = false;
+    $("experience-state").textContent = "Ready";
+    notice("Demo mode stopped.");
+    return Promise.all([refreshStatus(), refreshVisitorStatus()]);
+  })
+  .catch((error) => notice(error.message, true)));
 $("btn-apply-experience").addEventListener("click", () => applyExperience().then(() => { notice("Experience settings applied"); refreshStatus(); }).catch((error) => notice(error.message, true)));
 
 ["sel-language", "sel-profile", "sel-pack", "chk-accessibility"].forEach((id) => {

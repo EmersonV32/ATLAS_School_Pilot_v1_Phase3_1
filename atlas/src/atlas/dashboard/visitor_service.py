@@ -48,7 +48,7 @@ class RuntimeBridge(Protocol):
         accessibility_mode: bool | None = None,
     ) -> dict[str, Any]: ...
 
-    def start_session(self) -> dict[str, Any]: ...
+    def start_session(self, *, demo: bool = False) -> dict[str, Any]: ...
 
     def stop_session(self) -> dict[str, Any]: ...
 
@@ -122,6 +122,7 @@ class VisitorService:
             },
             "connection": "online",
             "transfer": "idle",
+            "demo_mode": False,
             "started_at": None,
             "updated_at": now,
         }
@@ -179,7 +180,7 @@ class VisitorService:
                     "The profile could not be transferred. Please retry."
                 )
             try:
-                self._activate_runtime_session()
+                self._activate_runtime_session(demo=True)
             except Exception:
                 logger.exception("Visitor runtime session start failed")
                 self._record_transfer_failure()
@@ -190,6 +191,7 @@ class VisitorService:
             self._state["phase"] = "in_use"
             self._state["step"] = "privacy"
             self._state["transfer"] = "complete"
+            self._state["demo_mode"] = True
             self._state["started_at"] = _now()
             self._touch()
             return self._projection()
@@ -250,6 +252,48 @@ class VisitorService:
             self._state = self._new_state()
             return self._projection()
 
+    def start_demo(
+        self,
+        *,
+        language: str,
+        profile: str,
+        pack_id: str | None = None,
+        accessibility_mode: bool = False,
+    ) -> dict:
+        """Start or restart one atomic judge demo from the admin dashboard."""
+        with self._lock:
+            previous_language = self._state["language"]
+            self._state["language"] = language
+            readiness = self._readiness()
+            if readiness["blockers"]:
+                self._state["language"] = previous_language
+                raise RuntimeError(readiness["blockers"][0])
+            if self._state["phase"] == "in_use":
+                self._stop_runtime_session()
+            self._state["phase"] = "starting"
+            self._state["step"] = "demo"
+            self._state["transfer"] = "transferring"
+            self._state["demo_mode"] = True
+            self._touch()
+            try:
+                self._activate_runtime_session(
+                    demo=True,
+                    profile=profile,
+                    pack_id=pack_id,
+                    accessibility_mode=accessibility_mode,
+                )
+            except Exception:
+                logger.exception("Admin demo session start failed")
+                self._record_transfer_failure()
+                raise RuntimeError(
+                    "ATLAS could not start demo mode. Check the runtime log."
+                ) from None
+            self._state["phase"] = "in_use"
+            self._state["transfer"] = "complete"
+            self._state["started_at"] = _now()
+            self._touch()
+            return self._projection()
+
     def simulate(self, scenario: str) -> dict:
         with self._lock:
             if scenario == "reset":
@@ -282,19 +326,32 @@ class VisitorService:
     def _record_transfer_failure(self) -> None:
         self._state["phase"] = "ready"
         self._state["transfer"] = "failed"
+        self._state["demo_mode"] = False
         self._touch()
 
-    def _activate_runtime_session(self) -> None:
+    def _activate_runtime_session(
+        self,
+        *,
+        demo: bool = False,
+        profile: str | None = None,
+        pack_id: str | None = None,
+        accessibility_mode: bool | None = None,
+    ) -> None:
         if self._runtime_service is None:
             return
-        profile = self._effective_runtime_profile()
+        runtime_profile = profile or self._effective_runtime_profile()
         accessibility = self._state["profile"]["accessibility"]
         self._runtime_service.set_profile(
             language=self._state["language"],
-            profile=profile,
-            accessibility_mode="audio_description" in accessibility,
+            profile=runtime_profile,
+            pack_id=pack_id,
+            accessibility_mode=(
+                "audio_description" in accessibility
+                if accessibility_mode is None
+                else accessibility_mode
+            ),
         )
-        self._runtime_service.start_session()
+        self._runtime_service.start_session(demo=demo)
 
     def _stop_runtime_session(self) -> None:
         if self._runtime_service is None:

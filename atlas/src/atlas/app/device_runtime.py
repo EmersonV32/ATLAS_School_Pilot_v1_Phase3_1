@@ -17,6 +17,8 @@ from atlas.vision.detector import ArtworkDetection
 
 logger = logging.getLogger(__name__)
 
+DEMO_VISION_HOLD_SECONDS = 5.0
+
 class VisionHold:
     """Accumulate a centered gaze while tolerating brief detector flicker."""
 
@@ -82,6 +84,7 @@ class ContinuousQuestionListener:
         self._response_finished.set()
         self._stop = threading.Event()
         self._questions: queue.Queue[TranscriptResult] = queue.Queue(maxsize=1)
+        self._prompts: queue.Queue[Callable[[], None]] = queue.Queue(maxsize=1)
         self._thread = threading.Thread(
             target=self._run,
             name="atlas-continuous-listener",
@@ -101,6 +104,7 @@ class ContinuousQuestionListener:
                 self._questions.get_nowait()
             except queue.Empty:
                 break
+        self.clear_prompts()
         self._response_finished.set()
 
     def response_finished(self) -> None:
@@ -111,6 +115,21 @@ class ContinuousQuestionListener:
             return self._questions.get_nowait()
         except queue.Empty:
             return None
+
+    def request_prompt(self, prompt: Callable[[], None]) -> None:
+        """Run a proactive prompt between STT windows, never over the microphone."""
+        self.clear_prompts()
+        try:
+            self._prompts.put_nowait(prompt)
+        except queue.Full:
+            logger.warning("[Listening] Could not queue proactive prompt")
+
+    def clear_prompts(self) -> None:
+        while True:
+            try:
+                self._prompts.get_nowait()
+            except queue.Empty:
+                break
 
     def stop(self) -> None:
         self._stop.set()
@@ -126,6 +145,16 @@ class ContinuousQuestionListener:
             if not self._response_finished.wait(timeout=0.2):
                 continue
             if self._stop.is_set() or not self._active.is_set():
+                continue
+            try:
+                prompt = self._prompts.get_nowait()
+            except queue.Empty:
+                prompt = None
+            if prompt is not None:
+                try:
+                    prompt()
+                except Exception as exc:
+                    logger.exception("[Demo] Proactive prompt failed: %s", exc)
                 continue
             try:
                 transcript = self._runner.listen_once(play_cue=False)
@@ -451,6 +480,15 @@ class DeviceRuntime:
                 if self._dashboard_service is not None:
                     runner.set_preferred_language(self._dashboard_service.language)
                     runner.set_preferred_profile(self._dashboard_service.profile)
+                demo_active = bool(
+                    self._dashboard_service is not None
+                    and self._dashboard_service.demo_active
+                )
+                vision_hold.hold_seconds = (
+                    DEMO_VISION_HOLD_SECONDS
+                    if demo_active
+                    else self.settings.vision_hold_seconds
+                )
 
                 if dashboard_session_id != active_session_id:
                     active_session_id = dashboard_session_id
@@ -491,6 +529,15 @@ class DeviceRuntime:
                             "[Capture] Context selected: "
                             f"{result.detection.label}; listening remains active"
                         )
+                        if demo_active:
+                            listener.request_prompt(
+                                lambda selected=result.detection: (
+                                    runner.invite_about_artwork(
+                                        selected,
+                                        self._dashboard_service.language,
+                                    )
+                                )
+                            )
                     else:
                         print(f"[Capture] Stopped: {result.error}")
                     vision_hold.reset()
@@ -498,11 +545,19 @@ class DeviceRuntime:
 
                 question = listener.pop()
                 if question is not None:
+                    listener.clear_prompts()
                     try:
                         result = runner.respond_to_transcript(
                             question,
                             frame=frame,
-                            detection=active_detection,
+                            detection=(
+                                active_detection
+                                or (
+                                    detection
+                                    if detection is not None and detection.stable
+                                    else None
+                                )
+                            ),
                         )
                         if (
                             result.event == "language_changed"
@@ -576,6 +631,13 @@ class DeviceRuntime:
                 logger.info(
                     "[Vision] Artwork context selected; continuous listening unchanged"
                 )
+                if demo_active:
+                    listener.request_prompt(
+                        lambda selected=detection: runner.invite_about_artwork(
+                            selected,
+                            self._dashboard_service.language,
+                        )
+                    )
                 vision_hold.reset()
         finally:
             try:

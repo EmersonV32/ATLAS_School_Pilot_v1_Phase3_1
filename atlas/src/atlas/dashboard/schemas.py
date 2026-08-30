@@ -21,6 +21,24 @@ class SessionProfileRequest(BaseModel):
     accessibility_mode: bool | None = None
 
 
+class AdminDemoStartRequest(BaseModel):
+    """One atomic request for the judge-facing demo experience."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    language: Literal["en", "fr", "es", "it", "zh"] = "en"
+    profile: Literal[
+        "child",
+        "teen",
+        "adult_beginner",
+        "expert",
+        "visual_impairment",
+        "simple_language",
+    ] = "adult_beginner"
+    pack_id: str | None = None
+    accessibility_mode: bool = False
+
+
 class ManualArtworkRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -20,6 +20,7 @@ from atlas.app.dependency_container import Container, build_container
 from atlas.dashboard.auth import make_admin_guard
 from atlas.dashboard.runtime_service import RuntimeService
 from atlas.dashboard.schemas import (
+    AdminDemoStartRequest,
     AskRequest,
     AskResponse,
     DashboardConfigUpdate,
@@ -145,6 +146,18 @@ def create_app(
     @app.post("/api/admin/session/stop", dependencies=[Depends(require_admin)])
     def stop_visitor_session() -> dict:
         return app.state.visitor_service.stop()
+
+    @app.post("/api/admin/demo/start", dependencies=[Depends(require_admin)])
+    def start_admin_demo(req: AdminDemoStartRequest) -> dict:
+        try:
+            return app.state.visitor_service.start_demo(
+                language=req.language,
+                profile=req.profile,
+                pack_id=req.pack_id,
+                accessibility_mode=req.accessibility_mode,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/api/admin/visitor/simulate", dependencies=[Depends(require_admin)])
     def simulate_visitor(req: VisitorSimulationRequest) -> dict:

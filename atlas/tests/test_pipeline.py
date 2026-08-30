@@ -234,6 +234,39 @@ def test_language_switch_is_local_and_skips_rag_and_llm():
     assert runner.preferred_language == "en"
 
 
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("en", "Would you like to know more about Mona Lisa?"),
+        ("fr", "Voulez-vous en savoir plus sur Mona Lisa ?"),
+        ("es", "¿Le gustaría saber más sobre Mona Lisa?"),
+        ("it", "Vuole saperne di più su Mona Lisa?"),
+        ("zh", "您想進一步了解Mona Lisa嗎？"),
+    ],
+)
+def test_demo_artwork_invitation_uses_selected_language(language, expected):
+    class RecordingTTS(MockTTS):
+        def __init__(self):
+            self.calls = []
+
+        def speak(self, text, language="en"):
+            self.calls.append((text, language))
+            return True
+
+    tts = RecordingTTS()
+    runner = _make_runner(tts=tts)
+    detection = ArtworkDetection(
+        artwork_id="mona_lisa",
+        label="Mona Lisa",
+        confidence=0.95,
+        source="test",
+        stable=True,
+    )
+
+    assert runner.invite_about_artwork(detection, language) is True
+    assert tts.calls == [(expected, language)]
+
+
 def test_voice_capture_command_corrects_detection_then_listens_again():
     class SequenceSTT:
         def __init__(self):

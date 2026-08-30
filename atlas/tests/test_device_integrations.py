@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 from atlas.app.dependency_container import Container
 from atlas.app.device_runtime import (
+    DEMO_VISION_HOLD_SECONDS,
     ContinuousQuestionListener,
     DeviceRuntime,
     VisionHold,
@@ -105,6 +106,37 @@ def test_continuous_listener_pauses_until_response_finishes():
         assert runner.play_cues == [False, False]
     finally:
         listener.stop()
+
+
+def test_continuous_listener_runs_proactive_prompt_between_listens():
+    prompt_ran = threading.Event()
+
+    class FakeRunner:
+        def listen_once(self, *, play_cue=False):
+            time.sleep(0.01)
+            return None
+
+    listener = ContinuousQuestionListener(FakeRunner())
+    listener.start()
+    listener.activate()
+    listener.request_prompt(prompt_ran.set)
+    try:
+        assert prompt_ran.wait(timeout=1.0)
+    finally:
+        listener.stop()
+
+
+def test_demo_artwork_hold_is_exactly_five_seconds():
+    hold = VisionHold(
+        hold_seconds=DEMO_VISION_HOLD_SECONDS,
+        gap_tolerance_s=0.8,
+    )
+    detection = _centered_detection()
+    assert DEMO_VISION_HOLD_SECONDS == 5.0
+    assert not hold.observe(detection, centered=True, now=100.0)
+    for offset in range(1, 10):
+        assert not hold.observe(detection, centered=True, now=100.0 + offset * 0.5)
+    assert hold.observe(detection, centered=True, now=105.0)
 
 
 def _centered_detection(artwork_id: str = "mona_lisa") -> ArtworkDetection:
