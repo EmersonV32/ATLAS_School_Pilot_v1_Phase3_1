@@ -4,6 +4,22 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-08-30 - Public website language availability note
+
+**Changed:** Added the accurate line “20 languages available on demand” beneath
+the six featured languages on the public ATLAS website. The visitor and admin
+dashboards were not changed.
+
+**Validation:** Confirmed the new copy is visible on desktop and mobile, the six
+featured language labels remain intact, the page has no horizontal overflow,
+and the browser console reports no errors.
+
+**Deployment result:** Prepared for the GitHub Pages workflow triggered by this
+website commit.
+
+**Remaining limitation:** The website presents six examples; the complete set
+of 20 remains available through the staff-controlled admin demo selector.
+
 ## 2026-08-30 - Admin-only 20-language expansion
 
 **Changed:**
