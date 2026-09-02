@@ -21,3 +21,7 @@
 **/labels.cache
 **/*.tar.gz
 **/*.zip
+
+# Local computer-vision training datasets and generated checkpoints.
+/atlas/training/datasets/
+/atlas/training/runs/
