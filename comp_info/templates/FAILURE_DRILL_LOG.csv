@@ -1,0 +1,10 @@
+date,release_commit,scenario,expected_behavior,actual_behavior,time_to_recover_seconds,pass_fail,evidence_link,owner,follow_up
+,HEAD,Cold boot to ready,,,,,,,
+,HEAD,Camera absent at startup then reconnected,,,,,,,
+,HEAD,Shokz disconnected then reconnected,,,,,,,
+,HEAD,Cartesia unavailable Piper fallback,,,,,,,
+,HEAD,Internet or Gemini unavailable,,,,,,,
+,HEAD,Camera stream interruption,,,,,,,
+,HEAD,High-temperature response,,,,,,,
+,HEAD,Service unexpectedly stopped,,,,,,,
+,HEAD,Restore from recovery media,,,,,,,
