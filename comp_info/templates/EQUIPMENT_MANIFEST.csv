@@ -1,0 +1,6 @@
+item_id,description,manufacturer_model,serial_or_unique_mark,owner,country_of_origin,replacement_value_cad,battery_voltage_v,battery_capacity_mah,battery_wh,bag_owner,carry_on_or_checked,photo_file,customs_document,status,notes
+ATLAS-001,NVIDIA Jetson,,,,,,,,,,,,,planned,
+ATLAS-002,Primary camera,,,,,,,,,,,,,planned,
+ATLAS-003,Shokz headset,,,,,,,,,,,,,planned,
+ATLAS-004,Recovery SSD or USB,,,,,,,,,,,,,planned,
+ATLAS-005,Primary power supply,,,,,,,,,,,,,planned,

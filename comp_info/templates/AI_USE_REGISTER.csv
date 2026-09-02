@@ -1,0 +1,6 @@
+date,system_or_person,purpose,input_or_scope,output_used,team_decisions_and_changes,verification,evidence_link,live_system_report_booth,owner
+2026-09-02,Roboflow or training framework,Artwork detection training,,,,,,Live system,
+2026-09-02,Google Gemini,Generate conversational answers,,,,,,Live system,
+2026-09-02,Speech providers,Speech recognition and synthesis,,,,,,Live system,
+2026-09-02,Codex,Programming research and documentation assistance,,,,,,Code and report,
+2026-09-02,External compute provider,Run team-authored training workflow,,,,,,Model training,

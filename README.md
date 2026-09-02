@@ -32,6 +32,7 @@ https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/
 | --- | --- |
 | [`atlas/`](atlas/) | Current ATLAS runtime, tests, configuration, content sources, firmware, and deployment scripts. This is the only active implementation. |
 | [`handoff/`](handoff/) | Current manuals, architecture, privacy notes, troubleshooting, validation steps, and continuity instructions for another developer, LLM, or Jetson. |
+| [`comp_info/`](comp_info/) | WRO 2026 competition binder with official rules, deadlines, travel and customs guidance, packing, booth, judging, and recovery checklists. |
 | [`archive/`](archive/) | Date-organized historical snapshots, reports, one-time patches, and superseded utilities. Nothing here is part of the active runtime. |
 
 Start a technical continuation with
@@ -89,6 +90,7 @@ dashboard at `http://127.0.0.1:8765/admin` by default.
 
 ## Project documentation
 
+- [WRO 2026 competition information hub](comp_info/README.md)
 - [System architecture](handoff/architecture/SYSTEM_ARCHITECTURE.md)
 - [Developer guide](handoff/DEVELOPER_GUIDE.md)
 - [Content pack format](handoff/CONTENT_PACK_FORMAT.md)
