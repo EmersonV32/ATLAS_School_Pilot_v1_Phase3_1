@@ -499,6 +499,8 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .vision-workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 4fr) minmax(12rem, 1.6fr); background: #111719; }
 .ops-camera-stage { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; background: #111719; }
 .ops-camera-stage img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* The Main tab is a command overview; reserve the larger camera frame for Audio / Vision. */
+body[data-admin-view="main"] .ops-camera-stage { aspect-ratio: 16 / 7; }
 .vision-telemetry { min-width: 0; padding: 0.8rem; overflow: hidden; border-left: 1px solid var(--border); background: var(--surface); }
 .vision-telemetry h2 { margin-bottom: 0.45rem; font-size: 0.92rem; }
 .telemetry-list li { padding: 0.3rem 0; font-size: 0.74rem; }

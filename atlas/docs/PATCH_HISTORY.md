@@ -4,6 +4,19 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-01 - Compact Main dashboard camera frame
+
+**Changed:** Reduced the Live camera frame only in the Admin Main tab from a
+4:3 stage to a compact 16:7 overview. The Audio / Vision tab keeps the larger
+4:3 frame. The image remains fully contained without distortion.
+
+**Validation:** CSS scope and template cache version checked locally.
+
+**Deployment result:** Pending Jetson deployment.
+
+**Remaining limitation:** This layout is optimized for the judge display's
+desktop viewport; the responsive mobile layout remains unchanged.
+
 ## 2026-08-30 - Public website language availability note
 
 **Changed:** Added the accurate line “20 languages available on demand” beneath
