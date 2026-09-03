@@ -138,12 +138,18 @@ class TestVisitorShell:
         assert 'id="btn-start-demo"' in response.text
         assert 'id="admin-workspace"' in response.text
         assert 'class="admin-page admin-locked"' in response.text
-        assert "/static/style.css?v=13" in response.text
-        assert "/static/admin.js?v=15" in response.text
+        assert "/static/style.css?v=18" in response.text
+        assert "/static/admin.js?v=17" in response.text
         assert 'id="btn-toggle-visitor-monitor"' in response.text
         assert 'id="btn-save-config-top"' in response.text
         assert 'data-log-format="human"' in response.text
         assert 'data-log-format="raw"' in response.text
+        assert 'id="demo-readiness-grid"' in response.text
+        assert 'id="signal-state"' in response.text
+        assert 'id="visitor-transfer-state"' in response.text
+        assert 'id="arducam-freshness"' in response.text
+        assert 'id="log-search"' in response.text
+        assert 'id="settings-summary-state"' in response.text
 
     def test_shell_has_accessibility_and_pwa_hooks(self, visitor_client):
         html = visitor_client.get("/").text

@@ -9,6 +9,8 @@
   --blue: #275d91;
   --soft-blue: #eaf1f7;
   --soft-green: #e7f3ef;
+  --soft-gold: #fff6df;
+  --gold: #d49519;
   --warning: #946000;
   --danger: #b3272d;
   --soft-danger: #f8e9ea;
@@ -48,7 +50,7 @@ button.secondary { border-color: var(--border); background: var(--surface); colo
 button.secondary:hover { background: #edf0f1; }
 button.danger { border-color: var(--danger); background: var(--danger); }
 
-input[type="text"], input[type="password"], input[type="number"], select {
+input[type="text"], input[type="password"], input[type="number"], input[type="search"], select {
   width: 100%;
   min-height: 2.5rem;
   padding: 0.5rem 0.65rem;
@@ -349,22 +351,25 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
   border-bottom: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.97);
 }
+body.admin-page { overflow-x: hidden; }
 .admin-view-nav button {
   flex: 0 0 auto;
   min-height: 2.1rem;
   padding: 0.35rem 0.78rem;
-  border-color: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
   font-size: 0.8rem;
 }
 .admin-view-nav button:hover { background: #edf0f1; color: var(--ink); }
-.admin-view-nav button.active { border-color: var(--border); background: var(--soft-green); color: var(--accent-dark); }
+.admin-view-nav button.active { border-bottom-color: var(--accent); background: var(--soft-green); color: var(--accent-dark); }
 .ops-header-metrics {
   flex: 1;
-  max-width: 48rem;
+  max-width: 58rem;
   display: grid;
-  grid-template-columns: repeat(4, minmax(6rem, 1fr));
+  grid-template-columns: repeat(6, minmax(5.4rem, 1fr));
   border-left: 1px solid var(--border);
 }
 .ops-header-metrics div { min-width: 0; padding: 0.15rem 1rem; border-right: 1px solid var(--border); }
@@ -421,6 +426,49 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 .audio-readout div + div { border-left: 1px solid var(--border); }
 .audio-readout dt { color: var(--muted); font-size: 0.65rem; text-transform: uppercase; }
 .audio-readout dd { margin: 0.15rem 0 0; overflow: hidden; color: var(--ink); font-size: 0.76rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.cycle-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border);
+}
+.cycle-grid > div { min-width: 0; padding: 0.9rem; position: relative; }
+.cycle-grid > div + div { border-left: 1px solid var(--border); }
+.cycle-grid > div > span {
+  width: 1.55rem;
+  height: 1.55rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--soft-green);
+  color: var(--accent-dark);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.cycle-grid p { margin: 0.55rem 0 0.15rem; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; }
+.cycle-grid strong { display: block; overflow: hidden; font-size: 0.86rem; text-overflow: ellipsis; white-space: nowrap; }
+.readiness-board { padding: 0.7rem 0.9rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; }
+.readiness-board > div { min-width: 0; padding: 0.55rem 0.65rem; border: 1px solid var(--border); border-radius: 5px; background: #fafbfb; }
+.readiness-board span, .readiness-board strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.readiness-board span { color: var(--muted); font-size: 0.64rem; text-transform: uppercase; }
+.readiness-board strong { margin-top: 0.12rem; font-size: 0.76rem; }
+.readiness-board .check-good strong { color: var(--accent-dark); }
+.readiness-board .check-bad { border-color: #e3bd79; background: var(--soft-gold); }
+.readiness-board .check-bad strong { color: var(--warning); }
+.diagnostic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.diagnostic-grid > section { min-width: 0; padding: 0.85rem 0.9rem; }
+.diagnostic-grid > section + section { border-left: 1px solid var(--border); }
+.diagnostic-grid h2 { margin-bottom: 0.35rem; font-size: 0.88rem; }
+.diagnostic-list { margin: 0; }
+.diagnostic-list div { padding: 0.42rem 0; display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--border); font-size: 0.74rem; }
+.diagnostic-list div:last-child { border-bottom: 0; }
+.diagnostic-list dt { color: var(--muted); }
+.diagnostic-list dd { margin: 0; max-width: 58%; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
+.context-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.context-grid > div { min-width: 0; padding: 0.8rem 0.9rem; }
+.context-grid > div + div { border-left: 1px solid var(--border); }
+.context-grid span, .context-grid strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.context-grid span { color: var(--muted); font-size: 0.64rem; text-transform: uppercase; }
+.context-grid strong { margin-top: 0.18rem; font-size: 0.78rem; }
 .ops-panel-header {
   min-height: 4rem;
   padding: 0.75rem 0.9rem;
@@ -497,11 +545,11 @@ footer { padding: 1rem; color: var(--muted); text-align: center; font-size: 0.75
 #btn-visitor-simulate { margin-left: 0.35rem; vertical-align: bottom; }
 
 .camera-badges { display: flex; gap: 0.45rem; flex-wrap: wrap; justify-content: flex-end; }
-.vision-workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 4fr) minmax(12rem, 1.6fr); background: #111719; }
-.ops-camera-stage { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; background: #111719; }
+.vision-workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 2.35fr) minmax(15rem, 1fr); background: #111719; }
+.ops-camera-stage { width: 100%; height: clamp(16rem, 42vh, 25rem); overflow: hidden; background: #111719; }
 .ops-camera-stage img { display: block; width: 100%; height: 100%; object-fit: contain; }
 /* The Main tab is a command overview; reserve the larger camera frame for Audio / Vision. */
-body[data-admin-view="main"] .ops-camera-stage { aspect-ratio: 16 / 7; }
+body[data-admin-view="main"] .ops-camera-stage { height: clamp(10rem, 23vh, 14rem); }
 .vision-telemetry { min-width: 0; padding: 0.8rem; overflow: hidden; border-left: 1px solid var(--border); background: var(--surface); }
 .vision-telemetry h2 { margin-bottom: 0.45rem; font-size: 0.92rem; }
 .telemetry-list li { padding: 0.3rem 0; font-size: 0.74rem; }
@@ -514,13 +562,24 @@ body[data-admin-view="main"] .ops-camera-stage { aspect-ratio: 16 / 7; }
 .camera-readout strong { color: var(--ink); }
 .camera-controls { display: flex; align-items: center; gap: 0.4rem; }
 .camera-controls select { min-height: 1.9rem; padding: 0.2rem 0.45rem; font-size: 0.75rem; }
-.arducam-workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 4fr) minmax(15rem, 1fr); background: #111719; }
-.arducam-stage { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #111719; }
+.arducam-workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 2.35fr) minmax(15rem, 1fr); background: #111719; }
+.arducam-stage { width: 100%; height: clamp(17rem, 48vh, 27rem); overflow: hidden; background: #111719; }
 .arducam-stage img { display: block; width: 100%; height: 100%; object-fit: contain; }
 body[data-admin-view="arducam"] .ops-dashboard { grid-template-columns: minmax(0, 1fr); grid-template-areas: "arducam"; }
+.camera-health-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--border); }
+.camera-health-strip div { min-width: 0; padding: 0.65rem 0.8rem; }
+.camera-health-strip div + div { border-left: 1px solid var(--border); }
+.camera-health-strip span, .camera-health-strip strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.camera-health-strip span { color: var(--muted); font-size: 0.62rem; text-transform: uppercase; }
+.camera-health-strip strong { margin-top: 0.12rem; font-size: 0.76rem; }
 
 .log-controls { flex-wrap: wrap; justify-content: flex-end; }
 .log-controls .switch-field { min-height: 2rem; }
+.log-toolbar { padding: 0.6rem 0.7rem; display: grid; grid-template-columns: minmax(13rem, 1fr) 9rem auto auto minmax(20rem, auto); align-items: end; gap: 0.55rem; border-bottom: 1px solid var(--border); background: #fafbfb; }
+.log-toolbar label { gap: 0.18rem; font-size: 0.68rem; }
+.log-toolbar input, .log-toolbar select { min-height: 2.15rem; padding: 0.35rem 0.5rem; }
+.log-summary { min-height: 2.15rem; display: flex; align-items: center; justify-content: flex-end; gap: 0.8rem; color: var(--muted); font-size: 0.68rem; white-space: nowrap; }
+.log-summary strong { color: var(--ink); }
 .log-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(15rem, 0.8fr); }
 .log-column { min-width: 0; }
 .log-column + .log-column { border-left: 1px solid var(--border); }
@@ -547,26 +606,39 @@ body[data-admin-view="arducam"] .ops-dashboard { grid-template-columns: minmax(0
 @media (max-width: 76rem) {
   .ops-header { position: static; flex-wrap: wrap; }
   .admin-view-nav { position: static; }
-  .ops-header-metrics { order: 3; width: 100%; max-width: none; border-top: 1px solid var(--border); }
+  .ops-header-metrics { order: 3; flex: 1 0 100%; width: 100%; max-width: none; border-top: 1px solid var(--border); border-left: 0; }
   .ops-dashboard {
     grid-template-columns: 1fr;
     grid-template-areas: "demo" "audio" "visitor" "camera" "settings" "operations" "logs";
   }
+  body.admin-page:not([data-admin-view="main"]) .ops-dashboard { grid-template-areas: none; }
+  body.admin-page:not([data-admin-view="main"]) .ops-panel { grid-area: auto; }
   .visitor-monitor-grid { grid-template-columns: 1fr; }
   .visitor-monitor-grid > section + section { border-left: 0; border-top: 1px solid var(--border); }
   .settings-scroll { max-height: none; }
 }
 
 @media (max-width: 48rem) {
-  .ops-header-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ops-header-metrics div { border-bottom: 1px solid var(--border); }
-  .dense-form.three-columns, .dense-form.four-columns, .operations-grid, .log-grid { grid-template-columns: 1fr; }
+  .ops-header { align-items: center; padding: 0.65rem 0.75rem; }
+  .ops-header .header-actions { margin-left: auto; align-items: flex-end; flex-direction: row; }
+  .ops-header .brand-subtitle, .ops-header #local-mode { display: none; }
+  .ops-header-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ops-header-metrics div { padding: 0.45rem 0.55rem; border-bottom: 1px solid var(--border); }
+  .dense-form.three-columns, .dense-form.four-columns, .operations-grid, .log-grid, .diagnostic-grid { grid-template-columns: 1fr; }
   .visitor-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .visitor-summary-grid div, .visitor-summary-grid div:nth-child(3n) { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .visitor-summary-grid div:nth-child(even) { border-right: 0; }
   .visitor-summary-grid div:nth-last-child(-n+2) { border-bottom: 0; }
   .vision-workspace, .arducam-workspace { grid-template-columns: 1fr; }
+  .ops-camera-stage, .arducam-stage { height: auto; aspect-ratio: 16 / 9; }
   .vision-telemetry { border-top: 1px solid var(--border); border-left: 0; }
+  .diagnostic-grid > section + section { border-top: 1px solid var(--border); border-left: 0; }
+  .cycle-grid, .context-grid, .camera-health-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cycle-grid > div:nth-child(3), .context-grid > div:nth-child(n+3), .camera-health-strip div:nth-child(n+3) { border-top: 1px solid var(--border); }
+  .context-grid > div:nth-child(odd), .camera-health-strip div:nth-child(odd) { border-left: 0; }
+  .readiness-board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .log-toolbar { grid-template-columns: 1fr 1fr; }
+  .log-summary { grid-column: 1 / -1; justify-content: flex-start; overflow-x: auto; }
   .operations-grid .control-section, .operations-grid .control-section:nth-child(even) { border-left: 0; border-top: 1px solid var(--border); }
   .operations-grid .control-section:first-child { border-top: 0; }
   .log-column + .log-column { border-left: 0; border-top: 1px solid var(--border); }
@@ -585,4 +657,8 @@ body[data-admin-view="arducam"] .ops-dashboard { grid-template-columns: minmax(0
     grid-template-areas: none;
   }
   body.admin-page:not([data-admin-view="main"]) .ops-panel { grid-area: auto; }
+  body.admin-page[data-admin-view="audio-vision"] .ops-dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.admin-page[data-admin-view="audio-vision"] .live-panel,
+  body.admin-page[data-admin-view="audio-vision"] .operations-panel { grid-column: 1 / -1; }
 }
+body[data-admin-view="settings"] .settings-summary-panel { order: -1; }

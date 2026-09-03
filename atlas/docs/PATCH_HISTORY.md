@@ -4,6 +4,29 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-03 - Admin operations dashboard polish
+
+**Changed:** Reworked the seven admin views into a denser operations console.
+Added live demo-cycle readiness, audio/vision signal diagnostics, visitor profile
+transfer context, Arducam freshness and reconnect health, a settings stack
+summary, and searchable/filterable/exportable live logs. Expanded the header
+with camera and audio state. Bounded both camera stages by viewport height while
+preserving the complete image with `object-fit: contain`.
+
+**Validation:** All 346 automated tests passed. JavaScript parsing and local
+browser checks passed. At 1440x900, the artwork feed is 979x378 and the Arducam
+feed is 990x432; both remain visible without dominating the page. At a 375px
+content width, the artwork feed is 346x195, the document has no horizontal
+overflow, and the compact header and focused-panel order render correctly. Log
+search/filter behavior works and the browser console reports no errors.
+
+**Deployment result:** Ready for the existing one-command deployment; not yet
+deployed to the Jetson in this patch.
+
+**Remaining limitation:** Laptop preview uses mock hardware, so real camera
+frames, audio device names, sustained FPS, and provider readiness still require
+the normal post-deployment Jetson acceptance pass.
+
 ## 2026-09-03 - Independent Arducam IMX477 admin preview
 
 **Changed:** Added a protected Arducam tab with an independent 1920x1080 CSI
