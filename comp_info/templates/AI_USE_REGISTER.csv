@@ -3,4 +3,4 @@ date,system_or_person,purpose,input_or_scope,output_used,team_decisions_and_chan
 2026-09-02,Google Gemini,Generate conversational answers,,,,,,Live system,
 2026-09-02,Speech providers,Speech recognition and synthesis,,,,,,Live system,
 2026-09-02,Codex,Programming research and documentation assistance,,,,,,Code and report,
-2026-09-02,External compute provider,Run team-authored training workflow,,,,,,Model training,
+2026-09-03,External compute provider,Run team-authored artwork training workflow,"ATLAS futureinnovators-v4 dataset, seven-class contract, and training script","YOLO26 Nano best.pt, epoch metrics, test curves, and confusion matrix","Team selected the classes, settings, acceptance gates, runtime mapping, and final integration","Archive SHA-256 and checkpoint SHA-256 recorded; class contract and split integrity checked; held-out mAP50 cross-checked against PR plot",atlas/models/releases/2026-09-03-yolo26n-atlas-v4/README.md,Model training,ATLAS team

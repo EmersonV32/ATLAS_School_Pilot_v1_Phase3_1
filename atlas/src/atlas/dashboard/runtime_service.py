@@ -401,6 +401,54 @@ class RuntimeService:
             raise RuntimeError("camera frame encoding failed")
         return encoded.tobytes()
 
+    def arducam_status(self) -> dict[str, Any]:
+        """Return privacy-safe state for the independent CSI admin preview."""
+        hardware = self.container.settings.hardware
+        configured = {
+            "enabled": hardware.arducam_enabled,
+            "sensor_id": hardware.arducam_sensor_id,
+            "configured_width": hardware.arducam_width,
+            "configured_height": hardware.arducam_height,
+            "configured_fps": hardware.arducam_fps,
+            "flip_method": hardware.arducam_flip_method,
+        }
+        if not hardware.arducam_enabled:
+            return {
+                **configured,
+                "ready": False,
+                "last_error": "Arducam preview is disabled in settings",
+                "observed_fps": 0.0,
+                "reconnect_count": 0,
+            }
+
+        source = self.container.arducam_source
+        try:
+            source.start(timeout_s=0.75)
+        except RuntimeError as exc:
+            logger.debug("Arducam preview is not ready yet: %s", exc)
+        status = source.status()
+        status["source"] = "Jetson CSI / nvarguscamerasrc"
+        return {**status, **configured}
+
+    def arducam_frame_jpeg(self) -> bytes:
+        """Return one IMX477 frame without persisting or passing it to YOLO."""
+        import cv2
+
+        hardware = self.container.settings.hardware
+        if not hardware.arducam_enabled:
+            raise RuntimeError("Arducam preview is disabled in settings")
+        source = self.container.arducam_source
+        source.start(timeout_s=2.0)
+        frame, _ = source.latest(copy=True)
+        if frame is None:
+            raise RuntimeError("Arducam has no current frame")
+        ok, encoded = cv2.imencode(
+            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+        )
+        if not ok:
+            raise RuntimeError("Arducam frame encoding failed")
+        return encoded.tobytes()
+
     def _artwork_map(self) -> dict[str, str]:
         """artwork_id -> title for the selected pack."""
         from atlas.rag.ingest import load_content_pack

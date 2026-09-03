@@ -138,8 +138,8 @@ class TestVisitorShell:
         assert 'id="btn-start-demo"' in response.text
         assert 'id="admin-workspace"' in response.text
         assert 'class="admin-page admin-locked"' in response.text
-        assert "/static/style.css?v=12" in response.text
-        assert "/static/admin.js?v=13" in response.text
+        assert "/static/style.css?v=13" in response.text
+        assert "/static/admin.js?v=15" in response.text
         assert 'id="btn-toggle-visitor-monitor"' in response.text
         assert 'id="btn-save-config-top"' in response.text
         assert 'data-log-format="human"' in response.text

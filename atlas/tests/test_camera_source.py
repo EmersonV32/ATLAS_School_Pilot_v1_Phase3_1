@@ -4,7 +4,24 @@ from __future__ import annotations
 
 import time
 
-from atlas.vision.camera_source import CameraSource
+from atlas.vision.camera_source import CameraSource, build_nvargus_pipeline
+
+
+def test_nvargus_pipeline_uses_requested_sensor_and_low_latency_sink() -> None:
+    pipeline = build_nvargus_pipeline(
+        sensor_id=1,
+        width=1920,
+        height=1080,
+        fps=30,
+        flip_method=2,
+    )
+
+    assert pipeline.startswith("nvarguscamerasrc sensor-id=1")
+    assert "width=(int)1920" in pipeline
+    assert "height=(int)1080" in pipeline
+    assert "framerate=(fraction)30/1" in pipeline
+    assert "nvvidconv flip-method=2" in pipeline
+    assert pipeline.endswith("appsink drop=true max-buffers=1 sync=false")
 
 
 def test_camera_status_reports_observed_fps_without_opening_hardware() -> None:
@@ -23,9 +40,10 @@ def test_camera_status_reports_observed_fps_without_opening_hardware() -> None:
 
 
 def test_camera_reconnect_delay_has_a_safe_minimum() -> None:
-    source = CameraSource(0, reconnect_s=0.0)
+    source = CameraSource(0, reconnect_s=0.0, name="arducam")
 
     assert source.reconnect_s == 0.1
+    assert source.name == "arducam"
 
 
 def test_camera_status_marks_stalled_network_frame_unready() -> None:

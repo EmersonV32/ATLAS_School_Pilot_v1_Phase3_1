@@ -81,6 +81,7 @@ class TestHealthAndStatus:
         assert 'data-admin-tab="main"' in res.text
         assert 'data-admin-tab="demo"' in res.text
         assert 'data-admin-tab="audio-vision"' in res.text
+        assert 'data-admin-tab="arducam"' in res.text
         assert 'data-admin-tab="visitor"' in res.text
         assert 'data-admin-tab="logs"' in res.text
         assert 'data-admin-tab="settings"' in res.text
@@ -103,6 +104,23 @@ class TestHealthAndStatus:
             language_select.index(option) for option in expected_options
         )
         assert "ATLAS_ADMIN_LANGUAGE_OPTIONS" not in res.text
+
+    def test_arducam_preview_is_private_and_degrades_when_disabled(self, client):
+        assert client.get("/api/admin/arducam/status").status_code == 401
+        assert client.get("/api/admin/arducam/frame.jpg").status_code == 401
+
+        client.app.state.service.container.settings.hardware.arducam_enabled = False
+        response = client.get(
+            "/api/admin/arducam/status", headers=_admin(client)
+        )
+        assert response.status_code == 200
+        assert response.json()["enabled"] is False
+        assert response.json()["ready"] is False
+
+        frame = client.get(
+            "/api/admin/arducam/frame.jpg", headers=_admin(client)
+        )
+        assert frame.status_code == 503
 
 
 class TestSession:

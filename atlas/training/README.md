@@ -45,3 +45,11 @@ Do not replace `models/atlas_yolo.pt` until the trained model has passed:
 
 The TensorRT engine must be built on the Jetson. Keep the current `atlas_yolo.pt`
 until a full demo rehearsal succeeds.
+
+## 2026-09-03 returned checkpoint
+
+The returned YOLO26 Nano checkpoint and evidence passed the repository class
+contract and dataset split-integrity checks. It is staged as
+`models/atlas_yolo.pt`; see
+`models/releases/2026-09-03-yolo26n-atlas-v4/README.md` for metrics, hashes, and
+the remaining physical-camera and Jetson release gates.

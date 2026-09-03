@@ -64,6 +64,16 @@ hardware:
   camera_fps: 15
   camera_rotation_degrees: 0
   camera_reconnect_s: 1.0
+  # Arducam UC-517 Rev D3 / IMX477 on the CSI connector. NVIDIA documents
+  # sensor-id=1 for CAM0 on the Orin family; run scripts/check_arducam.sh if
+  # the carrier-board mapping differs. This source is admin-preview only.
+  arducam_enabled: true
+  arducam_sensor_id: 1
+  arducam_width: 1920
+  arducam_height: 1080
+  arducam_fps: 30
+  arducam_flip_method: 0
+  arducam_reconnect_s: 1.0
   headset_name: "Shokz OpenComm2 UC"
   audio_output_name: ""               # "" -> headset; set for external speaker
   judge_speaker_name: "UACDemoV1.0"   # Judge-facing USB speaker

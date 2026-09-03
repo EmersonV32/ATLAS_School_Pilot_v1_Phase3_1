@@ -32,11 +32,16 @@ $files = @(
     "config/settings.yaml",
     "config/artwork_labels.yaml",
     "firmware/xiao_camera/xiao_camera.ino",
+    "models/atlas_yolo.pt",
+    "models/manifest.sha256",
     "pyproject.toml",
     "requirements.txt",
     "scripts/atlas.service",
+    "scripts/check_arducam.sh",
+    "scripts/export_tensorrt.py",
     "scripts/install_user_service.sh",
     "scripts/validate_artwork_release.py",
+    "scripts/verify_yolo_checkpoint.py",
     "docs/PATCH_HISTORY.md"
 )
 $trackedTreeFiles = & git -C $repoRoot ls-files -- src/atlas tests data/content_packs/demo_pack
@@ -70,11 +75,18 @@ paths=(
   data/content_packs/demo_pack
   config/artwork_labels.yaml
   firmware/xiao_camera/xiao_camera.ino
+  models/atlas_yolo.pt
+  models/atlas_yolo.onnx
+  models/atlas_yolo.engine
+  models/manifest.sha256
   pyproject.toml
   requirements.txt
   scripts/atlas.service
+  scripts/check_arducam.sh
+  scripts/export_tensorrt.py
   scripts/install_user_service.sh
   scripts/validate_artwork_release.py
+  scripts/verify_yolo_checkpoint.py
   src/atlas
   tests
   docs/PATCH_HISTORY.md
@@ -118,6 +130,15 @@ tar -xzf "$archive" -C "$root"
 rm -f "$root/config/dashboard_overrides.yaml"
 cd "$root"
 if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest; then
+  rollback
+  exit 1
+fi
+if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python scripts/verify_yolo_checkpoint.py; then
+  rollback
+  exit 1
+fi
+rm -f "$root/models/atlas_yolo.onnx" "$root/models/atlas_yolo.engine"
+if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python scripts/export_tensorrt.py --model models/atlas_yolo.pt --imgsz 416; then
   rollback
   exit 1
 fi

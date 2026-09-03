@@ -92,11 +92,11 @@ Important package boundaries:
 
 Fresh Jetson recovery starts at
 `../handoff/jetson/REBUILD_FROM_FRESH_FLASH.md`. The maintained incremental
-visitor/runtime deployment script is
-`scripts/deploy/DEPLOY_ATLAS_VISITOR_IMPROVEMENTS.ps1` and accepts
-`-SshKeyPath` or the `ATLAS_SSH_KEY` environment variable. Never commit the
-key, `.env`, live databases, logs, recordings, generated vector stores, model
-caches, or target-specific TensorRT artifacts.
+deployment command is `powershell -ExecutionPolicy Bypass -File
+.\DEPLOY_ATLAS.ps1`. It delegates to the rollback-capable runtime script and
+accepts `-SshKeyPath` or the `ATLAS_SSH_KEY` environment variable. Never commit
+the key, `.env`, live databases, logs, recordings, generated vector stores,
+model caches, or target-specific TensorRT artifacts.
 
 ## Documentation
 

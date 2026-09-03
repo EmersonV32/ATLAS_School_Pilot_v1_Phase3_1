@@ -30,6 +30,7 @@ class Container:
         self._llm_client = None
         self._dialogue_engine = None
         self._camera_source = None
+        self._arducam_source = None
         self._vision_detector = None
         self._artwork_tracker = None
         self._manual_artwork_capture = None
@@ -173,6 +174,30 @@ class Container:
                 reconnect_s=hw.camera_reconnect_s,
             )
         return self._camera_source
+
+    @property
+    def arducam_source(self):
+        """Lazy IMX477 source used only by the protected admin preview."""
+        if self._arducam_source is None:
+            from atlas.vision.camera_source import CameraSource, build_nvargus_pipeline
+
+            hw = self.settings.hardware
+            pipeline = build_nvargus_pipeline(
+                sensor_id=hw.arducam_sensor_id,
+                width=hw.arducam_width,
+                height=hw.arducam_height,
+                fps=hw.arducam_fps,
+                flip_method=hw.arducam_flip_method,
+            )
+            self._arducam_source = CameraSource(
+                source=f"gstreamer:{pipeline}",
+                width=hw.arducam_width,
+                height=hw.arducam_height,
+                fps=hw.arducam_fps,
+                reconnect_s=hw.arducam_reconnect_s,
+                name="arducam",
+            )
+        return self._arducam_source
 
     @property
     def vision_detector(self):
@@ -407,6 +432,8 @@ class Container:
         """Release camera and Bluetooth resources."""
         if self._camera_source is not None:
             self._camera_source.stop()
+        if self._arducam_source is not None:
+            self._arducam_source.stop()
         if self._stt is not None:
             self._stt.close()
         if self._tts is not None:

@@ -13,6 +13,9 @@ let experienceDirty = false;
 let visitorMonitorCollapsed = false;
 let cameraRequestInFlight = false;
 let cameraObjectUrl = null;
+let arducamTimer = null;
+let arducamRequestInFlight = false;
+let arducamObjectUrl = null;
 let audioVolumeTimer = null;
 const logFormats = { runtime: "human", events: "human" };
 
@@ -171,7 +174,7 @@ async function refreshVisitorStatus() {
 }
 
 function setAdminView(view, { persist = true } = {}) {
-  const supported = new Set(["main", "demo", "audio-vision", "visitor", "logs", "settings"]);
+  const supported = new Set(["main", "demo", "audio-vision", "arducam", "visitor", "logs", "settings"]);
   const nextView = supported.has(view) ? view : "main";
   document.body.dataset.adminView = nextView;
   document.querySelectorAll("[data-admin-tab]").forEach((button) => {
@@ -183,6 +186,10 @@ function setAdminView(view, { persist = true } = {}) {
     panel.classList.toggle("view-hidden", !panel.dataset.adminViews.split(" ").includes(nextView));
   });
   if (persist) window.sessionStorage.setItem("atlasAdminView", nextView);
+  if (nextView === "arducam" && adminUnlocked) {
+    refreshArducamStatus();
+    refreshArducam();
+  }
 }
 
 function providerLabel(provider) {
@@ -393,6 +400,7 @@ function startRefreshLoops() {
     window.setInterval(refreshLogs, 1500),
     window.setInterval(refreshVisitorStatus, 1000),
     window.setInterval(refreshAudio, 5000),
+    window.setInterval(refreshArducamStatus, 2000),
   ];
 }
 
@@ -402,6 +410,7 @@ async function unlockAdmin({ quiet = false } = {}) {
     setAdminLocked(false);
     await Promise.all([refreshStatus(), refreshHealth(), refreshContentChoices(), refreshLogs(true), refreshAudio()]);
     refreshCamera();
+    refreshArducam();
     startRefreshLoops();
     if (!quiet) notice("Admin dashboard unlocked");
   } catch (error) {
@@ -550,6 +559,80 @@ async function refreshCamera() {
   }
 }
 
+function scheduleArducamRefresh(delayMs) {
+  window.clearTimeout(arducamTimer);
+  arducamTimer = window.setTimeout(refreshArducam, delayMs);
+}
+
+function renderArducamStatus(status) {
+  const ready = Boolean(status.ready);
+  $("arducam-state").textContent = ready ? "Live" : (status.enabled ? "Waiting" : "Disabled");
+  $("arducam-state").className = `status-pill ${ready ? "ok" : (status.enabled ? "warning" : "neutral")}`;
+  $("arducam-source").textContent = status.source || "Jetson CSI / nvarguscamerasrc";
+  $("arducam-sensor-id").textContent = status.sensor_id == null ? "--" : String(status.sensor_id);
+  $("arducam-mode").textContent = `${status.configured_width || "--"}x${status.configured_height || "--"} @ ${status.configured_fps || "--"} fps`;
+  $("arducam-fps").textContent = status.observed_fps == null ? "--" : `${Number(status.observed_fps).toFixed(1)} fps`;
+  $("arducam-frame-age").textContent = status.last_frame_age_s == null ? "No frame" : `${Number(status.last_frame_age_s).toFixed(1)} s`;
+  $("arducam-reconnects").textContent = String(status.reconnect_count || 0);
+  $("arducam-detail").textContent = status.last_error
+    ? "Camera disconnected."
+    : (ready ? "Private live preview active. Frames are not stored." : "Opening the CSI camera.");
+}
+
+async function refreshArducamStatus() {
+  if (!adminUnlocked || document.body.dataset.adminView !== "arducam") return;
+  try {
+    renderArducamStatus(await api("/api/admin/arducam/status", {}, true));
+  } catch (error) {
+    $("arducam-state").textContent = "Unavailable";
+    $("arducam-state").className = "status-pill danger";
+    $("arducam-detail").textContent = error.message;
+  }
+}
+
+async function refreshArducam() {
+  if (!adminUnlocked || document.body.dataset.adminView !== "arducam") {
+    scheduleArducamRefresh(750);
+    return;
+  }
+  if (arducamRequestInFlight) return;
+  arducamRequestInFlight = true;
+  try {
+    const headers = authRequired ? { "X-Atlas-Admin-Token": token() } : {};
+    const response = await fetch(`/api/admin/arducam/frame.jpg?t=${Date.now()}`, {
+      cache: "no-store",
+      headers,
+    });
+    if (!response.ok) {
+      const message = response.status === 503
+        ? "Camera disconnected."
+        : `Preview unavailable (${response.status}).`;
+      throw new Error(message);
+    }
+    const nextUrl = URL.createObjectURL(await response.blob());
+    const image = $("admin-arducam");
+    const previousUrl = arducamObjectUrl;
+    arducamObjectUrl = nextUrl;
+    await showCameraImage(image, nextUrl);
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    $("arducam-state").textContent = "Live";
+    $("arducam-state").className = "status-pill ok";
+    scheduleArducamRefresh(120);
+  } catch (error) {
+    if (arducamObjectUrl) {
+      URL.revokeObjectURL(arducamObjectUrl);
+      arducamObjectUrl = null;
+    }
+    $("admin-arducam").removeAttribute("src");
+    $("arducam-state").textContent = "Unavailable";
+    $("arducam-state").className = "status-pill danger";
+    $("arducam-detail").textContent = error.message;
+    scheduleArducamRefresh(1000);
+  } finally {
+    arducamRequestInFlight = false;
+  }
+}
+
 $("btn-unlock").addEventListener("click", () => unlockAdmin()
   .catch((error) => notice(error.message, true)));
 $("inp-token").addEventListener("keydown", (event) => {
@@ -568,7 +651,7 @@ $("config-form").addEventListener("submit", async (event) => {
 });
 
 $("btn-refresh").addEventListener("click", () => Promise.all([
-  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(), refreshAudio(),
+  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(), refreshAudio(), refreshArducamStatus(),
 ]));
 document.querySelectorAll("[data-admin-tab]").forEach((button) => {
   button.addEventListener("click", () => setAdminView(button.dataset.adminTab));
@@ -580,6 +663,10 @@ document.querySelectorAll("[data-audio-route]").forEach((button) => {
       notice(`Audio output changed to ${button.textContent}.`);
     } catch (error) { notice(error.message, true); }
   });
+});
+$("btn-refresh-arducam").addEventListener("click", () => {
+  refreshArducamStatus();
+  refreshArducam();
 });
 $("audio-volume").addEventListener("input", () => {
   const volume = Number($("audio-volume").value);

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
-  <link rel="stylesheet" href="/static/style.css?v=12">
+  <link rel="stylesheet" href="/static/style.css?v=13">
 </head>
 <body class="admin-page admin-locked" data-admin-view="main">
   <section id="admin-unlock-gate" class="admin-unlock-gate" aria-labelledby="admin-unlock-title">
@@ -42,6 +42,7 @@
     <button type="button" class="active" data-admin-tab="main" aria-pressed="true">Main</button>
     <button type="button" data-admin-tab="demo" aria-pressed="false">Demo</button>
     <button type="button" data-admin-tab="audio-vision" aria-pressed="false">Audio / Vision</button>
+    <button type="button" data-admin-tab="arducam" aria-pressed="false">Arducam</button>
     <button type="button" data-admin-tab="visitor" aria-pressed="false">Visitor</button>
     <button type="button" data-admin-tab="logs" aria-pressed="false">Logs</button>
     <button type="button" data-admin-tab="settings" aria-pressed="false">Settings</button>
@@ -246,6 +247,31 @@
       </div>
     </section>
 
+    <section class="ops-panel arducam-panel" data-admin-views="arducam" aria-labelledby="arducam-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Independent CSI preview</p><h1 id="arducam-title">Arducam IMX477</h1></div>
+        <div class="camera-badges">
+          <span id="arducam-state" class="status-pill neutral">Not opened</span>
+          <button id="btn-refresh-arducam" type="button" class="secondary compact-button">Retry</button>
+        </div>
+      </div>
+      <div class="arducam-workspace">
+        <div class="arducam-stage"><img id="admin-arducam" alt="Live Arducam IMX477 feed"></div>
+        <aside class="vision-telemetry" aria-label="Arducam telemetry">
+          <div><p class="eyebrow">Camera</p><h2>Capture state</h2></div>
+          <ul class="status-list telemetry-list">
+            <li><span>Source</span><strong id="arducam-source">Jetson CSI</strong></li>
+            <li><span>Sensor ID</span><strong id="arducam-sensor-id">--</strong></li>
+            <li><span>Configured mode</span><strong id="arducam-mode">--</strong></li>
+            <li><span>Observed FPS</span><strong id="arducam-fps">--</strong></li>
+            <li><span>Frame age</span><strong id="arducam-frame-age">--</strong></li>
+            <li><span>Reconnects</span><strong id="arducam-reconnects">0</strong></li>
+          </ul>
+          <p id="arducam-detail" class="vision-answer">Preview inactive.</p>
+        </aside>
+      </div>
+    </section>
+
     <section class="ops-panel logs-panel" data-admin-views="main logs" aria-labelledby="logs-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Diagnostics</p><h1 id="logs-title">Live logs</h1></div>
@@ -302,6 +328,6 @@
   </div>
 
   <p id="admin-notice" class="notice hidden" role="status"></p>
-  <script src="/static/admin.js?v=13"></script>
+  <script src="/static/admin.js?v=15"></script>
 </body>
 </html>
