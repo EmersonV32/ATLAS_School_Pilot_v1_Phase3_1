@@ -45,8 +45,9 @@ working-tree changes you inherited. Do not discard changes you did not create.
 The GitHub source directory is now `atlas/`, but the installed Jetson service
 may continue to use `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`.
 Do not rename the live installation merely to match the GitHub folder. Deploy
-through the maintained scripts and verify the systemd unit, environment file,
-audio devices, camera, headset, and dashboard afterward.
+from the local `atlas/` directory with `powershell -ExecutionPolicy Bypass
+-File .\DEPLOY_ATLAS.ps1`, then verify the systemd unit, environment file,
+audio devices, cameras, headset, and dashboard afterward.
 
 ## Non-negotiable boundaries
 

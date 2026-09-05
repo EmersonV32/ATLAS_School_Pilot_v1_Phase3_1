@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
-  <link rel="stylesheet" href="/static/style.css?v=12">
+  <link rel="stylesheet" href="/static/style.css?v=18">
 </head>
 <body class="admin-page admin-locked" data-admin-view="main">
   <section id="admin-unlock-gate" class="admin-unlock-gate" aria-labelledby="admin-unlock-title">
@@ -29,6 +29,8 @@
       <div><span>Mode</span><strong id="metric-mode">--</strong></div>
       <div><span>Session</span><strong id="metric-session">Idle</strong></div>
       <div><span>Artwork</span><strong id="metric-artwork">None</strong></div>
+      <div><span>Camera</span><strong id="metric-camera">--</strong></div>
+      <div><span>Audio</span><strong id="metric-audio">--</strong></div>
       <div><span>Latency</span><strong id="metric-latency">--</strong></div>
     </div>
     <div class="header-actions">
@@ -42,6 +44,7 @@
     <button type="button" class="active" data-admin-tab="main" aria-pressed="true">Main</button>
     <button type="button" data-admin-tab="demo" aria-pressed="false">Demo</button>
     <button type="button" data-admin-tab="audio-vision" aria-pressed="false">Audio / Vision</button>
+    <button type="button" data-admin-tab="arducam" aria-pressed="false">Arducam</button>
     <button type="button" data-admin-tab="visitor" aria-pressed="false">Visitor</button>
     <button type="button" data-admin-tab="logs" aria-pressed="false">Logs</button>
     <button type="button" data-admin-tab="settings" aria-pressed="false">Settings</button>
@@ -80,6 +83,20 @@
       </section>
     </section>
 
+    <section class="ops-panel demo-cycle-panel" data-admin-views="demo" aria-labelledby="demo-cycle-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Live sequence</p><h1 id="demo-cycle-title">Demo cycle</h1></div>
+        <span id="demo-cycle-state" class="status-pill neutral">Waiting</span>
+      </div>
+      <div class="cycle-grid" aria-label="Demo cycle state">
+        <div><span>1</span><p>Listen</p><strong id="demo-stage-listen">Idle</strong></div>
+        <div><span>2</span><p>Understand</p><strong id="demo-stage-language">No language</strong></div>
+        <div><span>3</span><p>Recognize</p><strong id="demo-stage-artwork">No artwork</strong></div>
+        <div><span>4</span><p>Respond</p><strong id="demo-stage-response">No response</strong></div>
+      </div>
+      <div id="demo-readiness-grid" class="readiness-board" aria-label="Demo readiness"></div>
+    </section>
+
     <section class="ops-panel audio-panel" data-admin-views="main demo audio-vision" aria-labelledby="audio-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Audio reliability</p><h1 id="audio-title">Output controls</h1></div>
@@ -103,6 +120,27 @@
           <div><dt>Fallback</dt><dd id="audio-provider">--</dd></div>
         </dl>
       </section>
+    </section>
+
+    <section class="ops-panel signal-panel" data-admin-views="audio-vision" aria-labelledby="signal-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Signal chain</p><h1 id="signal-title">Audio and vision diagnostics</h1></div>
+        <span id="signal-state" class="status-pill neutral">Checking</span>
+      </div>
+      <div class="diagnostic-grid">
+        <section><h2>Audio path</h2><dl class="diagnostic-list">
+          <div><dt>Output</dt><dd id="diag-audio-output">--</dd></div>
+          <div><dt>Microphone</dt><dd id="diag-audio-input">Shokz headset</dd></div>
+          <div><dt>Speech to text</dt><dd id="diag-stt">--</dd></div>
+          <div><dt>Text to speech</dt><dd id="diag-tts">--</dd></div>
+        </dl></section>
+        <section><h2>Vision path</h2><dl class="diagnostic-list">
+          <div><dt>Camera</dt><dd id="diag-camera">--</dd></div>
+          <div><dt>Detector</dt><dd id="diag-yolo">--</dd></div>
+          <div><dt>Target</dt><dd id="diag-camera-mode">--</dd></div>
+          <div><dt>Trigger</dt><dd id="diag-vision-trigger">--</dd></div>
+        </dl></section>
+      </div>
     </section>
 
     <section id="visitor-live-panel" class="ops-panel visitor-live-panel" data-admin-views="main visitor" aria-labelledby="visitor-live-title">
@@ -149,6 +187,21 @@
           </label>
           <button id="btn-visitor-simulate" type="button" class="secondary compact-button">Apply scenario</button>
         </section>
+      </div>
+    </section>
+
+    <section class="ops-panel visitor-detail-panel" data-admin-views="visitor" aria-labelledby="visitor-detail-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Session context</p><h1 id="visitor-detail-title">Visitor profile transfer</h1></div>
+        <span id="visitor-transfer-state" class="status-pill neutral">Idle</span>
+      </div>
+      <div class="context-grid">
+        <div><span>Expertise</span><strong id="visitor-expertise">Not provided</strong></div>
+        <div><span>Accessibility</span><strong id="visitor-accessibility">None</strong></div>
+        <div><span>Demo mode</span><strong id="visitor-demo-mode">Off</strong></div>
+        <div><span>Connection</span><strong id="visitor-connection">--</strong></div>
+        <div><span>Ready checks</span><strong id="visitor-ready-count">--</strong></div>
+        <div><span>Blockers</span><strong id="visitor-blocker-count">--</strong></div>
       </div>
     </section>
 
@@ -216,6 +269,21 @@
       </div>
     </section>
 
+    <section class="ops-panel settings-summary-panel" data-admin-views="settings" aria-labelledby="settings-summary-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Active stack</p><h1 id="settings-summary-title">Configuration summary</h1></div>
+        <span id="settings-summary-state" class="status-pill ok">Loaded</span>
+      </div>
+      <div class="context-grid settings-context-grid">
+        <div><span>Language model</span><strong id="summary-llm">--</strong></div>
+        <div><span>Speech</span><strong id="summary-speech">--</strong></div>
+        <div><span>Vision</span><strong id="summary-vision">--</strong></div>
+        <div><span>Camera target</span><strong id="summary-camera">--</strong></div>
+        <div><span>Retrieval</span><strong id="summary-rag">--</strong></div>
+        <div><span>Conversation logs</span><strong id="summary-logging">--</strong></div>
+      </div>
+    </section>
+
     <section class="ops-panel live-panel" data-admin-views="main audio-vision" aria-labelledby="camera-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Vision</p><h1 id="camera-title">Live camera</h1></div>
@@ -246,12 +314,55 @@
       </div>
     </section>
 
+    <section class="ops-panel arducam-panel" data-admin-views="arducam" aria-labelledby="arducam-title">
+      <div class="ops-panel-header">
+        <div><p class="eyebrow">Independent CSI preview</p><h1 id="arducam-title">Arducam IMX477</h1></div>
+        <div class="camera-badges">
+          <span id="arducam-state" class="status-pill neutral">Not opened</span>
+          <button id="btn-refresh-arducam" type="button" class="secondary compact-button">Retry</button>
+        </div>
+      </div>
+      <div class="arducam-workspace">
+        <div class="arducam-stage"><img id="admin-arducam" alt="Live Arducam IMX477 feed"></div>
+        <aside class="vision-telemetry" aria-label="Arducam telemetry">
+          <div><p class="eyebrow">Camera</p><h2>Capture state</h2></div>
+          <ul class="status-list telemetry-list">
+            <li><span>Source</span><strong id="arducam-source">Jetson CSI</strong></li>
+            <li><span>Sensor ID</span><strong id="arducam-sensor-id">--</strong></li>
+            <li><span>Configured mode</span><strong id="arducam-mode">--</strong></li>
+            <li><span>Observed FPS</span><strong id="arducam-fps">--</strong></li>
+            <li><span>Frame age</span><strong id="arducam-frame-age">--</strong></li>
+            <li><span>Reconnects</span><strong id="arducam-reconnects">0</strong></li>
+          </ul>
+          <p id="arducam-detail" class="vision-answer">Preview inactive.</p>
+        </aside>
+      </div>
+      <div class="camera-health-strip">
+        <div><span>Pipeline</span><strong id="arducam-pipeline">Argus CSI</strong></div>
+        <div><span>Freshness</span><strong id="arducam-freshness">Waiting</strong></div>
+        <div><span>Stability</span><strong id="arducam-stability">No samples</strong></div>
+        <div><span>Storage</span><strong>Live only</strong></div>
+      </div>
+    </section>
+
     <section class="ops-panel logs-panel" data-admin-views="main logs" aria-labelledby="logs-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Diagnostics</p><h1 id="logs-title">Live logs</h1></div>
         <div class="command-group log-controls">
           <label class="switch-field"><input id="chk-pause-logs" type="checkbox"><span>Pause</span></label>
           <button id="btn-refresh-logs" type="button" class="secondary compact-button">Refresh</button>
+        </div>
+      </div>
+      <div class="log-toolbar">
+        <label>Search<input id="log-search" type="search" placeholder="Filter visible logs"></label>
+        <label>Level<select id="log-severity"><option value="all">All levels</option><option value="warning">Warnings</option><option value="error">Errors</option></select></label>
+        <button id="btn-clear-log-filter" type="button" class="secondary compact-button">Clear filters</button>
+        <button id="btn-export-logs" type="button" class="secondary compact-button">Export snapshot</button>
+        <div class="log-summary" aria-label="Log summary">
+          <span><strong id="log-runtime-count">0</strong> runtime</span>
+          <span><strong id="log-event-count">0</strong> events</span>
+          <span><strong id="log-warning-count">0</strong> warnings</span>
+          <span><strong id="log-error-count">0</strong> errors</span>
         </div>
       </div>
       <div class="log-grid">
@@ -302,6 +413,6 @@
   </div>
 
   <p id="admin-notice" class="notice hidden" role="status"></p>
-  <script src="/static/admin.js?v=13"></script>
+  <script src="/static/admin.js?v=17"></script>
 </body>
 </html>

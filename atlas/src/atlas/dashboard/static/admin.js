@@ -13,8 +13,16 @@ let experienceDirty = false;
 let visitorMonitorCollapsed = false;
 let cameraRequestInFlight = false;
 let cameraObjectUrl = null;
+let arducamTimer = null;
+let arducamRequestInFlight = false;
+let arducamObjectUrl = null;
 let audioVolumeTimer = null;
 const logFormats = { runtime: "human", events: "human" };
+let latestStatus = null;
+let latestHealth = null;
+let latestAudio = null;
+let latestConfig = null;
+let latestLogs = { runtime: [], events: [] };
 
 function token() {
   return $("inp-token").value.trim();
@@ -123,6 +131,15 @@ function renderVisitorStatus(payload) {
     .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   $("visitor-readiness-state").textContent = readiness.ready ? "Ready" : "Needs attention";
   $("visitor-readiness-state").className = `status-pill ${readiness.ready ? "ok" : "warning"}`;
+  $("visitor-expertise").textContent = state.profile.expertise ? titleCase(state.profile.expertise) : "Not provided";
+  $("visitor-accessibility").textContent = state.profile.accessibility.length
+    ? state.profile.accessibility.map(titleCase).join(", ") : "None";
+  $("visitor-demo-mode").textContent = state.demo_mode ? "On" : "Off";
+  $("visitor-connection").textContent = titleCase(state.connection);
+  $("visitor-ready-count").textContent = `${readiness.items.filter((item) => item.status === "ready").length} / ${readiness.items.length}`;
+  $("visitor-blocker-count").textContent = String(readiness.blockers.length);
+  $("visitor-transfer-state").textContent = titleCase(state.transfer);
+  $("visitor-transfer-state").className = `status-pill ${state.transfer === "complete" ? "ok" : (state.transfer === "failed" ? "danger" : "neutral")}`;
   $("btn-start-demo").textContent = state.demo_mode && state.phase === "in_use"
     ? "Restart demo" : "Start demo";
 
@@ -170,8 +187,74 @@ async function refreshVisitorStatus() {
   }
 }
 
+function valueIsHealthy(value) {
+  const normalized = String(value || "").toLowerCase();
+  return Boolean(normalized) && !normalized.includes("error") && !normalized.includes("unavailable");
+}
+
+function renderDemoReadiness() {
+  if (!latestStatus) return;
+  const status = latestStatus;
+  const components = latestHealth && latestHealth.components || {};
+  const camera = status.camera || {};
+  const audioReady = latestAudio && (
+    latestAudio.route === "speaker" ? latestAudio.speaker_available : latestAudio.headset_available
+  );
+  const checks = [
+    ["Runtime", !status.emergency_stopped, status.emergency_stopped ? "Stopped" : "Safety clear"],
+    ["Speech input", valueIsHealthy(components.stt), providerLabel(components.stt)],
+    ["Speech output", valueIsHealthy(components.tts), providerLabel(components.tts)],
+    ["Artwork camera", Boolean(camera.ready), camera.ready ? "Frame ready" : "Disconnected"],
+    ["Knowledge", valueIsHealthy(components.retriever), providerLabel(components.retriever)],
+    ["Audio route", Boolean(audioReady), latestAudio
+      ? `${titleCase(latestAudio.route)}${audioReady ? "" : " unavailable"}` : "Checking"],
+  ];
+  const board = $("demo-readiness-grid");
+  board.replaceChildren();
+  checks.forEach(([name, good, detail]) => {
+    const item = document.createElement("div");
+    item.className = good ? "check-good" : "check-bad";
+    const label = document.createElement("span");
+    const value = document.createElement("strong");
+    label.textContent = name;
+    value.textContent = detail || "Not ready";
+    item.append(label, value);
+    board.append(item);
+  });
+}
+
+function renderOperationalDetails() {
+  if (!latestStatus) return;
+  const status = latestStatus;
+  const components = latestHealth && latestHealth.components || {};
+  const camera = status.camera || {};
+  const artwork = status.artwork || {};
+  const answer = status.last_answer || {};
+  const sessionActive = Boolean(status.session_active);
+  const demoActive = Boolean(status.demo_active);
+
+  $("demo-cycle-state").textContent = demoActive ? "Running" : "Waiting";
+  $("demo-cycle-state").className = `status-pill ${demoActive ? "ok" : "neutral"}`;
+  $("demo-stage-listen").textContent = sessionActive ? "Listening loop active" : "Idle";
+  $("demo-stage-language").textContent = status.experience && status.experience.language
+    ? status.experience.language.toUpperCase() : "No language";
+  $("demo-stage-artwork").textContent = artwork.label || "No artwork";
+  $("demo-stage-response").textContent = answer.answer ? "Answer delivered" : "No response";
+
+  $("diag-camera").textContent = camera.ready ? "Connected" : "Disconnected";
+  $("diag-yolo").textContent = latestConfig
+    ? titleCase(latestConfig.hardware.yolo_backend)
+    : providerLabel(components.vision);
+  $("diag-stt").textContent = providerLabel(components.stt);
+  $("diag-tts").textContent = providerLabel(components.tts);
+  const criticalGood = camera.ready && valueIsHealthy(components.stt) && valueIsHealthy(components.tts);
+  $("signal-state").textContent = criticalGood ? "Ready" : "Needs attention";
+  $("signal-state").className = `status-pill ${criticalGood ? "ok" : "warning"}`;
+  renderDemoReadiness();
+}
+
 function setAdminView(view, { persist = true } = {}) {
-  const supported = new Set(["main", "demo", "audio-vision", "visitor", "logs", "settings"]);
+  const supported = new Set(["main", "demo", "audio-vision", "arducam", "visitor", "logs", "settings"]);
   const nextView = supported.has(view) ? view : "main";
   document.body.dataset.adminView = nextView;
   document.querySelectorAll("[data-admin-tab]").forEach((button) => {
@@ -183,6 +266,10 @@ function setAdminView(view, { persist = true } = {}) {
     panel.classList.toggle("view-hidden", !panel.dataset.adminViews.split(" ").includes(nextView));
   });
   if (persist) window.sessionStorage.setItem("atlasAdminView", nextView);
+  if (nextView === "arducam" && adminUnlocked) {
+    refreshArducamStatus();
+    refreshArducam();
+  }
 }
 
 function providerLabel(provider) {
@@ -192,6 +279,8 @@ function providerLabel(provider) {
 }
 
 function renderAudioStatus(status) {
+  latestAudio = status;
+  const routeAvailable = status.route === "speaker" ? status.speaker_available : status.headset_available;
   document.querySelectorAll("[data-audio-route]").forEach((button) => {
     const active = button.dataset.audioRoute === status.route;
     button.setAttribute("aria-pressed", String(active));
@@ -200,12 +289,16 @@ function renderAudioStatus(status) {
   $("audio-volume-value").textContent = `${status.volume_percent}%`;
   $("audio-output-name").textContent = status.output_device_name;
   $("audio-provider").textContent = providerLabel(status.provider);
-  $("audio-state").textContent = `${titleCase(status.route)} active`;
-  $("audio-state").className = "status-pill ok";
+  $("audio-state").textContent = routeAvailable ? `${titleCase(status.route)} active` : `${titleCase(status.route)} unavailable`;
+  $("audio-state").className = `status-pill ${routeAvailable ? "ok" : "warning"}`;
+  $("metric-audio").textContent = routeAvailable ? titleCase(status.route) : "Unavailable";
+  $("diag-audio-output").textContent = status.output_device_name || "Unavailable";
+  $("diag-audio-input").textContent = status.headset_name || "Shokz headset";
   const headset = document.querySelector('[data-audio-route="headset"]');
   const speaker = document.querySelector('[data-audio-route="speaker"]');
   headset.title = status.headset_available ? "Shokz output is available" : "Shokz output is not currently detected";
   speaker.title = status.speaker_available ? "Judge speaker is available" : "Judge speaker is not currently detected";
+  renderOperationalDetails();
 }
 
 async function refreshAudio() {
@@ -230,6 +323,7 @@ async function applyAudioChange(patch) {
 async function refreshStatus() {
   try {
     const status = await api("/status");
+    latestStatus = status;
     $("admin-state").textContent = status.emergency_stopped ? "Emergency stop" : "Online";
     $("admin-state").className = `status-pill ${status.emergency_stopped ? "danger" : "ok"}`;
     $("metric-mode").textContent = status.mode;
@@ -263,11 +357,13 @@ async function refreshStatus() {
     $("camera-source").textContent = artwork.artwork_id
       ? `${artwork.stable ? "Stable" : "Detecting"} / ${artwork.source}` : "Camera stream";
     const camera = status.camera || {};
+    $("metric-camera").textContent = camera.ready ? "Live" : "Disconnected";
     $("vision-camera-fps").textContent = camera.observed_fps != null
       ? `${Number(camera.observed_fps).toFixed(1)} fps` : "--";
     if (camera.last_error) {
       $("camera-source").textContent = `Recovering: ${camera.last_error}`;
     }
+    renderOperationalDetails();
   } catch (_) {
     $("admin-state").textContent = "Offline";
     $("admin-state").className = "status-pill danger";
@@ -279,11 +375,13 @@ async function refreshHealth() {
   list.replaceChildren();
   try {
     const health = await api("/health");
+    latestHealth = health;
     $("vision-stt").textContent = health.components.stt || "Unavailable";
     $("vision-tts").textContent = health.components.tts || "Unavailable";
     Object.entries(health.components).forEach(([name, value]) => {
       appendStatus(list, name, value, String(value).startsWith("error"));
     });
+    renderOperationalDetails();
   } catch (error) {
     appendStatus(list, "dashboard", error.message, true);
   }
@@ -318,6 +416,7 @@ function setValue(id, value) {
 
 function fillConfig(payload) {
   const config = payload.config;
+  latestConfig = config;
   setValue("cfg-llm-provider", config.llm.provider);
   setValue("cfg-llm-model", config.llm.model);
   setValue("cfg-llm-timeout", config.llm.timeout_s);
@@ -353,6 +452,18 @@ function fillConfig(payload) {
   setValue("cfg-log-live-stt", config.logging.log_live_stt);
   setValue("cfg-log-llm", config.logging.log_llm_responses);
   $("restart-badge").classList.toggle("hidden", !payload.restart_required);
+  $("summary-llm").textContent = `${titleCase(config.llm.provider)} / ${config.llm.model}`;
+  $("summary-speech").textContent = `${titleCase(config.speech.stt_provider)} / ${titleCase(config.speech.tts_provider)}`;
+  $("summary-vision").textContent = `${titleCase(config.hardware.yolo_backend)} / ${Math.round(config.hardware.vision_conf_threshold * 100)}%`;
+  $("summary-camera").textContent = `${config.hardware.camera_width}x${config.hardware.camera_height} @ ${config.hardware.camera_fps} fps`;
+  $("summary-rag").textContent = `${config.rag.top_k} results / ${config.rag.fallback_language.toUpperCase()} fallback`;
+  const enabledLogs = [config.logging.log_transcripts, config.logging.log_live_stt, config.logging.log_llm_responses].filter(Boolean).length;
+  $("summary-logging").textContent = `${enabledLogs} of 3 enabled`;
+  $("settings-summary-state").textContent = payload.restart_required ? "Restart required" : "Current";
+  $("settings-summary-state").className = `status-pill ${payload.restart_required ? "warning" : "ok"}`;
+  $("diag-yolo").textContent = titleCase(config.hardware.yolo_backend);
+  $("diag-camera-mode").textContent = `${config.hardware.camera_width}x${config.hardware.camera_height} @ ${config.hardware.camera_fps}`;
+  $("diag-vision-trigger").textContent = `${config.hardware.vision_hold_seconds}s hold / ${Math.round(config.hardware.vision_conf_threshold * 100)}%`;
 }
 
 async function loadConfig() {
@@ -393,6 +504,7 @@ function startRefreshLoops() {
     window.setInterval(refreshLogs, 1500),
     window.setInterval(refreshVisitorStatus, 1000),
     window.setInterval(refreshAudio, 5000),
+    window.setInterval(refreshArducamStatus, 2000),
   ];
 }
 
@@ -402,6 +514,7 @@ async function unlockAdmin({ quiet = false } = {}) {
     setAdminLocked(false);
     await Promise.all([refreshStatus(), refreshHealth(), refreshContentChoices(), refreshLogs(true), refreshAudio()]);
     refreshCamera();
+    refreshArducam();
     startRefreshLoops();
     if (!quiet) notice("Admin dashboard unlocked");
   } catch (error) {
@@ -472,6 +585,38 @@ function keepLogPosition(node, content) {
   if (follow) node.scrollTop = node.scrollHeight;
 }
 
+function logMatches(text) {
+  const query = $("log-search").value.trim().toLowerCase();
+  const level = $("log-severity").value;
+  const normalized = String(text).toLowerCase();
+  if (query && !normalized.includes(query)) return false;
+  if (level === "warning" && !normalized.includes("warning") && !normalized.includes("warn")) return false;
+  if (level === "error" && !normalized.includes("error") && !normalized.includes("failed") && !normalized.includes("exception")) return false;
+  return true;
+}
+
+function eventText(event, guided) {
+  if (!guided) return JSON.stringify(event, null, 2);
+  return `${event.summary || "Event"}\n${event.details || ""}`.trim();
+}
+
+function renderLogSnapshot() {
+  const guidedRuntime = logFormats.runtime === "human";
+  const guidedEvents = logFormats.events === "human";
+  const runtimeEntries = latestLogs.runtime.filter(logMatches);
+  const eventEntries = latestLogs.events.map((event) => eventText(event, guidedEvents)).filter(logMatches);
+  $("runtime-log-view").classList.toggle("guided-log", guidedRuntime);
+  $("event-log-view").classList.toggle("guided-log", guidedEvents);
+  keepLogPosition($("runtime-log-view"), runtimeEntries.join(guidedRuntime ? "\n\n" : "\n") || "No matching runtime output.");
+  keepLogPosition($("event-log-view"), eventEntries.join(guidedEvents ? "\n\n" : "\n") || "No matching events.");
+
+  const allText = [...latestLogs.runtime, ...latestLogs.events.map((event) => JSON.stringify(event))];
+  $("log-runtime-count").textContent = String(latestLogs.runtime.length);
+  $("log-event-count").textContent = String(latestLogs.events.length);
+  $("log-warning-count").textContent = String(allText.filter((line) => /warn/i.test(line)).length);
+  $("log-error-count").textContent = String(allText.filter((line) => /error|failed|exception/i.test(line)).length);
+}
+
 async function refreshLogs(force = false) {
   if ($("chk-pause-logs").checked && !force) return;
   try {
@@ -479,14 +624,9 @@ async function refreshLogs(force = false) {
       api(`/logs/runtime${logFormats.runtime === "human" ? "/human" : ""}?limit=500`, {}, true),
       api(`/logs/recent${logFormats.events === "human" ? "/human" : ""}?limit=200`),
     ]);
-    const guidedRuntime = logFormats.runtime === "human";
     const guidedEvents = logFormats.events === "human";
-    $("runtime-log-view").classList.toggle("guided-log", guidedRuntime);
-    $("event-log-view").classList.toggle("guided-log", guidedEvents);
-    keepLogPosition($("runtime-log-view"), runtime.lines.join(guidedRuntime ? "\n\n" : "\n") || "No runtime output yet.");
-    keepLogPosition($("event-log-view"), guidedEvents
-      ? events.map((event) => `${event.summary}\n${event.details}`).join("\n\n")
-      : JSON.stringify(events, null, 2));
+    latestLogs = { runtime: runtime.lines, events };
+    renderLogSnapshot();
     $("runtime-log-state").textContent = runtime.available ? "Live" : "Unavailable";
     $("runtime-log-state").className = runtime.available ? "ok" : "bad";
     $("event-log-state").textContent = guidedEvents ? "Guided" : "Raw";
@@ -550,6 +690,85 @@ async function refreshCamera() {
   }
 }
 
+function scheduleArducamRefresh(delayMs) {
+  window.clearTimeout(arducamTimer);
+  arducamTimer = window.setTimeout(refreshArducam, delayMs);
+}
+
+function renderArducamStatus(status) {
+  const ready = Boolean(status.ready);
+  $("arducam-state").textContent = ready ? "Live" : (status.enabled ? "Waiting" : "Disabled");
+  $("arducam-state").className = `status-pill ${ready ? "ok" : (status.enabled ? "warning" : "neutral")}`;
+  $("arducam-source").textContent = status.source || "Jetson CSI / nvarguscamerasrc";
+  $("arducam-sensor-id").textContent = status.sensor_id == null ? "--" : String(status.sensor_id);
+  $("arducam-mode").textContent = `${status.configured_width || "--"}x${status.configured_height || "--"} @ ${status.configured_fps || "--"} fps`;
+  $("arducam-fps").textContent = status.observed_fps == null ? "--" : `${Number(status.observed_fps).toFixed(1)} fps`;
+  $("arducam-frame-age").textContent = status.last_frame_age_s == null ? "No frame" : `${Number(status.last_frame_age_s).toFixed(1)} s`;
+  $("arducam-reconnects").textContent = String(status.reconnect_count || 0);
+  $("arducam-pipeline").textContent = status.source && status.source.toLowerCase().includes("argus")
+    ? "Argus CSI" : (status.source || "CSI camera");
+  $("arducam-freshness").textContent = ready ? "Fresh frame" : (status.enabled ? "Waiting" : "Disabled");
+  $("arducam-stability").textContent = status.reconnect_count
+    ? `${status.reconnect_count} reconnect${status.reconnect_count === 1 ? "" : "s"}` : (ready ? "Stable" : "No samples");
+  $("arducam-detail").textContent = status.last_error
+    ? "Camera disconnected."
+    : (ready ? "Private live preview active. Frames are not stored." : "Opening the CSI camera.");
+}
+
+async function refreshArducamStatus() {
+  if (!adminUnlocked || document.body.dataset.adminView !== "arducam") return;
+  try {
+    renderArducamStatus(await api("/api/admin/arducam/status", {}, true));
+  } catch (error) {
+    $("arducam-state").textContent = "Unavailable";
+    $("arducam-state").className = "status-pill danger";
+    $("arducam-detail").textContent = error.message;
+  }
+}
+
+async function refreshArducam() {
+  if (!adminUnlocked || document.body.dataset.adminView !== "arducam") {
+    scheduleArducamRefresh(750);
+    return;
+  }
+  if (arducamRequestInFlight) return;
+  arducamRequestInFlight = true;
+  try {
+    const headers = authRequired ? { "X-Atlas-Admin-Token": token() } : {};
+    const response = await fetch(`/api/admin/arducam/frame.jpg?t=${Date.now()}`, {
+      cache: "no-store",
+      headers,
+    });
+    if (!response.ok) {
+      const message = response.status === 503
+        ? "Camera disconnected."
+        : `Preview unavailable (${response.status}).`;
+      throw new Error(message);
+    }
+    const nextUrl = URL.createObjectURL(await response.blob());
+    const image = $("admin-arducam");
+    const previousUrl = arducamObjectUrl;
+    arducamObjectUrl = nextUrl;
+    await showCameraImage(image, nextUrl);
+    if (previousUrl) URL.revokeObjectURL(previousUrl);
+    $("arducam-state").textContent = "Live";
+    $("arducam-state").className = "status-pill ok";
+    scheduleArducamRefresh(120);
+  } catch (error) {
+    if (arducamObjectUrl) {
+      URL.revokeObjectURL(arducamObjectUrl);
+      arducamObjectUrl = null;
+    }
+    $("admin-arducam").removeAttribute("src");
+    $("arducam-state").textContent = "Unavailable";
+    $("arducam-state").className = "status-pill danger";
+    $("arducam-detail").textContent = error.message;
+    scheduleArducamRefresh(1000);
+  } finally {
+    arducamRequestInFlight = false;
+  }
+}
+
 $("btn-unlock").addEventListener("click", () => unlockAdmin()
   .catch((error) => notice(error.message, true)));
 $("inp-token").addEventListener("keydown", (event) => {
@@ -568,7 +787,7 @@ $("config-form").addEventListener("submit", async (event) => {
 });
 
 $("btn-refresh").addEventListener("click", () => Promise.all([
-  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(), refreshAudio(),
+  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(), refreshAudio(), refreshArducamStatus(),
 ]));
 document.querySelectorAll("[data-admin-tab]").forEach((button) => {
   button.addEventListener("click", () => setAdminView(button.dataset.adminTab));
@@ -580,6 +799,10 @@ document.querySelectorAll("[data-audio-route]").forEach((button) => {
       notice(`Audio output changed to ${button.textContent}.`);
     } catch (error) { notice(error.message, true); }
   });
+});
+$("btn-refresh-arducam").addEventListener("click", () => {
+  refreshArducamStatus();
+  refreshArducam();
 });
 $("audio-volume").addEventListener("input", () => {
   const volume = Number($("audio-volume").value);
@@ -653,6 +876,32 @@ $("btn-eval").addEventListener("click", () => api("/eval/rag", { method: "POST" 
 $("btn-estop").addEventListener("click", () => api("/hardware/emergency-stop", { method: "POST" }).then(() => Promise.all([refreshStatus(), refreshHealth()])));
 $("btn-clear-estop").addEventListener("click", () => api("/hardware/clear-emergency-stop", { method: "POST" }, true).then(() => Promise.all([refreshStatus(), refreshHealth()])).catch((error) => notice(error.message, true)));
 $("btn-refresh-logs").addEventListener("click", () => refreshLogs(true));
+$("log-search").addEventListener("input", renderLogSnapshot);
+$("log-severity").addEventListener("change", renderLogSnapshot);
+$("btn-clear-log-filter").addEventListener("click", () => {
+  $("log-search").value = "";
+  $("log-severity").value = "all";
+  renderLogSnapshot();
+});
+$("btn-export-logs").addEventListener("click", () => {
+  const snapshot = [
+    "ATLAS admin log snapshot",
+    `Captured: ${new Date().toISOString()}`,
+    "",
+    "RUNTIME",
+    ...latestLogs.runtime,
+    "",
+    "EVENTS",
+    ...latestLogs.events.map((event) => JSON.stringify(event, null, 2)),
+  ].join("\n");
+  const url = URL.createObjectURL(new Blob([snapshot], { type: "text/plain;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `atlas-logs-${new Date().toISOString().replaceAll(":", "-")}.txt`;
+  link.click();
+  URL.revokeObjectURL(url);
+  notice("Log snapshot exported.");
+});
 document.querySelectorAll("[data-sim]").forEach((button) => {
   button.addEventListener("click", () => api("/demo/simulate", { method: "POST", body: JSON.stringify({ scenario: button.dataset.sim }) }, true).then((result) => { renderObject("content-result", result); refreshLogs(true); }).catch((error) => notice(error.message, true)));
 });

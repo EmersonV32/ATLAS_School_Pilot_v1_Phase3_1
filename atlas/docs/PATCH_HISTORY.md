@@ -4,6 +4,73 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-03 - Admin operations dashboard polish
+
+**Changed:** Reworked the seven admin views into a denser operations console.
+Added live demo-cycle readiness, audio/vision signal diagnostics, visitor profile
+transfer context, Arducam freshness and reconnect health, a settings stack
+summary, and searchable/filterable/exportable live logs. Expanded the header
+with camera and audio state. Bounded both camera stages by viewport height while
+preserving the complete image with `object-fit: contain`.
+
+**Validation:** All 346 automated tests passed. JavaScript parsing and local
+browser checks passed. At 1440x900, the artwork feed is 979x378 and the Arducam
+feed is 990x432; both remain visible without dominating the page. At a 375px
+content width, the artwork feed is 346x195, the document has no horizontal
+overflow, and the compact header and focused-panel order render correctly. Log
+search/filter behavior works and the browser console reports no errors.
+
+**Deployment result:** Ready for the existing one-command deployment; not yet
+deployed to the Jetson in this patch.
+
+**Remaining limitation:** Laptop preview uses mock hardware, so real camera
+frames, audio device names, sustained FPS, and provider readiness still require
+the normal post-deployment Jetson acceptance pass.
+
+## 2026-09-03 - Independent Arducam IMX477 admin preview
+
+**Changed:** Added a protected Arducam tab with an independent 1920x1080 CSI
+preview, live FPS/frame-age/reconnect telemetry, and a retry control. The source
+opens lazily through NVIDIA Argus and remains separate from the artwork camera,
+YOLO, and session startup. Added a non-destructive Jetson probe for sensor IDs 1
+and 0 plus a hardware handoff guide.
+
+**Validation:** All 346 automated tests passed. Patch-scoped Ruff, Python
+compilation, JavaScript parsing, PowerShell parsing, Bash syntax, model/content
+contract validation, model hash verification, secret scanning, recovery-bundle
+verification, and `git diff --check` passed. A local browser check confirmed the
+camera path degrades to `Camera disconnected` without blocking the dashboard.
+
+**Deployment result:** Ready for the existing one-command deployment. The
+Jetson is offline, so Argus discovery, live image quality, and sustained FPS
+remain pending on-device checks.
+
+**Remaining limitation:** `UC-517 Rev D3` identifies the IMX477 board family
+but not the exact lens/focus SKU. The Seeed J401 carrier may require a different
+sensor ID or a board-specific driver/device-tree adjustment.
+
+## 2026-09-03 - Seven-artwork YOLO26 Nano model candidate
+
+**Changed:** Replaced the repository recovery checkpoint with the returned
+seven-class YOLO26 Nano `best.pt`, aligned the configured class order with the
+checkpoint, preserved the training and held-out evaluation evidence, and added a
+deployment-time checkpoint check. Deployment now backs up the old model and
+generated engine, rejects class-order drift, removes stale exports, and rebuilds
+TensorRT FP16 on the target Jetson before restarting ATLAS.
+
+**Validation:** The seven labels match all seven demo-pack artworks. The archive
+and checkpoint hashes were recorded. The dataset contains 866/152/152
+train/validation/test images with no exact duplicates or repeated Roboflow source
+names across splits. The held-out PR plot confirms `0.962` mAP50, consistent with
+the trainer's `0.9618`; the trainer reported `0.8486` mAP50-95.
+
+**Deployment result:** Pending Jetson model load, TensorRT export, camera
+benchmark, and physical-artwork rehearsal.
+
+**Remaining limitation:** Mona Lisa is the weakest held-out class at `0.872`
+AP50. Printed/displayed artwork tests and non-artwork false-positive trials are
+required before freezing the competition release.
+
 ## 2026-09-01 - Compact Main dashboard camera frame
 
 **Changed:** Reduced the Live camera frame only in the Admin Main tab from a

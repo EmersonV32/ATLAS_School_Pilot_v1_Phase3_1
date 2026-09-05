@@ -1,4 +1,4 @@
-"""Low-latency camera reader for USB cameras and MJPEG streams."""
+"""Low-latency camera reader for USB, MJPEG, and Jetson CSI sources."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def normalize_camera_source(source: str | int) -> str | int:
     """Convert a numeric camera setting to an OpenCV device index."""
     if isinstance(source, int):
@@ -19,6 +20,26 @@ def normalize_camera_source(source: str | int) -> str | int:
     if value.isdigit():
         return int(value)
     return value
+
+
+def build_nvargus_pipeline(
+    *,
+    sensor_id: int,
+    width: int,
+    height: int,
+    fps: int,
+    flip_method: int = 0,
+) -> str:
+    """Build an OpenCV GStreamer pipeline that retains the Jetson ISP path."""
+    return (
+        f"nvarguscamerasrc sensor-id={sensor_id} ! "
+        f"video/x-raw(memory:NVMM),width=(int){width},height=(int){height},"
+        f"format=(string)NV12,framerate=(fraction){fps}/1 ! "
+        f"nvvidconv flip-method={flip_method} ! "
+        "video/x-raw,format=(string)BGRx ! videoconvert ! "
+        "video/x-raw,format=(string)BGR ! "
+        "appsink drop=true max-buffers=1 sync=false"
+    )
 
 
 class CameraSource:
@@ -37,6 +58,7 @@ class CameraSource:
         fps: int = 15,
         rotation_degrees: int = 0,
         reconnect_s: float = 1.0,
+        name: str = "camera",
     ) -> None:
         self.source = normalize_camera_source(source)
         self.width = width
@@ -46,6 +68,7 @@ class CameraSource:
         if self.rotation_degrees not in (0, 90, 180, 270):
             raise ValueError("camera_rotation_degrees must be 0, 90, 180, or 270")
         self.reconnect_s = max(0.1, reconnect_s)
+        self.name = name
 
         self._capture = None
         self._frame: Any = None
@@ -64,7 +87,10 @@ class CameraSource:
     def _open(self):
         import cv2  # type: ignore
 
-        if isinstance(self.source, int) and platform.system() == "Linux":
+        if isinstance(self.source, str) and self.source.startswith("gstreamer:"):
+            pipeline = self.source.removeprefix("gstreamer:").strip()
+            capture = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+        elif isinstance(self.source, int) and platform.system() == "Linux":
             capture = cv2.VideoCapture(self.source, cv2.CAP_V4L2)
         else:
             # ESP32 MJPEG streams occasionally stop sending frames without
@@ -120,7 +146,7 @@ class CameraSource:
         self._ready.clear()
         self._thread = threading.Thread(
             target=self._reader_loop,
-            name="atlas-camera-reader",
+            name=f"atlas-{self.name}-reader",
             daemon=True,
         )
         self._thread.start()

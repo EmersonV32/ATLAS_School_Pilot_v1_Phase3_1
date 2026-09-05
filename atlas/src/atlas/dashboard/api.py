@@ -218,6 +218,26 @@ def create_app(
             headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
         )
 
+    @app.get("/api/admin/arducam/status", dependencies=[Depends(require_admin)])
+    def arducam_status() -> dict:
+        return service.arducam_status()
+
+    @app.get(
+        "/api/admin/arducam/frame.jpg",
+        response_class=Response,
+        dependencies=[Depends(require_admin)],
+    )
+    def arducam_frame() -> Response:
+        try:
+            frame = service.arducam_frame_jpeg()
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        return Response(
+            content=frame,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+        )
+
     # -- session ------------------------------------------------------------
     @app.post("/session/start")
     def session_start() -> dict:

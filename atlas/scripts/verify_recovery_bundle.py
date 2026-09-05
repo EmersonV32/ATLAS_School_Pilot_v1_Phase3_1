@@ -10,6 +10,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = (
     "README.md",
+    "DEPLOY_ATLAS.ps1",
     "pyproject.toml",
     ".env.example",
     "requirements-jetson.lock.txt",
@@ -40,6 +41,7 @@ REPOSITORY_REQUIRED = (
     "handoff/VALIDATION_CHECKLIST.md",
     "handoff/SECRETS_AND_PRIVATE_STATE.md",
     "handoff/TROUBLESHOOTING.md",
+    "handoff/jetson/ARDUCAM_IMX477.md",
     "handoff/jetson/OPERATIONS_MANUAL.md",
     "handoff/jetson/REBUILD_FROM_FRESH_FLASH.md",
     ".github/workflows/recovery-gate.yml",

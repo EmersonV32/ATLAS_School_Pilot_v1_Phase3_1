@@ -1,5 +1,3 @@
-53f4438df7af6b19550cd0b508e8cde84b2e1cfdc66296564516222aca4dbc0d  atlas_yolo.pt
-# Working-Jetson reference hashes for regenerated/downloaded files:
-# f00ef8c174fbd30c16a31dba8ee5cb8f78ff91d87cbe4aa62587b4ead780025e  atlas_yolo.onnx
-# fd8e5aa9b539d12624a13c265b4378c43942ec546d59b9fc1d3acd526476afe8  atlas_yolo.engine
+6b86324bd641bfa629690d35c2c10f0dc7f4caed800db47d922ec3991543618a  atlas_yolo.pt
+# Target-specific ONNX and TensorRT hashes are recorded after Jetson export.
 # 1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3  silero_vad.onnx

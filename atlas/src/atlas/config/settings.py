@@ -89,6 +89,15 @@ class HardwareSettings(BaseModel):
     camera_fps: int = 15
     camera_rotation_degrees: int = 0
     camera_reconnect_s: float = 1.0
+    # Independent IMX477/UC-517 preview. It is opened lazily by the admin tab,
+    # so a missing CSI camera never blocks ATLAS or either dashboard.
+    arducam_enabled: bool = True
+    arducam_sensor_id: int = Field(default=1, ge=0, le=7)
+    arducam_width: int = Field(default=1920, ge=160, le=4056)
+    arducam_height: int = Field(default=1080, ge=120, le=3040)
+    arducam_fps: int = Field(default=30, ge=1, le=60)
+    arducam_flip_method: int = Field(default=0, ge=0, le=7)
+    arducam_reconnect_s: float = Field(default=1.0, ge=0.1, le=30.0)
     headset_name: str = "Shokz OpenComm2 UC"
     # Empty keeps speech output on the headset; set to a speaker for split routing.
     audio_output_name: str = ""

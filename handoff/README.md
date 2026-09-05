@@ -22,7 +22,9 @@ museum operator, or replacement Jetson. It describes the active source in
   [`DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md) and
   [`architecture/`](architecture/).
 - **Replacement Jetson:** [`jetson/REBUILD_FROM_FRESH_FLASH.md`](jetson/REBUILD_FROM_FRESH_FLASH.md),
-  then [`jetson/OPERATIONS_MANUAL.md`](jetson/OPERATIONS_MANUAL.md).
+  then [`jetson/OPERATIONS_MANUAL.md`](jetson/OPERATIONS_MANUAL.md). For the
+  separate CSI preview camera, use
+  [`jetson/ARDUCAM_IMX477.md`](jetson/ARDUCAM_IMX477.md).
 - **Museum/demo operator:** [`operations/`](operations/) and
   [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 - **Privacy reviewer:** [`policies/`](policies/).
