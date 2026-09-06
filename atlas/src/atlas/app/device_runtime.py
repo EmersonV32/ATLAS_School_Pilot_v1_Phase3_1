@@ -480,6 +480,13 @@ class DeviceRuntime:
                 if self._dashboard_service is not None:
                     runner.set_preferred_language(self._dashboard_service.language)
                     runner.set_preferred_profile(self._dashboard_service.profile)
+                    runner.set_preferred_accessibility(
+                        getattr(
+                            self._dashboard_service,
+                            "visitor_accessibility",
+                            (),
+                        )
+                    )
                 demo_active = bool(
                     self._dashboard_service is not None
                     and self._dashboard_service.demo_active

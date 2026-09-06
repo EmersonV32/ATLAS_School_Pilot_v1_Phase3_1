@@ -24,6 +24,7 @@ from atlas.dashboard.visitor_activation import (
     local_greeting,
     wake_phrase_matches,
 )
+from atlas.dialogue.scripted_faq import resolve_scripted_faq
 from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.languages import OUTPUT_LANGUAGE_NAMES, normalize_language_code
 from atlas.models.retrieval import RetrievalQuery
@@ -169,7 +170,7 @@ class RuntimeService:
         self._visitor_expertise: str | None = None
         self._wake_required = False
         self._wake_activated = True
-        self._greeting_name: str | None = None
+        self._visitor_name: str | None = None
         hardware = container.settings.hardware
         configured_output = str(hardware.audio_output_name).strip()
         self._headset_output_name = str(hardware.headset_name).strip()
@@ -212,7 +213,7 @@ class RuntimeService:
         self.demo_active = bool(demo)
         self._wake_required = bool(wake_required)
         self._wake_activated = not self._wake_required
-        self._greeting_name = clean_greeting_name(greeting_name)
+        self._visitor_name = clean_greeting_name(greeting_name)
         self.session_id = new_session_id()
         self.container.logger.log(
             session_id=self.session_id,
@@ -241,7 +242,7 @@ class RuntimeService:
         self.demo_active = False
         self._wake_required = False
         self._wake_activated = True
-        self._greeting_name = None
+        self._visitor_name = None
         self._visitor_interests = []
         self._visitor_accessibility = []
         self._visitor_expertise = None
@@ -266,7 +267,7 @@ class RuntimeService:
             self.pack_id = pack_id
         if accessibility_mode is not None:
             self.accessibility_mode = bool(accessibility_mode)
-            if self.accessibility_mode:
+            if self.accessibility_mode and profile is None:
                 self.profile = EducationalLevel.VISUAL_IMPAIRMENT.value
         if interests is not None:
             self._visitor_interests = list(interests)
@@ -282,13 +283,18 @@ class RuntimeService:
             self.session_id and self._wake_required and not self._wake_activated
         )
 
+    @property
+    def visitor_accessibility(self) -> tuple[str, ...]:
+        """Return privacy-bounded accessibility choices for the live runner."""
+        return tuple(self._visitor_accessibility)
+
     def activate_from_wake(self, transcript: str) -> bool:
         """Accept the local wake phrase and play a private local greeting."""
         if not self.wake_pending:
             return True
         if not wake_phrase_matches(transcript, self.language):
             return False
-        name = self._greeting_name
+        name = self._visitor_name
         greeting = local_greeting(self.language, name)
         if name:
             spoken = bool(
@@ -302,7 +308,6 @@ class RuntimeService:
             )
             return False
         self._wake_activated = True
-        self._greeting_name = None
         logger.info(
             "[Activation] Wake phrase accepted; local greeting completed "
             "[language=%s audio_played=%s]",
@@ -574,6 +579,44 @@ class RuntimeService:
             logger.info("[Typed question] %s", question)
         artwork = self.artwork_status()
         artwork_id = artwork.get("artwork_id")
+
+        with Timer() as scripted_timer:
+            scripted = resolve_scripted_faq(
+                question,
+                artwork_id=artwork_id,
+                language=lang.value,
+                profile=level.value,
+                accessibility=self._visitor_accessibility,
+            )
+        if scripted is not None:
+            remember = getattr(
+                self.container.dialogue_engine,
+                "remember_local_response",
+                None,
+            )
+            if callable(remember):
+                remember(question, scripted.response)
+            answer = {
+                "answer": scripted.response,
+                "language": lang.value,
+                "grounded": True,
+                "fallback_used": False,
+                "filtered": False,
+                "confidence": "high",
+                "used_chunk_ids": list(scripted.source_ids),
+                "artwork_id": scripted.artwork_id,
+                "retrieval_latency_ms": 0.0,
+                "total_latency_ms": scripted_timer.elapsed_ms,
+                "error": None,
+            }
+            self.last_answer = answer
+            logger.info(
+                "[Timing] Scripted FAQ %.2f ms [intent=%s artwork_id=%s]",
+                scripted_timer.elapsed_ms,
+                scripted.intent,
+                scripted.artwork_id or "none",
+            )
+            return answer
 
         if "llm_timeout" in self.demo_flags:
             timeout_fallbacks = {

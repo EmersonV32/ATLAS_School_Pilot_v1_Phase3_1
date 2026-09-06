@@ -114,8 +114,8 @@ class VisitorService:
     """Owns ephemeral onboarding and optionally activates one device session.
 
     Exact ages, raw media, prompts, transcript text, and answer text do not cross
-    this boundary. An optional first name crosses once into local runtime memory
-    for the greeting, then is cleared without logging, storage, RAG, or cloud use.
+    this boundary. An optional first name crosses into local runtime memory for
+    the visit, then is cleared without logging, storage, RAG, or cloud use.
     """
 
     def __init__(self, runtime_service: RuntimeBridge | None = None) -> None:
@@ -409,14 +409,16 @@ class VisitorService:
     def _effective_runtime_profile(self) -> str:
         profile = self._state["profile"]
         accessibility = set(profile["accessibility"])
-        if "audio_description" in accessibility:
-            return "visual_impairment"
-        if "simple_language" in accessibility:
-            return "simple_language"
+        if profile["age_guidance"] == "under_7":
+            return "early_child"
         if profile["age_guidance"] == "under_13":
             return "child"
         if profile["age_guidance"] == "13_17":
             return "teen"
+        if "audio_description" in accessibility:
+            return "visual_impairment"
+        if "simple_language" in accessibility:
+            return "simple_language"
         if profile["expertise"] == "enthusiast":
             return "expert"
         return "adult_beginner"
@@ -648,7 +650,7 @@ class VisitorService:
                 "ready" if named_greeting_ready else "unavailable",
                 (
                     "Only coarse preferences transfer; the optional name is "
-                    "cleared after one local greeting."
+                    "kept only in local memory and erased when the visit ends."
                     if named_greeting_ready
                     else "A local voice for the private greeting is unavailable."
                 ),

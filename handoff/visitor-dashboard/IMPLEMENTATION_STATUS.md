@@ -30,8 +30,21 @@
 - Visitor start now creates a selected-language wake gate. Only “Hello ATLAS”
   or its configured local-language equivalent activates normal question
   handling; wake matching is deterministic and adds no LLM request.
-- The optional first name uses a local-only Piper greeting and is cleared after
-  that greeting. It cannot enter Gemini, Cartesia, RAG, logs, or monitoring.
+- The optional first name uses a local-only Piper greeting, remains only in
+  private runtime memory for the active visit, and is erased on stop. It cannot
+  enter Gemini, Cartesia, RAG, status responses, logs, or monitoring.
+- Browser age reduction now separates visitors aged 6 or younger into an
+  `early_child` profile. The prompt specifies one idea at a time, common words,
+  short sentences, concrete examples, and explanations for art terms in every
+  visitor-ready spoken language. Age remains the primary speaking level when
+  accessibility options are selected; audio description and other adjustments
+  are layered on top instead of replacing the child's age profile.
+- Ten deterministic FAQ intents are available for all seven demo artworks, all
+  five visitor-ready spoken languages, and every age/expertise/accessibility
+  profile. Phrase and close-paraphrase matching happens locally before RAG.
+- Scripted turns enter the same three-completed-turn conversation memory. A
+  question that does not match the scripted catalogue continues through the
+  existing hybrid dense/keyword RAG and Gemini path.
 - Onboarding interests, expertise, and accessibility choices now shape the
   dialogue prompt. A bounded local preference extractor can add only approved
   art-interest and explanation-style labels for the active session.
@@ -42,6 +55,8 @@
 
 - Physical Jetson/Shokz validation of wake recognition and every public-language
   local greeting voice.
+- Native-speaker review of the French, Spanish, Italian, and Traditional Chinese
+  scripted answers before a public museum deployment.
 - Runtime interaction-state and inactivity-policy validation on the physical
   Jetson.
 - Public-mode configuration and trusted-network deployment design.

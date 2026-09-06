@@ -24,7 +24,7 @@ VisitorStep = Literal[
     "readiness",
     "privacy",
 ]
-AgeGuidance = Literal["under_13", "13_17", "18_plus"]
+AgeGuidance = Literal["under_7", "under_13", "13_17", "18_plus"]
 ExpertiseLevel = Literal["curious", "familiar", "enthusiast"]
 AccessibilityChoice = Literal[
     "audio_description", "simple_language", "slower_pace", "none"
@@ -55,7 +55,7 @@ class VisitorHelpRequest(BaseModel):
 
 
 class VisitorStartRequest(BaseModel):
-    """A one-time name used only by the Jetson's local greeting path."""
+    """A visit-only name used only by the Jetson's private local path."""
 
     model_config = ConfigDict(extra="forbid")
 

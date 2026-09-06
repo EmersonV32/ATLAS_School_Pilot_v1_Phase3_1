@@ -5,7 +5,7 @@
 | Input | Lifetime | Server | Admin |
 |---|---|---|---|
 | Language | Session | Yes | Yes |
-| Optional first name | Until first wake greeting | Local memory only | Boolean only |
+| Optional first name | Active visit | Local memory only | Boolean only |
 | Exact age | Until client derivation | Never | Never |
 | Derived age guidance | Session | Yes | Summary |
 | Expertise/interests/accessibility | Session | Yes | Yes |
@@ -14,8 +14,10 @@
 The browser must not use cookies, localStorage, sessionStorage, or IndexedDB
 for visitor state. The optional name crosses the local API only in the start
 request, bypasses cloud TTS through the private Piper path, and is erased from
-runtime memory immediately after the first greeting. Reset, staff stop, or page
-reload erases the remaining browser profile.
+runtime memory only when the visit ends. It is retained so later private local
+features can reuse it, but the current answer pipeline never places it in a
+prompt, retrieval query, cloud speech request, status response, or log. Reset or
+staff stop erases the runtime profile; page reload erases remaining browser data.
 
 ## Public versus prototype logging
 
@@ -40,6 +42,8 @@ explanation styles persist in memory for the active session.
   greeting-name characters at API boundaries.
 - A name-bearing greeting fails readiness when no selected-language local voice
   is available; it never falls back to cloud TTS.
+- The `under_7` guidance band contains no exact age and maps to the
+  `early_child` response profile.
 - Admin live data is generated from a dedicated privacy-safe projection.
 - Mutating admin routes share the established token guard.
 - Static cache rules exclude `/api/` and every non-static response.

@@ -64,7 +64,7 @@ const ENGLISH_STRINGS = {
   "language.required": "Choose a language before continuing.",
   "about.kicker": "A little context",
   "about.title": "How should ATLAS guide you?",
-  "about.lead": "Both answers are optional. Your name is used once by the local ATLAS unit for your greeting, and your age becomes a broad guidance band.",
+  "about.lead": "Both answers are optional. Your name stays only in the local ATLAS unit for this visit, and your age becomes a broad guidance band.",
   "about.name": "First name",
   "about.age": "Age",
   "about.name_placeholder": "What should ATLAS call you?",
@@ -152,14 +152,14 @@ const ENGLISH_STRINGS = {
   "readiness.detail.unsupported": "This language is not available on this ATLAS unit.",
   "privacy.kicker": "You are in control",
   "privacy.title": "Your setup is temporary.",
-  "privacy.lead": "ATLAS uses your choices only for this visit. Your optional name goes only to the local unit for one greeting; your exact age never leaves this screen.",
+  "privacy.lead": "ATLAS uses your choices only for this visit. Your optional name stays only in the local unit and is erased when the visit ends; your exact age never leaves this screen.",
   "privacy.point1": "Coarse preferences only",
   "privacy.point2": "No raw setup media stored",
   "privacy.point3": "Museum staff can clear the session",
   "privacy.close": "Close privacy information",
   "privacy.dialog_kicker": "Privacy at a glance",
   "privacy.dialog_title": "Personal for this visit. Temporary by design.",
-  "privacy.dialog_p1": "Your first name is sent once to the local ATLAS unit for your greeting, never to the AI or cloud, and is cleared after use. Your age becomes a broad guidance band before any update is sent.",
+  "privacy.dialog_p1": "Your first name stays only in local runtime memory for this visit, never in the AI, cloud, status, or logs, and is erased when the visit ends. Your age becomes a broad guidance band before any update is sent.",
   "privacy.dialog_p2": "Nothing is written to browser storage. Setup clears on completion, staff stop, reset, or inactivity.",
   "in_use.kicker": "Profile transferred",
   "in_use.title": "Put on the headset and say “Hello ATLAS.”",
@@ -249,7 +249,7 @@ function reduceAge() {
   if (!input.value) return;
   const age = Number(input.value);
   if (Number.isInteger(age) && age >= 0) {
-    visitor.ageGuidance = age < 13 ? "under_13" : age < 18 ? "13_17" : "18_plus";
+    visitor.ageGuidance = age < 7 ? "under_7" : age < 13 ? "under_13" : age < 18 ? "13_17" : "18_plus";
   }
   input.value = "";
 }

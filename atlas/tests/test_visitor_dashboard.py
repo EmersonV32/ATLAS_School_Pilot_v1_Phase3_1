@@ -185,8 +185,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v27"' in response.text
-        assert '"/static/visitor.js?v=27"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v28"' in response.text
+        assert '"/static/visitor.js?v=28"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/assets/expertise-mona.webp"' in response.text
@@ -198,8 +198,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=27" in html
-        assert "/static/visitor.js?v=27" in html
+        assert "/static/visitor.css?v=28" in html
+        assert "/static/visitor.js?v=28" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
@@ -278,10 +278,18 @@ class TestVisitorShell:
 
         assert 'id="visitor-age" type="text" readonly inputmode="none"' in html
         assert html.count('data-digit="') == 10
-        assert "ageGuidance = age < 13" in source
+        assert 'age < 7 ? "under_7"' in source
+        assert 'age < 13 ? "under_13"' in source
         assert "keypadValue.length >=" not in source
         assert "5 to 120" not in html
         assert '"age":' not in source
+
+    def test_name_privacy_copy_promises_visit_only_retention(self, visitor_client):
+        html = visitor_client.get("/").text
+
+        assert "name stays only in the local ATLAS unit for this visit" in html
+        assert "is erased when the visit ends" in html
+        assert "used once" not in html
 
     def test_help_request_has_a_prominent_admin_state(self, visitor_client):
         html = visitor_client.get("/admin").text
@@ -709,6 +717,43 @@ class TestRuntimeBridge:
         stopped = service.stop()
         assert stopped["stopped"] is True
         assert runtime.stopped == 1
+
+    def test_six_or_younger_maps_to_early_child_profile(self):
+        runtime = _FakeRuntime()
+        service = VisitorService(runtime_service=runtime)
+        service.progress(
+            VisitorProgressRequest(
+                **_progress(
+                    step="privacy",
+                    language="en",
+                    age_guidance="under_7",
+                )
+            )
+        )
+
+        service.start()
+
+        assert runtime.profile_calls[0]["profile"] == "early_child"
+
+    def test_early_child_profile_survives_accessibility_overlay(self):
+        runtime = _FakeRuntime()
+        service = VisitorService(runtime_service=runtime)
+        service.progress(
+            VisitorProgressRequest(
+                **_progress(
+                    step="privacy",
+                    language="en",
+                    age_guidance="under_7",
+                    accessibility=["audio_description"],
+                )
+            )
+        )
+
+        service.start()
+
+        assert runtime.profile_calls[0]["profile"] == "early_child"
+        assert runtime.profile_calls[0]["accessibility_mode"] is True
+        assert runtime.profile_calls[0]["accessibility"] == ["audio_description"]
 
     def test_runtime_bridge_passes_name_only_to_ephemeral_start_argument(self):
         runtime = _FakeRuntime()

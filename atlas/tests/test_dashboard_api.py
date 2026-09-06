@@ -168,8 +168,10 @@ class TestSession:
         assert service.wake_pending is True
         assert service.activate_from_wake("Hello ATLAS") is True
         assert service.wake_pending is False
-        assert service._greeting_name is None
+        assert service._visitor_name == "Emerson"
         assert "Emerson" not in caplog.text
+        service.stop_session()
+        assert service._visitor_name is None
 
     def test_failed_private_greeting_keeps_the_wake_gate_closed(
         self, client, monkeypatch
@@ -184,7 +186,7 @@ class TestSession:
 
         assert service.activate_from_wake("Hello ATLAS") is False
         assert service.wake_pending is True
-        assert service._greeting_name == "Emerson"
+        assert service._visitor_name == "Emerson"
 
     def test_profile_update(self, client):
         res = client.post(
@@ -223,6 +225,16 @@ class TestSession:
             "/session/profile", json={"accessibility_mode": True}
         ).json()
         assert body["profile"] == "visual_impairment"
+
+    def test_explicit_early_child_profile_is_not_replaced_by_accessibility(
+        self, client
+    ):
+        body = client.post(
+            "/session/profile",
+            json={"profile": "early_child", "accessibility_mode": True},
+        ).json()
+        assert body["profile"] == "early_child"
+        assert body["accessibility_mode"] is True
 
 
 class TestAudioControls:
@@ -308,6 +320,25 @@ class TestAsk:
         assert body["answer"]
         assert body["artwork_id"] == "mona_lisa"
         assert body["language"] == "en"
+
+    def test_scripted_typed_question_bypasses_rag(self, client, monkeypatch):
+        service = client.app.state.service
+        service.set_manual_artwork("mona_lisa")
+
+        def should_not_retrieve(*_args, **_kwargs):
+            pytest.fail("scripted FAQ answers must not call RAG")
+
+        monkeypatch.setattr(
+            service.container.retriever,
+            "retrieve",
+            should_not_retrieve,
+        )
+        body = client.post("/ask", json={"question": "Who painted this?"}).json()
+
+        assert body["answer"].startswith("Leonardo da Vinci")
+        assert body["retrieval_latency_ms"] == 0.0
+        assert body["confidence"] == "high"
+        assert "src_ml_louvre_gallery" in body["used_chunk_ids"]
 
     def test_ask_without_artwork_still_answers(self, client):
         res = client.post("/ask", json={"question": "Who painted the Mona Lisa?"})
@@ -539,11 +570,19 @@ class TestDemoControls:
             json={"scenario": "llm_timeout"},
             headers=_admin(client),
         )
-        body = client.post("/ask", json={"question": "Who painted this?"}).json()
+        # Local scripted facts stay available even when the cloud LLM is down.
+        scripted = client.post("/ask", json={"question": "Who painted this?"}).json()
+        assert scripted["error"] is None
+        assert scripted["grounded"] is True
+        body = client.post(
+            "/ask",
+            json={"question": "Compare its composition with another work."},
+        ).json()
         assert body["error"] == "simulated_llm_timeout"
         assert body["fallback_used"] is True
         chinese = client.post(
-            "/ask", json={"question": "這是什麼作品？", "language": "zh-Hant"}
+            "/ask",
+            json={"question": "請比較構圖與另一件作品。", "language": "zh-Hant"},
         ).json()
         assert chinese["answer"] == "抱歉，我現在無法產生回應。"
         assert chinese["language"] == "zh"

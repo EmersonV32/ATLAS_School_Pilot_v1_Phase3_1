@@ -85,7 +85,7 @@ function titleCase(value) {
 }
 
 function formatAgeGuidance(value) {
-  return { under_13: "Under 13", "13_17": "13–17", "18_plus": "18+" }[value]
+  return { under_7: "6 or younger", under_13: "7–12", "13_17": "13–17", "18_plus": "18+" }[value]
     || "Not provided";
 }
 

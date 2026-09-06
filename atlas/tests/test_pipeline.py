@@ -203,6 +203,60 @@ def test_preferred_profile_is_forwarded_to_dialogue_engine():
     assert runner.preferred_profile == "adult_beginner"
 
 
+def test_scripted_faq_bypasses_retrieval_and_enters_three_turn_memory():
+    def should_not_retrieve(*_args):
+        pytest.fail("scripted FAQ answers must not call RAG")
+
+    engine = DialogueEngine(llm_client=MockLLMClient())
+    runner = _make_runner(dialogue_engine=engine, retriever=should_not_retrieve)
+    runner.set_preferred_profile("early_child")
+    runner.set_preferred_accessibility(["audio_description"])
+    result = runner.respond_to_transcript(
+        TranscriptResult("Who painted this?", "en"),
+        detection=ArtworkDetection(
+            artwork_id="mona_lisa",
+            label="Mona Lisa",
+            confidence=1.0,
+            source="test",
+        ),
+    )
+
+    assert result.success
+    assert result.event == "scripted_faq"
+    assert result.dialogue.grounding_reason == "scripted_faq:artist"
+    assert "src_ml_louvre_gallery" in result.dialogue.used_chunk_ids
+    assert "Leonardo da Vinci" in result.dialogue.response
+    assert "Watch the smile" in result.dialogue.response
+    assert engine._conversation_turns == [
+        ("Who painted this?", result.dialogue.response)
+    ]
+
+
+def test_unmatched_question_continues_to_hybrid_retrieval():
+    calls = []
+
+    def recording_retriever(artwork_id, question, language="en"):
+        calls.append((artwork_id, question, language))
+        return [{"text": "The comparison depends on composition."}]
+
+    runner = _make_runner(retriever=recording_retriever)
+    result = runner.respond_to_transcript(
+        TranscriptResult("Compare its composition with another work.", "en"),
+        detection=ArtworkDetection(
+            artwork_id="mona_lisa",
+            label="Mona Lisa",
+            confidence=1.0,
+            source="test",
+        ),
+    )
+
+    assert result.success
+    assert result.event != "scripted_faq"
+    assert calls == [
+        ("mona_lisa", "Compare its composition with another work.", "en")
+    ]
+
+
 @pytest.mark.parametrize(
     ("command", "expected"),
     [

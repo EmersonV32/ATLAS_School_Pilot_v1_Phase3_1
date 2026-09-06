@@ -28,7 +28,9 @@ Accepts only non-sensitive progress:
 }
 ```
 
-There is intentionally no name or exact-age field on the progress route.
+There is intentionally no name or exact-age field on the progress route. Age
+guidance accepts `under_7`, `under_13`, `13_17`, or `18_plus`; an entered age of
+6 or younger becomes `under_7` in the browser before the numeric field is cleared.
 
 ### `GET /api/visitor/readiness`
 
@@ -37,7 +39,7 @@ Returns each requirement as `ready`, `pending`, `unavailable`, `degraded`, or
 
 ### `POST /api/visitor/onboarding/start`
 
-Accepts an optional one-time local greeting name:
+Accepts an optional visit-only local greeting name:
 
 ```json
 {"greeting_name": "Emerson"}
@@ -46,8 +48,9 @@ Accepts an optional one-time local greeting name:
 The schema accepts at most 40 Unicode letters plus spaces, apostrophes, and
 hyphens. The name passes directly from browser memory to local runtime memory,
 is spoken only through the configured local Piper voice after the selected-
-language wake phrase, and is immediately cleared after a successful greeting.
-It is never placed in monitoring, logs, retrieval, prompts, or cloud requests.
+language wake phrase, remains only in runtime memory for the active visit, and
+is erased on stop. It is never placed in monitoring, logs, retrieval, prompts,
+status responses, or cloud requests.
 
 The route atomically validates language, transfer state, private local voice
 availability when a name was entered, and all other readiness items. In device

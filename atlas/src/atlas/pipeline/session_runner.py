@@ -25,6 +25,7 @@ from typing import Any
 from atlas.audio.stt import BaseSTT, TranscriptResult
 from atlas.audio.tts import BaseTTS
 from atlas.dialogue.dialogue_engine import DialogueEngine, DialogueResult
+from atlas.dialogue.scripted_faq import resolve_scripted_faq
 from atlas.hardware.base import BaseHardware
 from atlas.models.languages import normalize_language_code
 from atlas.vision.detector import ArtworkDetection, BaseDetector
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def _age_hint_to_number(age_hint):
-    mapping = {"child": 8, "teen": 14, "adult": 30}
+    mapping = {"early_child": 5, "child": 8, "teen": 14, "adult": 30}
     if isinstance(age_hint, int):
         return age_hint
     return mapping.get(str(age_hint).lower())
@@ -318,6 +319,7 @@ class SessionRunner:
         self._last_language = "en"
         self._preferred_language = "en"
         self._preferred_profile = "adult_beginner"
+        self._preferred_accessibility: tuple[str, ...] = ()
 
     def set_preferred_language(self, language: str) -> None:
         normalized = normalize_language_code(language)
@@ -327,6 +329,7 @@ class SessionRunner:
     def set_preferred_profile(self, profile: str) -> None:
         """Apply the privacy-bounded dashboard profile to spoken answers."""
         allowed = {
+            "early_child",
             "child",
             "teen",
             "adult_beginner",
@@ -336,6 +339,16 @@ class SessionRunner:
         }
         self._preferred_profile = (
             str(profile) if str(profile) in allowed else "adult_beginner"
+        )
+
+    def set_preferred_accessibility(
+        self,
+        accessibility: list[str] | tuple[str, ...],
+    ) -> None:
+        """Apply allow-listed accessibility overlays without replacing age."""
+        allowed = {"audio_description", "simple_language", "slower_pace"}
+        self._preferred_accessibility = tuple(
+            item for item in accessibility if str(item) in allowed
         )
 
     @property
@@ -845,6 +858,57 @@ class SessionRunner:
             self._hw.set_status_led("amber")
         else:
             logger.info("[Vision] No active context; searching all artworks")
+
+        scripted = resolve_scripted_faq(
+            transcript.text,
+            artwork_id=artwork_id,
+            language=transcript.language,
+            profile=self._preferred_profile,
+            accessibility=self._preferred_accessibility,
+        )
+        if scripted is not None:
+            remember = getattr(self._engine, "remember_local_response", None)
+            if callable(remember):
+                remember(transcript.text, scripted.response)
+            dialogue_result = DialogueResult(
+                response=scripted.response,
+                language=normalize_language_code(transcript.language),
+                grounded=True,
+                grounding_reason=f"scripted_faq:{scripted.intent}",
+                filtered=False,
+                used_chunk_ids=list(scripted.source_ids),
+                confidence="high",
+                fallback_used=False,
+            )
+            self._hw.set_status_led("green")
+            try:
+                spoke = bool(
+                    self._tts.speak(
+                        scripted.response,
+                        language=normalize_language_code(transcript.language),
+                    )
+                )
+            except Exception as exc:
+                logger.exception("[TTS] Scripted FAQ failed: %s", exc)
+                spoke = False
+            finally:
+                self._hw.reset_exhibit()
+                self._hw.set_status_led("off")
+            logger.info(
+                "[Timing] Scripted FAQ cycle %.0f ms "
+                "[intent=%s artwork_id=%s tts_ok=%s]",
+                (time.perf_counter() - cycle_started) * 1000.0,
+                scripted.intent,
+                scripted.artwork_id or "none",
+                spoke,
+            )
+            return SessionResult(
+                detection=detection,
+                transcript=transcript,
+                dialogue=dialogue_result,
+                tts_ok=spoke,
+                event="scripted_faq",
+            )
 
         retrieval_started = time.perf_counter()
         try:

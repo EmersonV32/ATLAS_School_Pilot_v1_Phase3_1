@@ -40,6 +40,7 @@ class Language(str, Enum):
 class EducationalLevel(str, Enum):
     """Explanation level / accessibility profile applied to an answer."""
 
+    EARLY_CHILD = "early_child"
     CHILD = "child"
     TEEN = "teen"
     ADULT_BEGINNER = "adult_beginner"

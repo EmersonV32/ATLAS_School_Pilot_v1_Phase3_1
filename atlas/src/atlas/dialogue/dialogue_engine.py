@@ -153,6 +153,12 @@ class DialogueEngine:
         self._conversation_turns.append((question[:500], answer[:1000]))
         self._conversation_turns = self._conversation_turns[-3:]
 
+    def remember_local_response(self, question: str, answer: str) -> None:
+        """Keep a deterministic local answer in the same three-turn context."""
+        self._personalization.observe(question)
+        self._remember(question, answer)
+        self._personalization.complete_turn(preference_question_requested=False)
+
     def respond(
         self,
         question: str,
