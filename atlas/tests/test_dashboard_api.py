@@ -146,6 +146,46 @@ class TestSession:
         assert stopped["demo_active"] is False
         assert service.status()["demo_active"] is False
 
+    def test_private_wake_greeting_is_local_ephemeral_and_not_logged(
+        self, client, caplog
+    ):
+        service = client.app.state.service
+        service.set_profile(
+            language="en",
+            interests=["history"],
+            accessibility=["simple_language"],
+            expertise="familiar",
+        )
+        started = service.start_session(
+            demo=True,
+            wake_required=True,
+            greeting_name="Emerson",
+        )
+
+        assert started["activation_state"] == "waiting_for_wake"
+        assert service.status()["activation_state"] == "waiting_for_wake"
+        assert service.activate_from_wake("Tell me about art") is False
+        assert service.wake_pending is True
+        assert service.activate_from_wake("Hello ATLAS") is True
+        assert service.wake_pending is False
+        assert service._greeting_name is None
+        assert "Emerson" not in caplog.text
+
+    def test_failed_private_greeting_keeps_the_wake_gate_closed(
+        self, client, monkeypatch
+    ):
+        service = client.app.state.service
+        monkeypatch.setattr(
+            service.container.tts,
+            "speak_private_local",
+            lambda text, language: False,
+        )
+        service.start_session(wake_required=True, greeting_name="Emerson")
+
+        assert service.activate_from_wake("Hello ATLAS") is False
+        assert service.wake_pending is True
+        assert service._greeting_name == "Emerson"
+
     def test_profile_update(self, client):
         res = client.post(
             "/session/profile",

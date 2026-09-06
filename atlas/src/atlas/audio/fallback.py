@@ -191,6 +191,29 @@ class FallbackTTS(BaseTTS):
         provider = self.primary if self.primary_ready else self.fallback
         return provider.cue()
 
+    def speak_private_local(self, text: str, language: str = "en") -> bool:
+        """Bypass the cloud primary for ephemeral name-bearing greetings."""
+        if not self.fallback_ready:
+            logger.error(
+                "[TTS] Local private speech requested but fallback is unavailable"
+            )
+            return False
+        try:
+            result = bool(self.fallback.speak_private_local(text, language))
+        except Exception as exc:
+            logger.error("[TTS] Local private speech failed: %s", exc)
+            return False
+        if result:
+            self.last_provider = type(self.fallback).__name__
+            self._last_adapter = self.fallback
+        return result
+
+    def supports_private_language(self, language: str = "en") -> bool:
+        return bool(
+            self.fallback_ready
+            and self.fallback.supports_private_language(language)
+        )
+
     def set_output_device(self, output_device_name: str) -> None:
         self.primary.set_output_device(output_device_name)
         self.fallback.set_output_device(output_device_name)

@@ -35,6 +35,7 @@ from atlas.dashboard.visitor_schemas import (
     VisitorHelpRequest,
     VisitorProgressRequest,
     VisitorSimulationRequest,
+    VisitorStartRequest,
 )
 from atlas.dashboard.visitor_service import VisitorService
 from atlas.models.languages import ADMIN_LANGUAGE_OPTIONS
@@ -127,9 +128,11 @@ def create_app(
         return app.state.visitor_service.readiness()
 
     @app.post("/api/visitor/onboarding/start")
-    def visitor_start() -> dict:
+    def visitor_start(req: VisitorStartRequest | None = None) -> dict:
         try:
-            return app.state.visitor_service.start()
+            return app.state.visitor_service.start(
+                greeting_name=(req.greeting_name if req is not None else None)
+            )
         except RuntimeError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 

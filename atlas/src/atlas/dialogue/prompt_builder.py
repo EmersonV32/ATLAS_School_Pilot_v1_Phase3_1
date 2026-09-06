@@ -20,6 +20,9 @@ class DialogueContext:
     # Populated only when vision/manual capture has identified the artwork.
     artwork_id: str | None = None
     conversation_turns: list[tuple[str, str]] = field(default_factory=list)
+    visitor_interests: str = "none stated"
+    explanation_preferences: str = "none stated"
+    ask_preference_question: bool = False
     max_context_chars: int = 3000
 
 
@@ -94,6 +97,21 @@ _SPEECH_REPAIR_INSTRUCTION = (
     "transcript 'Qui appelle la Joconde ?' may be a phonetic error for "
     "'Qui a peint la Joconde ?'; when the artwork context supports "
     "that reading, answer who painted it."
+)
+
+_PERSONALIZATION_INSTRUCTION = (
+    " SESSION PERSONALIZATION RULES: Treat the coarse SESSION PREFERENCES as "
+    "temporary guidance, not as identity or verified fact. Use them naturally "
+    "to choose examples, depth, pacing, and emphasis. Never ask for or infer a "
+    "name, contact detail, health detail, or other identifying information. "
+    "When PERSONALIZATION QUESTION is REQUESTED, answer the visitor first and "
+    "end with exactly one brief, art-relevant either/or question about what they "
+    "would enjoy or how they want the next explanation. Do not ask more than "
+    "one question in an answer. When it is NOT REQUESTED, do not interrogate the "
+    "visitor. You may answer a safe non-art question briefly, then gently connect "
+    "back to the current or available artwork when that connection is natural. "
+    "Never force an art redirect during an emergency, safety issue, or request "
+    "for staff help."
 )
 
 _JSON_INSTRUCTION = (
@@ -220,6 +238,7 @@ class PromptBuilder:
         system_text = _SYSTEM_FR if lang == "fr" else _SYSTEM_EN
         system_text += _output_language_instruction(lang)
         system_text += _SPEECH_REPAIR_INSTRUCTION
+        system_text += _PERSONALIZATION_INSTRUCTION
         if json_output:
             system_text += _JSON_INSTRUCTION
         elif streaming_output:
@@ -267,6 +286,11 @@ class PromptBuilder:
             f"CURRENT ARTWORK: {artwork_state}\n\n"
             f"{live_vision_rule}\n\n"
             f"REQUIRED RESPONSE LANGUAGE: {OUTPUT_LANGUAGE_NAMES[lang]} ({lang})\n\n"
+            "SESSION PREFERENCES (temporary and non-identifying):\n"
+            f"- Art interests: {ctx.visitor_interests}\n"
+            f"- Explanation preferences: {ctx.explanation_preferences}\n"
+            "- PERSONALIZATION QUESTION: "
+            f"{'REQUESTED' if ctx.ask_preference_question else 'NOT REQUESTED'}\n\n"
             f"CONTEXT:\n{context_block}\n\n{question_block}{level_hint}"
         )
 

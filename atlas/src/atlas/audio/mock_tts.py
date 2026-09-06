@@ -33,3 +33,11 @@ class MockTTS(BaseTTS):
         logger.info("[TTS:%s] %s", language.upper(), text)
         print(f"[TTS:{language.upper()}] {text}")
         return True
+
+    def speak_private_local(self, text: str, language: str = "en") -> bool:
+        logger.info("[TTS:%s] Private local greeting played", language.upper())
+        print(f"[TTS:{language.upper()}] Private local greeting played")
+        return True
+
+    def supports_private_language(self, language: str = "en") -> bool:
+        return True

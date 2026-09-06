@@ -21,19 +21,14 @@ Accepts only non-sensitive progress:
   "step": "interests",
   "language": "en",
   "name_entered": true,
-  "age_guidance": {
-    "vocabulary": "plain",
-    "scaffolding": "guided",
-    "example_maturity": "youth",
-    "minor_safety": true
-  },
+  "age_guidance": "13_17",
   "expertise": "curious",
-  "interest_ids": ["storytelling"],
-  "accessibility": ["shorter_answers"]
+  "interests": ["stories"],
+  "accessibility": ["simple_language"]
 }
 ```
 
-There is intentionally no name or age field.
+There is intentionally no name or exact-age field on the progress route.
 
 ### `GET /api/visitor/readiness`
 
@@ -42,11 +37,23 @@ Returns each requirement as `ready`, `pending`, `unavailable`, `degraded`, or
 
 ### `POST /api/visitor/onboarding/start`
 
-Atomically validates language, transfer state, and all required readiness
-items. In device mode, it transfers only the selected language plus a coarse
-explanation profile, then starts the existing local ATLAS runtime session.
-Failure returns a safe error category and does not create a partial session.
-Dev/laptop mode creates an in-memory mock session.
+Accepts an optional one-time local greeting name:
+
+```json
+{"greeting_name": "Emerson"}
+```
+
+The schema accepts at most 40 Unicode letters plus spaces, apostrophes, and
+hyphens. The name passes directly from browser memory to local runtime memory,
+is spoken only through the configured local Piper voice after the selected-
+language wake phrase, and is immediately cleared after a successful greeting.
+It is never placed in monitoring, logs, retrieval, prompts, or cloud requests.
+
+The route atomically validates language, transfer state, private local voice
+availability when a name was entered, and all other readiness items. In device
+mode it transfers the selected language, coarse explanation profile, interests,
+expertise, and accessibility choices, then starts the existing runtime session
+in `waiting_for_wake` state. Dev/laptop mode creates an in-memory mock session.
 
 ### `POST /api/visitor/help`
 

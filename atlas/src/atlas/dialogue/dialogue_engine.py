@@ -33,6 +33,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
 from atlas.dialogue.grounding_validator import GroundingValidator
+from atlas.dialogue.personalization import SessionPersonalization
 from atlas.dialogue.prompt_builder import (
     DialogueContext,
     PromptBuilder,
@@ -127,10 +128,26 @@ class DialogueEngine:
         self._safety = SafetyFilter()
         self._injection = PromptInjectionFilter()
         self._conversation_turns: list[tuple[str, str]] = []
+        self._personalization = SessionPersonalization()
 
     def reset_conversation(self) -> None:
         """Clear privacy-bounded in-memory context at a session boundary."""
         self._conversation_turns.clear()
+        self._personalization.reset()
+
+    def configure_personalization(
+        self,
+        *,
+        interests: list[str] | None = None,
+        accessibility: list[str] | None = None,
+        expertise: str | None = None,
+    ) -> None:
+        """Start a session with only coarse, allow-listed visitor choices."""
+        self._personalization.configure(
+            interests=interests,
+            accessibility=accessibility,
+            expertise=expertise,
+        )
 
     def _remember(self, question: str, answer: str) -> None:
         self._conversation_turns.append((question[:500], answer[:1000]))
@@ -158,7 +175,12 @@ class DialogueEngine:
                 confidence="high",
             )
 
-        # 1. Build prompt
+        # 1. Learn only allow-listed preferences locally, then build one prompt.
+        self._personalization.observe(question)
+        interests, explanation_styles = self._personalization.prompt_lines()
+        ask_preference_question = (
+            self._personalization.should_ask_preference_question()
+        )
         ctx = DialogueContext(
             question=question,
             artwork_chunks=artwork_chunks,
@@ -167,6 +189,9 @@ class DialogueEngine:
             profile=profile,
             artwork_id=artwork_id,
             conversation_turns=list(self._conversation_turns),
+            visitor_interests=interests,
+            explanation_preferences=explanation_styles,
+            ask_preference_question=ask_preference_question,
         )
         messages = self._prompt_builder.build(ctx, json_output=self._expect_json)
 
@@ -242,6 +267,9 @@ class DialogueEngine:
             fallback_used=fallback_used,
         )
         self._remember(question, result.response)
+        self._personalization.complete_turn(
+            preference_question_requested=ask_preference_question
+        )
         return result
 
     def respond_stream(
@@ -273,6 +301,11 @@ class DialogueEngine:
             on_sentence(result.response)
             return result
 
+        self._personalization.observe(question)
+        interests, explanation_styles = self._personalization.prompt_lines()
+        ask_preference_question = (
+            self._personalization.should_ask_preference_question()
+        )
         ctx = DialogueContext(
             question=question,
             artwork_chunks=artwork_chunks,
@@ -281,6 +314,9 @@ class DialogueEngine:
             profile=profile,
             artwork_id=artwork_id,
             conversation_turns=list(self._conversation_turns),
+            visitor_interests=interests,
+            explanation_preferences=explanation_styles,
+            ask_preference_question=ask_preference_question,
         )
         messages = self._prompt_builder.build(ctx, streaming_output=True)
         events: queue.Queue[tuple[str, object]] = queue.Queue()
@@ -368,6 +404,9 @@ class DialogueEngine:
                 fallback_used=fallback_used,
             )
             self._remember(question, result.response)
+            self._personalization.complete_turn(
+                preference_question_requested=ask_preference_question
+            )
             events.put(("done", result))
 
         thread = threading.Thread(

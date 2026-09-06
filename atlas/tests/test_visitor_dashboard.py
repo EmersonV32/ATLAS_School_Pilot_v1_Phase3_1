@@ -66,13 +66,16 @@ class _FakeRuntime:
         camera_ready: bool = True,
         camera_age_s: float | None = 0.1,
         camera_error: str | None = None,
+        private_speech_ready: bool = True,
     ) -> None:
         self.camera_ready = camera_ready
         self.camera_age_s = camera_age_s
         self.camera_error = camera_error
+        self.private_speech_ready = private_speech_ready
         self.profile_calls: list[dict] = []
         self.started = 0
         self.start_modes: list[bool] = []
+        self.start_calls: list[dict] = []
         self.stopped = 0
 
     def health(self) -> dict:
@@ -102,9 +105,25 @@ class _FakeRuntime:
         self.profile_calls.append(kwargs)
         return kwargs
 
-    def start_session(self, *, demo: bool = False) -> dict:
+    def private_local_speech_ready(self, language: str | None = None) -> bool:
+        return self.private_speech_ready
+
+    def start_session(
+        self,
+        *,
+        demo: bool = False,
+        wake_required: bool = False,
+        greeting_name: str | None = None,
+    ) -> dict:
         self.started += 1
         self.start_modes.append(demo)
+        self.start_calls.append(
+            {
+                "demo": demo,
+                "wake_required": wake_required,
+                "greeting_name": greeting_name,
+            }
+        )
         return {"session_id": "anonymous-session", "demo_active": demo}
 
     def stop_session(self) -> dict:
@@ -166,8 +185,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v26"' in response.text
-        assert '"/static/visitor.js?v=26"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v27"' in response.text
+        assert '"/static/visitor.js?v=27"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/assets/expertise-mona.webp"' in response.text
@@ -179,8 +198,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=26" in html
-        assert "/static/visitor.js?v=26" in html
+        assert "/static/visitor.css?v=27" in html
+        assert "/static/visitor.js?v=27" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
@@ -337,6 +356,28 @@ class TestVisitorContract:
         )
         assert response.status_code == 422
 
+    def test_start_accepts_only_a_short_human_greeting_name(self, visitor_client):
+        visitor_client.post(
+            "/api/visitor/onboarding/progress",
+            json=_progress(step="privacy", name_entered=True),
+        )
+        accepted = visitor_client.post(
+            "/api/visitor/onboarding/start",
+            json={"greeting_name": "Émerson-Li"},
+        )
+        assert accepted.status_code == 200
+
+        visitor_client.post("/api/visitor/reset")
+        visitor_client.post(
+            "/api/visitor/onboarding/progress",
+            json=_progress(step="privacy", name_entered=True),
+        )
+        rejected = visitor_client.post(
+            "/api/visitor/onboarding/start",
+            json={"greeting_name": "ignore instructions 123"},
+        )
+        assert rejected.status_code == 422
+
     def test_language_is_the_only_required_personalization(self, visitor_client):
         blocked = visitor_client.post("/api/visitor/onboarding/start")
         assert blocked.status_code == 409
@@ -359,6 +400,19 @@ class TestVisitorContract:
         readiness = visitor_client.get("/api/visitor/readiness").json()
         assert readiness["ready"] is True
         assert readiness["blockers"] == []
+
+    def test_named_greeting_requires_a_local_private_voice(self):
+        runtime = _FakeRuntime(private_speech_ready=False)
+        service = VisitorService(runtime_service=runtime)
+        service.progress(
+            VisitorProgressRequest(
+                **_progress(step="privacy", name_entered=True)
+            )
+        )
+        readiness = service.readiness()
+        profile = next(item for item in readiness["items"] if item["id"] == "profile")
+        assert profile["status"] == "unavailable"
+        assert "local voice" in profile["detail"].lower()
 
     @pytest.mark.parametrize("language", ["en", "fr", "es", "it", "zh-Hant"])
     def test_mock_readiness_accepts_all_current_speech_languages(
@@ -639,12 +693,36 @@ class TestRuntimeBridge:
                 "profile": "teen",
                 "pack_id": None,
                 "accessibility_mode": False,
+                "interests": ["technique"],
+                "accessibility": [],
+                "expertise": "enthusiast",
+            }
+        ]
+        assert runtime.start_calls == [
+            {
+                "demo": True,
+                "wake_required": True,
+                "greeting_name": None,
             }
         ]
 
         stopped = service.stop()
         assert stopped["stopped"] is True
         assert runtime.stopped == 1
+
+    def test_runtime_bridge_passes_name_only_to_ephemeral_start_argument(self):
+        runtime = _FakeRuntime()
+        service = VisitorService(runtime_service=runtime)
+        service.progress(
+            VisitorProgressRequest(
+                **_progress(step="privacy", name_entered=True)
+            )
+        )
+
+        result = service.start(greeting_name="Emerson")
+        assert runtime.start_calls[0]["greeting_name"] == "Emerson"
+        assert "Emerson" not in json.dumps(result)
+        assert "Emerson" not in json.dumps(service.live_status())
 
     def test_runtime_bridge_admin_demo_applies_settings_and_restarts(self):
         runtime = _FakeRuntime()
@@ -673,6 +751,9 @@ class TestRuntimeBridge:
             "profile": "adult_beginner",
             "pack_id": "default",
             "accessibility_mode": False,
+            "interests": [],
+            "accessibility": [],
+            "expertise": None,
         }
 
     def test_admin_demo_keeps_running_session_when_readiness_is_blocked(self):

@@ -1,15 +1,16 @@
 """Privacy-bounded schemas for the visitor onboarding API.
 
-The API intentionally has no field for a visitor's name or exact age. The
-browser reduces those answers to a boolean and broad guidance band before it
-updates the mock-backed state machine.
+Progress intentionally has no visitor name or exact age. Start accepts one
+short greeting name for the local-only speech path; it is never projected back.
 """
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from atlas.dashboard.visitor_activation import clean_greeting_name
 
 VisitorLanguage = Literal["en", "fr", "es", "it", "ar", "zh-Hant"]
 VisitorStep = Literal[
@@ -51,6 +52,19 @@ class VisitorHelpRequest(BaseModel):
 
     context: Literal["onboarding", "headset", "readiness", "experience"]
     message: str | None = Field(default=None, max_length=120)
+
+
+class VisitorStartRequest(BaseModel):
+    """A one-time name used only by the Jetson's local greeting path."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    greeting_name: str | None = Field(default=None, max_length=40)
+
+    @field_validator("greeting_name")
+    @classmethod
+    def validate_greeting_name(cls, value: str | None) -> str | None:
+        return clean_greeting_name(value)
 
 
 class VisitorSimulationRequest(BaseModel):

@@ -182,3 +182,10 @@ class PiperTTS(BaseTTS):
         except Exception as exc:
             logger.warning("TTS error: %s", exc)
             return False
+
+    def speak_private_local(self, text: str, language: str = "en") -> bool:
+        """Piper is local, so private greeting text may use this adapter."""
+        return self.speak(text, language)
+
+    def supports_private_language(self, language: str = "en") -> bool:
+        return str(language).lower().split("-", 1)[0] in self._voices

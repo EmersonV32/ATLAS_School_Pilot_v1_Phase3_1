@@ -33,6 +33,18 @@ class BaseTTS(ABC):
         """Play the local cue through the currently selected output."""
         return self.cue()
 
+    def speak_private_local(self, text: str, language: str = "en") -> bool:
+        """Speak text that is forbidden from reaching a cloud provider.
+
+        Cloud-only adapters inherit the safe default and refuse the request.
+        Local adapters must explicitly opt in.
+        """
+        return False
+
+    def supports_private_language(self, language: str = "en") -> bool:
+        """Return whether private speech is local and configured for a language."""
+        return False
+
     def begin_utterance(self, language: str = "en") -> bool:
         """Start an optional multi-segment synthesis context.
 

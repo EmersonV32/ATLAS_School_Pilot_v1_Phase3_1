@@ -4,6 +4,33 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-05 - Private wake activation and adaptive visitor conversation
+
+**Changed:** Added a selected-language “Hello ATLAS” wake gate after visitor
+onboarding, a one-time name-bearing greeting that can use only local Piper TTS,
+and immediate in-memory name erasure after greeting. Transferred the existing
+coarse interests, expertise, and accessibility choices into the dialogue layer;
+added an allow-listed, session-only preference learner and prompt policy for
+brief preference questions and gentle artwork steering. Retained the existing
+three-completed-turn conversation window and session-boundary reset.
+
+**Validation:** The complete laptop-safe suite passes with 366 tests. Focused
+privacy, visitor, dashboard, and dialogue coverage passes. Patch-scoped Ruff,
+Python compilation, locale JSON parsing, secret scanning, and `git diff --check`
+pass. A local micro-benchmark measured the preference extractor below 0.7 ms and
+prompt assembly below 0.01 ms per turn; no network or LLM call was added.
+The complete onboarding flow was also reviewed at 1024x768: the updated privacy
+copy and wake instruction fit without horizontal overflow, the name field cleared
+after start, and the browser console reported no errors.
+
+**Deployment result:** Not deployed. Prepared on a dedicated feature branch for
+review and the existing Jetson deployment workflow.
+
+**Remaining limitation:** Real Deepgram wake transcription, Piper pronunciation,
+Shokz routing, and end-to-end latency require the physical Jetson acceptance
+pass. The deterministic wake gate reuses the existing STT window; a dedicated
+local wake-word engine remains an optional future optimization.
+
 ## 2026-09-03 - Admin operations dashboard polish
 
 **Changed:** Reworked the seven admin views into a denser operations console.

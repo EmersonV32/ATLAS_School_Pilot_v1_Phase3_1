@@ -27,10 +27,21 @@
 - Dev and laptop tests remain mock-backed. Browser onboarding is not allowed to
   expose hardware details, provider names, transcripts, answers, media, names,
   or exact ages.
+- Visitor start now creates a selected-language wake gate. Only “Hello ATLAS”
+  or its configured local-language equivalent activates normal question
+  handling; wake matching is deterministic and adds no LLM request.
+- The optional first name uses a local-only Piper greeting and is cleared after
+  that greeting. It cannot enter Gemini, Cartesia, RAG, logs, or monitoring.
+- Onboarding interests, expertise, and accessibility choices now shape the
+  dialogue prompt. A bounded local preference extractor can add only approved
+  art-interest and explanation-style labels for the active session.
+- The existing dialogue memory remains capped at the three most recently
+  completed question/answer turns and resets at session end.
 
 ## Pass 2 still required
 
-- Local/generic spoken greeting after a visitor start.
+- Physical Jetson/Shokz validation of wake recognition and every public-language
+  local greeting voice.
 - Runtime interaction-state and inactivity-policy validation on the physical
   Jetson.
 - Public-mode configuration and trusted-network deployment design.

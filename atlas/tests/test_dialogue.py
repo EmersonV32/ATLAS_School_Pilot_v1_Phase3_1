@@ -238,6 +238,34 @@ class TestPromptBuilder:
         for number in range(2, 5):
             assert f"question {number}" in final_prompt
 
+    def test_prompt_personalizes_and_steers_without_an_extra_llm_call(self):
+        from atlas.dialogue.dialogue_engine import DialogueEngine
+
+        class RecordingLLM:
+            def __init__(self):
+                self.calls = []
+
+            def generate(self, messages):
+                self.calls.append(messages)
+                return "Art can connect history and technique. Which do you prefer?"
+
+        llm = RecordingLLM()
+        engine = DialogueEngine(llm)
+        engine.configure_personalization(interests=["technique"])
+        engine.respond("Tell me about this artwork", [])
+
+        prompt = str(llm.calls[0])
+        assert len(llm.calls) == 1
+        assert "artistic technique and materials" in prompt
+        assert "PERSONALIZATION QUESTION: REQUESTED" in prompt
+        assert "safe non-art question briefly" in prompt
+        assert "Never ask for or infer a name" in prompt
+
+        engine.respond("History, and keep it brief", [])
+        second_prompt = str(llm.calls[1])
+        assert "historical context" in second_prompt
+        assert "brief answers" in second_prompt
+
 
 # ---------------------------------------------------------------------------
 # GroundingValidator

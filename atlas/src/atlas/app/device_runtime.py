@@ -499,9 +499,18 @@ class DeviceRuntime:
                     print(f"[Session] Active: {active_session_id}")
                     runner.cue_listening()
                     listener.activate()
-                    logger.info(
-                        "[Listening] Always-ready STT active; vision supplies context"
-                    )
+                    if (
+                        self._dashboard_service is not None
+                        and self._dashboard_service.wake_pending
+                    ):
+                        logger.info(
+                            "[Activation] Waiting for selected-language wake phrase"
+                        )
+                    else:
+                        logger.info(
+                            "[Listening] Always-ready STT active; "
+                            "vision supplies context"
+                        )
 
                 try:
                     button_clicks = self._button_actions.get_nowait()
@@ -529,7 +538,10 @@ class DeviceRuntime:
                             "[Capture] Context selected: "
                             f"{result.detection.label}; listening remains active"
                         )
-                        if demo_active:
+                        if demo_active and not (
+                            self._dashboard_service is not None
+                            and self._dashboard_service.wake_pending
+                        ):
                             listener.request_prompt(
                                 lambda selected=result.detection: (
                                     runner.invite_about_artwork(
@@ -547,6 +559,18 @@ class DeviceRuntime:
                 if question is not None:
                     listener.clear_prompts()
                     try:
+                        if (
+                            self._dashboard_service is not None
+                            and self._dashboard_service.wake_pending
+                        ):
+                            activated = self._dashboard_service.activate_from_wake(
+                                question.text
+                            )
+                            if activated:
+                                logger.info(
+                                    "[Activation] Visitor voice session is active"
+                                )
+                            continue
                         result = runner.respond_to_transcript(
                             question,
                             frame=frame,
@@ -631,7 +655,10 @@ class DeviceRuntime:
                 logger.info(
                     "[Vision] Artwork context selected; continuous listening unchanged"
                 )
-                if demo_active:
+                if demo_active and not (
+                    self._dashboard_service is not None
+                    and self._dashboard_service.wake_pending
+                ):
                     listener.request_prompt(
                         lambda selected=detection: runner.invite_about_artwork(
                             selected,

@@ -19,6 +19,11 @@ import yaml
 from atlas.app.dependency_container import Container
 from atlas.audio.devices import find_alsa_playback, find_pulse_playback
 from atlas.config.settings import Settings
+from atlas.dashboard.visitor_activation import (
+    clean_greeting_name,
+    local_greeting,
+    wake_phrase_matches,
+)
 from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.languages import OUTPUT_LANGUAGE_NAMES, normalize_language_code
 from atlas.models.retrieval import RetrievalQuery
@@ -159,6 +164,12 @@ class RuntimeService:
         self.pack_id: str = container.settings.default_pack_id
         self.accessibility_mode: bool = False
         self.demo_active: bool = False
+        self._visitor_interests: list[str] = []
+        self._visitor_accessibility: list[str] = []
+        self._visitor_expertise: str | None = None
+        self._wake_required = False
+        self._wake_activated = True
+        self._greeting_name: str | None = None
         hardware = container.settings.hardware
         configured_output = str(hardware.audio_output_name).strip()
         self._headset_output_name = str(hardware.headset_name).strip()
@@ -179,16 +190,46 @@ class RuntimeService:
         self.demo_flags: set[str] = set()
 
     # -- session -----------------------------------------------------------
-    def start_session(self, *, demo: bool = False) -> dict[str, Any]:
+    def start_session(
+        self,
+        *,
+        demo: bool = False,
+        wake_required: bool = False,
+        greeting_name: str | None = None,
+    ) -> dict[str, Any]:
         self.container.dialogue_engine.reset_conversation()
+        configure = getattr(
+            self.container.dialogue_engine,
+            "configure_personalization",
+            None,
+        )
+        if callable(configure):
+            configure(
+                interests=self._visitor_interests,
+                accessibility=self._visitor_accessibility,
+                expertise=self._visitor_expertise,
+            )
         self.demo_active = bool(demo)
+        self._wake_required = bool(wake_required)
+        self._wake_activated = not self._wake_required
+        self._greeting_name = clean_greeting_name(greeting_name)
         self.session_id = new_session_id()
         self.container.logger.log(
             session_id=self.session_id,
             state="session",
-            event="demo_start" if self.demo_active else "session_start",
+            event=(
+                "visitor_start_waiting_for_wake"
+                if self._wake_required
+                else ("demo_start" if self.demo_active else "session_start")
+            ),
         )
-        return {"session_id": self.session_id, "demo_active": self.demo_active}
+        return {
+            "session_id": self.session_id,
+            "demo_active": self.demo_active,
+            "activation_state": (
+                "waiting_for_wake" if self._wake_required else "active"
+            ),
+        }
 
     def stop_session(self) -> dict[str, Any]:
         if self.session_id:
@@ -198,6 +239,12 @@ class RuntimeService:
         stopped = self.session_id
         self.session_id = None
         self.demo_active = False
+        self._wake_required = False
+        self._wake_activated = True
+        self._greeting_name = None
+        self._visitor_interests = []
+        self._visitor_accessibility = []
+        self._visitor_expertise = None
         self.container.dialogue_engine.reset_conversation()
         return {"stopped_session_id": stopped, "demo_active": False}
 
@@ -207,6 +254,9 @@ class RuntimeService:
         profile: str | None = None,
         pack_id: str | None = None,
         accessibility_mode: bool | None = None,
+        interests: list[str] | None = None,
+        accessibility: list[str] | None = None,
+        expertise: str | None = None,
     ) -> dict[str, Any]:
         if language is not None:
             self.language = _to_language(language).value
@@ -218,7 +268,53 @@ class RuntimeService:
             self.accessibility_mode = bool(accessibility_mode)
             if self.accessibility_mode:
                 self.profile = EducationalLevel.VISUAL_IMPAIRMENT.value
+        if interests is not None:
+            self._visitor_interests = list(interests)
+        if accessibility is not None:
+            self._visitor_accessibility = list(accessibility)
+        if expertise is not None:
+            self._visitor_expertise = expertise
         return self.experience_settings()
+
+    @property
+    def wake_pending(self) -> bool:
+        return bool(
+            self.session_id and self._wake_required and not self._wake_activated
+        )
+
+    def activate_from_wake(self, transcript: str) -> bool:
+        """Accept the local wake phrase and play a private local greeting."""
+        if not self.wake_pending:
+            return True
+        if not wake_phrase_matches(transcript, self.language):
+            return False
+        name = self._greeting_name
+        greeting = local_greeting(self.language, name)
+        if name:
+            spoken = bool(
+                self.container.tts.speak_private_local(greeting, self.language)
+            )
+        else:
+            spoken = bool(self.container.tts.speak(greeting, self.language))
+        if name and not spoken:
+            logger.error(
+                "[Activation] Private local greeting failed; wake gate remains active"
+            )
+            return False
+        self._wake_activated = True
+        self._greeting_name = None
+        logger.info(
+            "[Activation] Wake phrase accepted; local greeting completed "
+            "[language=%s audio_played=%s]",
+            self.language,
+            spoken,
+        )
+        return True
+
+    def private_local_speech_ready(self, language: str | None = None) -> bool:
+        """Report whether a name can be spoken without any cloud provider."""
+        selected = _to_language(language or self.language).value
+        return bool(self.container.tts.supports_private_language(selected))
 
     def experience_settings(self) -> dict[str, Any]:
         return {
@@ -822,6 +918,11 @@ class RuntimeService:
             "session_id": self.session_id,
             "session_active": self.session_id is not None,
             "demo_active": self.demo_active,
+            "activation_state": (
+                "idle"
+                if self.session_id is None
+                else ("waiting_for_wake" if self.wake_pending else "active")
+            ),
             "experience": self.experience_settings(),
             "artwork": self.artwork_status(),
             "camera": camera_status,

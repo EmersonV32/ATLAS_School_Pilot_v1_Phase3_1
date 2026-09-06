@@ -47,9 +47,18 @@ class RuntimeBridge(Protocol):
         profile: str | None = None,
         pack_id: str | None = None,
         accessibility_mode: bool | None = None,
+        interests: list[str] | None = None,
+        accessibility: list[str] | None = None,
+        expertise: str | None = None,
     ) -> dict[str, Any]: ...
 
-    def start_session(self, *, demo: bool = False) -> dict[str, Any]: ...
+    def start_session(
+        self,
+        *,
+        demo: bool = False,
+        wake_required: bool = False,
+        greeting_name: str | None = None,
+    ) -> dict[str, Any]: ...
 
     def stop_session(self) -> dict[str, Any]: ...
 
@@ -87,12 +96,26 @@ def _runtime_headset_ready(runtime: RuntimeBridge) -> bool | None:
         return False
 
 
+def _runtime_private_speech_ready(
+    runtime: RuntimeBridge,
+    language: str | None,
+) -> bool | None:
+    probe = getattr(runtime, "private_local_speech_ready", None)
+    if not callable(probe):
+        return None
+    try:
+        return bool(probe(language))
+    except Exception:
+        logger.exception("Visitor local greeting readiness probe failed")
+        return False
+
+
 class VisitorService:
     """Owns ephemeral onboarding and optionally activates one device session.
 
-    Names, exact ages, raw media, prompts, transcript text, and answer text do
-    not cross this boundary. In development, ``runtime_service`` stays ``None``
-    so the full visitor dashboard remains mock-backed and easy to test.
+    Exact ages, raw media, prompts, transcript text, and answer text do not cross
+    this boundary. An optional first name crosses once into local runtime memory
+    for the greeting, then is cleared without logging, storage, RAG, or cloud use.
     """
 
     def __init__(self, runtime_service: RuntimeBridge | None = None) -> None:
@@ -167,7 +190,7 @@ class VisitorService:
         with self._lock:
             return self._readiness()
 
-    def start(self) -> dict:
+    def start(self, greeting_name: str | None = None) -> dict:
         with self._lock:
             readiness = self._readiness()
             if readiness["blockers"]:
@@ -181,7 +204,15 @@ class VisitorService:
                     "The profile could not be transferred. Please retry."
                 )
             try:
-                self._activate_runtime_session(demo=True)
+                self._activate_runtime_session(
+                    demo=True,
+                    wake_required=True,
+                    greeting_name=(
+                        greeting_name
+                        if self._state["profile"]["name_entered"]
+                        else None
+                    ),
+                )
             except Exception:
                 logger.exception("Visitor runtime session start failed")
                 self._record_transfer_failure()
@@ -339,6 +370,8 @@ class VisitorService:
         profile: str | None = None,
         pack_id: str | None = None,
         accessibility_mode: bool | None = None,
+        wake_required: bool = False,
+        greeting_name: str | None = None,
     ) -> None:
         if self._runtime_service is None:
             return
@@ -353,8 +386,15 @@ class VisitorService:
                 if accessibility_mode is None
                 else accessibility_mode
             ),
+            interests=list(self._state["profile"]["interests"]),
+            accessibility=list(accessibility),
+            expertise=self._state["profile"]["expertise"],
         )
-        self._runtime_service.start_session(demo=demo)
+        self._runtime_service.start_session(
+            demo=demo,
+            wake_required=wake_required,
+            greeting_name=greeting_name,
+        )
 
     def _stop_runtime_session(self) -> None:
         if self._runtime_service is None:
@@ -536,6 +576,13 @@ class VisitorService:
                 "Camera stream is connected but not supplying a fresh image."
             )
         emergency_stopped = bool(status.get("emergency_stopped"))
+        private_speech_ready = _runtime_private_speech_ready(
+            self._runtime_service,
+            language,
+        )
+        named_greeting_ready = not self._state["profile"]["name_entered"] or (
+            private_speech_ready is not False
+        )
         self._state["connection"] = "online" if connection_ready else "offline"
 
         return [
@@ -598,8 +645,13 @@ class VisitorService:
             self._item(
                 "profile",
                 "Visitor profile",
-                "ready",
-                "Only coarse preferences will transfer.",
+                "ready" if named_greeting_ready else "unavailable",
+                (
+                    "Only coarse preferences transfer; the optional name is "
+                    "cleared after one local greeting."
+                    if named_greeting_ready
+                    else "A local voice for the private greeting is unavailable."
+                ),
             ),
         ]
 

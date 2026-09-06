@@ -11,7 +11,7 @@
   <link rel="preload" as="image" href="/static/visitor/assets/gallery-mona-lisa.webp" type="image/webp" fetchpriority="high">
   <link rel="preload" as="image" href="/static/visitor/assets/gallery-great-wave.webp" type="image/webp" fetchpriority="high">
   <link rel="preload" as="image" href="/static/visitor/assets/gallery-ambassadors.webp" type="image/webp" fetchpriority="high">
-  <link rel="stylesheet" href="/static/visitor.css?v=26">
+  <link rel="stylesheet" href="/static/visitor.css?v=27">
 </head>
 <body class="visitor-page">
   <header class="visitor-header">
@@ -74,7 +74,7 @@
       <div id="screen-about" class="onboarding-screen" data-screen="about">
         <div class="split-heading localized-copy">
           <div><p class="kicker" data-i18n="about.kicker">A little context</p><h1 data-i18n="about.title">How should ATLAS guide you?</h1></div>
-          <p data-i18n="about.lead">Both answers are optional. Your name stays on this screen and your age becomes a broad guidance band.</p>
+          <p data-i18n="about.lead">Both answers are optional. Your name is used once by the local ATLAS unit for your greeting, and your age becomes a broad guidance band.</p>
         </div>
         <div class="about-form localized-copy">
           <label class="large-field"><span data-i18n="about.name">First name</span><small data-i18n="common.optional">Optional</small><input id="visitor-name" type="text" maxlength="32" autocomplete="off" dir="auto" placeholder="What should ATLAS call you?" data-i18n-placeholder="about.name_placeholder"></label>
@@ -126,12 +126,12 @@
       <div id="screen-privacy" class="onboarding-screen" data-screen="privacy">
         <div class="privacy-layout localized-copy">
           <div class="privacy-seal" aria-hidden="true"><span>◇</span><small>LOCAL<br>SETUP</small></div>
-          <div class="screen-copy"><p class="kicker" data-i18n="privacy.kicker">You are in control</p><h1 data-i18n="privacy.title">Your setup is temporary.</h1><p class="lead" data-i18n="privacy.lead">ATLAS uses your choices only to shape this visit. Your name and exact age never leave this screen.</p><ul class="privacy-points"><li data-i18n="privacy.point1">Coarse preferences only</li><li data-i18n="privacy.point2">No raw setup media stored</li><li data-i18n="privacy.point3">Museum staff can clear the session</li></ul><button id="btn-start-experience" type="button" class="primary-action start-action"><span data-i18n="actions.start">Start my experience</span><span aria-hidden="true">→</span></button><p id="start-error" class="form-error hidden" role="alert"></p></div>
+          <div class="screen-copy"><p class="kicker" data-i18n="privacy.kicker">You are in control</p><h1 data-i18n="privacy.title">Your setup is temporary.</h1><p class="lead" data-i18n="privacy.lead">ATLAS uses your choices only for this visit. Your optional name goes only to the local unit for one greeting; your exact age never leaves this screen.</p><ul class="privacy-points"><li data-i18n="privacy.point1">Coarse preferences only</li><li data-i18n="privacy.point2">No raw setup media stored</li><li data-i18n="privacy.point3">Museum staff can clear the session</li></ul><button id="btn-start-experience" type="button" class="primary-action start-action"><span data-i18n="actions.start">Start my experience</span><span aria-hidden="true">→</span></button><p id="start-error" class="form-error hidden" role="alert"></p></div>
         </div>
       </div>
 
       <div id="screen-in-use" class="onboarding-screen" data-screen="in_use">
-      <div class="completion-state localized-copy"><img class="completion-logo-image" src="/static/visitor/assets/atlas-logo-v2.webp" alt="ATLAS"><p class="kicker" data-i18n="in_use.kicker">Profile transferred</p><h1 data-i18n="in_use.title">You are ready to explore.</h1><p data-i18n="in_use.lead">Put on your ATLAS unit and follow the museum team’s direction. This kiosk will clear itself.</p><button type="button" class="quiet-action" data-reset data-i18n="actions.next_visitor">Set up for the next visitor</button></div>
+      <div class="completion-state localized-copy"><img class="completion-logo-image" src="/static/visitor/assets/atlas-logo-v2.webp" alt="ATLAS"><p class="kicker" data-i18n="in_use.kicker">Profile transferred</p><h1 data-i18n="in_use.title">Put on the headset and say “Hello ATLAS.”</h1><p data-i18n="in_use.lead">ATLAS will greet you, then you can look at an artwork and begin your conversation. This kiosk has cleared your name.</p><button type="button" class="quiet-action" data-reset data-i18n="actions.next_visitor">Set up for the next visitor</button></div>
       </div>
 
       <div id="screen-thank-you" class="onboarding-screen" data-screen="thank_you">
@@ -162,7 +162,7 @@
   <dialog id="privacy-dialog" class="visitor-dialog localized-copy">
     <form method="dialog"><button class="dialog-close" aria-label="Close privacy information" data-i18n-aria-label="privacy.close">×</button></form>
     <p class="kicker" data-i18n="privacy.dialog_kicker">Privacy at a glance</p><h2 data-i18n="privacy.dialog_title">Personal for this visit. Temporary by design.</h2>
-    <p data-i18n="privacy.dialog_p1">Your first name stays in this browser’s memory only. Your age is converted into a broad guidance band before any update is sent.</p>
+    <p data-i18n="privacy.dialog_p1">Your first name is sent once to the local ATLAS unit for your greeting, never to the AI or cloud, and is cleared after use. Your age becomes a broad guidance band before any update is sent.</p>
     <p data-i18n="privacy.dialog_p2">Nothing is written to browser storage. Setup clears on completion, staff stop, reset, or inactivity.</p>
     <form method="dialog"><button class="primary-action" data-i18n="actions.got_it">Got it</button></form>
   </dialog>
@@ -175,6 +175,6 @@
   </dialog>
 
   <noscript><p class="noscript-message">JavaScript is required for the ATLAS setup experience. Please ask a museum team member for help.</p></noscript>
-  <script src="/static/visitor.js?v=26" defer></script>
+  <script src="/static/visitor.js?v=27" defer></script>
 </body>
 </html>
