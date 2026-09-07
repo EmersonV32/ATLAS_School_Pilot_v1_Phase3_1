@@ -4,6 +4,22 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-07 - Windows-to-Jetson deployment newline hardening
+
+**Changed:** Normalized the embedded remote Bash command to LF before SSH sends
+it from Windows. This prevents a CRLF checkout from turning `pipefail` into an
+invalid Bash option before the atomic Jetson deployment begins.
+
+**Validation:** Both PowerShell deployment files parse cleanly. The original
+failure was reproduced at remote line one, before backup or runtime replacement,
+and the existing Jetson service remained active with a healthy `/health` result.
+
+**Deployment result:** Pending the corrected full deployment and on-device
+acceptance checks.
+
+**Remaining limitation:** The complete TensorRT and hardware checks run only on
+the target Jetson during deployment.
+
 ## 2026-09-06 - Early-child mode and local scripted FAQ
 
 **Changed:** Preserved the optional first name only until the private local

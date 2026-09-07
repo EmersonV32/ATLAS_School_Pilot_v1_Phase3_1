@@ -166,6 +166,9 @@ for asset in /static/visitor/assets/atlas-logo-v2.webp /static/visitor/assets/ga
 done
 echo "Visitor patch deployed. Backup retained at: $backup"
 '@.Replace('__ROOT__', $RemoteRoot).Replace('__ARCHIVE__', $remoteArchive).Replace('__STAMP__', $timestamp)
+    # PowerShell scripts may be checked out with CRLF, but the remote command is
+    # parsed by Bash. Normalize it explicitly so `set -euo pipefail` is valid.
+    $remoteCommand = $remoteCommand.Replace("`r`n", "`n")
     ssh -i $key "$RemoteUser@$HostName" $remoteCommand
     if ($LASTEXITCODE -ne 0) { throw "Jetson validation or restart failed. The remote backup remains available." }
 
