@@ -11,10 +11,11 @@ import subprocess
 import sys
 import tempfile
 import wave
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .devices import find_alsa_playback, find_pulse_playback
-from .playback import normalize_volume, scale_pcm_s16le
+from .playback import normalize_volume, scale_pcm_s16le, split_output_device_names
 from .tts import BaseTTS
 
 logger = logging.getLogger(__name__)
@@ -106,20 +107,31 @@ class PiperTTS(BaseTTS):
                 with wave.open(output_path, "wb") as wav_file:
                     wav_file.setparams(params)
                     wav_file.writeframes(frames)
-        pulse_device = find_pulse_playback(self._output_device_name)
-        if pulse_device and shutil.which("paplay"):
-            playback = ["paplay", f"--device={pulse_device}", output_path]
-        else:
-            playback_device = find_alsa_playback(self._output_device_name)
-            playback = ["aplay"]
-            if playback_device:
-                playback += ["-D", playback_device]
-            playback.append(output_path)
-        result = subprocess.run(playback, capture_output=True, timeout=30, check=False)
-        if result.returncode != 0:
+        names = split_output_device_names(self._output_device_name)
+        if not names:
+            names = (self._output_device_name,)
+
+        def play(name: str) -> subprocess.CompletedProcess:
+            pulse_device = find_pulse_playback(name)
+            if pulse_device and shutil.which("paplay"):
+                playback = ["paplay", f"--device={pulse_device}", output_path]
+            else:
+                playback_device = find_alsa_playback(name)
+                playback = ["aplay"]
+                if playback_device:
+                    playback += ["-D", playback_device]
+                playback.append(output_path)
+            return subprocess.run(
+                playback, capture_output=True, timeout=30, check=False
+            )
+
+        with ThreadPoolExecutor(max_workers=len(names)) as executor:
+            results = list(executor.map(play, names))
+        failures = [result for result in results if result.returncode != 0]
+        if failures:
             logger.warning(
                 "Audio playback failed: %s",
-                result.stderr.decode("utf-8", errors="replace")[-300:],
+                failures[0].stderr.decode("utf-8", errors="replace")[-300:],
             )
             return False
         return True

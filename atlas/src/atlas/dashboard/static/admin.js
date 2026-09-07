@@ -197,9 +197,7 @@ function renderDemoReadiness() {
   const status = latestStatus;
   const components = latestHealth && latestHealth.components || {};
   const camera = status.camera || {};
-  const audioReady = latestAudio && (
-    latestAudio.route === "speaker" ? latestAudio.speaker_available : latestAudio.headset_available
-  );
+  const audioReady = latestAudio && routeIsAvailable(latestAudio);
   const checks = [
     ["Runtime", !status.emergency_stopped, status.emergency_stopped ? "Stopped" : "Safety clear"],
     ["Speech input", valueIsHealthy(components.stt), providerLabel(components.stt)],
@@ -278,9 +276,14 @@ function providerLabel(provider) {
   return provider.active || provider.provider || provider.primary || "Fallback ready";
 }
 
+function routeIsAvailable(status) {
+  if (status.route === "both") return status.both_available;
+  return status.route === "speaker" ? status.speaker_available : status.headset_available;
+}
+
 function renderAudioStatus(status) {
   latestAudio = status;
-  const routeAvailable = status.route === "speaker" ? status.speaker_available : status.headset_available;
+  const routeAvailable = routeIsAvailable(status);
   document.querySelectorAll("[data-audio-route]").forEach((button) => {
     const active = button.dataset.audioRoute === status.route;
     button.setAttribute("aria-pressed", String(active));
@@ -296,8 +299,10 @@ function renderAudioStatus(status) {
   $("diag-audio-input").textContent = status.headset_name || "Shokz headset";
   const headset = document.querySelector('[data-audio-route="headset"]');
   const speaker = document.querySelector('[data-audio-route="speaker"]');
+  const both = document.querySelector('[data-audio-route="both"]');
   headset.title = status.headset_available ? "Shokz output is available" : "Shokz output is not currently detected";
   speaker.title = status.speaker_available ? "Judge speaker is available" : "Judge speaker is not currently detected";
+  both.title = status.both_available ? "Both outputs are available" : "Both outputs require Shokz and the judge speaker";
   renderOperationalDetails();
 }
 
@@ -711,7 +716,7 @@ function renderArducamStatus(status) {
   $("arducam-stability").textContent = status.reconnect_count
     ? `${status.reconnect_count} reconnect${status.reconnect_count === 1 ? "" : "s"}` : (ready ? "Stable" : "No samples");
   $("arducam-detail").textContent = status.last_error
-    ? "Camera disconnected."
+    ? (status.operator_message || "Camera disconnected.")
     : (ready ? "Private live preview active. Frames are not stored." : "Opening the CSI camera.");
 }
 
@@ -743,7 +748,9 @@ async function refreshArducam() {
       const message = response.status === 503
         ? "Camera disconnected."
         : `Preview unavailable (${response.status}).`;
-      throw new Error(message);
+      const previewError = new Error(message);
+      previewError.status = response.status;
+      throw previewError;
     }
     const nextUrl = URL.createObjectURL(await response.blob());
     const image = $("admin-arducam");
@@ -760,8 +767,8 @@ async function refreshArducam() {
       arducamObjectUrl = null;
     }
     $("admin-arducam").removeAttribute("src");
-    $("arducam-state").textContent = "Unavailable";
-    $("arducam-state").className = "status-pill danger";
+    $("arducam-state").textContent = error.status === 503 ? "Waiting" : "Unavailable";
+    $("arducam-state").className = `status-pill ${error.status === 503 ? "warning" : "danger"}`;
     $("arducam-detail").textContent = error.message;
     scheduleArducamRefresh(1000);
   } finally {

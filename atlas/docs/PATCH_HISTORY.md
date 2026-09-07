@@ -4,6 +4,29 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-07 - Dual audio, camera recovery, and hardware diagnostics
+
+**Changed:** Added a `Both` route to the admin audio controls so Cartesia audio,
+Piper fallback speech, cues, and test sounds fan out to Shokz and the judge
+speaker while the microphone remains on Shokz. Replaced the blocking OpenCV
+HTTP MJPEG path with a bounded native reader, enlarged the Main camera panel,
+ordered admin languages by expected demo use, corrected this Jetson's J12 CAM0
+mapping to Argus sensor 0, and added a reusable YOLO dataset diagnostic.
+
+**Validation:** The complete laptop-safe suite passes with 2,891 tests, changed
+files pass Ruff, JavaScript and PowerShell parse checks pass, and a direct
+20-second XIAO camera benchmark sustained 14.0 FPS with zero reconnects. The
+deployed TensorRT engine scored mAP50 0.9526 and mAP50-95 0.8417 on all 152
+held-out test images at 7.9 ms inference per image.
+
+**Deployment result:** Pending final Jetson deployment and post-deployment
+hardware checks.
+
+**Remaining limitation:** The IMX477 enumerates as `/dev/video0` and Argus
+sensor 0, but currently returns zero frames through both direct V4L2 and Argus
+tests. A privileged Argus restart or cold power cycle is required to separate a
+wedged camera stack from a ribbon or sensor fault.
+
 ## 2026-09-07 - Windows-to-Jetson deployment newline hardening
 
 **Changed:** Normalized the embedded remote Bash command to LF before SSH sends

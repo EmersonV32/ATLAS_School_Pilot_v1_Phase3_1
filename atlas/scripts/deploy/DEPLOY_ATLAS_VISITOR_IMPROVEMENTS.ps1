@@ -38,6 +38,7 @@ $files = @(
     "requirements.txt",
     "scripts/atlas.service",
     "scripts/check_arducam.sh",
+    "scripts/diagnose_yolo_dataset.py",
     "scripts/export_tensorrt.py",
     "scripts/install_user_service.sh",
     "scripts/validate_artwork_release.py",
@@ -83,6 +84,7 @@ paths=(
   requirements.txt
   scripts/atlas.service
   scripts/check_arducam.sh
+  scripts/diagnose_yolo_dataset.py
   scripts/export_tensorrt.py
   scripts/install_user_service.sh
   scripts/validate_artwork_release.py
@@ -127,6 +129,9 @@ if ! systemctl --user stop atlas.service; then
 fi
 rm -rf "$root/src/atlas" "$root/tests" "$root/data/content_packs/demo_pack"
 tar -xzf "$archive" -C "$root"
+# Windows worktrees may contribute CRLF shell scripts to the archive. Normalize
+# executable scripts before any Linux-side diagnostic or installer uses them.
+find "$root/scripts" -type f -name '*.sh' -exec sed -i 's/\r$//' {} +
 rm -f "$root/config/dashboard_overrides.yaml"
 cd "$root"
 if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m pytest; then

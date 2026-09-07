@@ -92,7 +92,7 @@ class HardwareSettings(BaseModel):
     # Independent IMX477/UC-517 preview. It is opened lazily by the admin tab,
     # so a missing CSI camera never blocks ATLAS or either dashboard.
     arducam_enabled: bool = True
-    arducam_sensor_id: int = Field(default=1, ge=0, le=7)
+    arducam_sensor_id: int = Field(default=0, ge=0, le=7)
     arducam_width: int = Field(default=1920, ge=160, le=4056)
     arducam_height: int = Field(default=1080, ge=120, le=3040)
     arducam_fps: int = Field(default=30, ge=1, le=60)

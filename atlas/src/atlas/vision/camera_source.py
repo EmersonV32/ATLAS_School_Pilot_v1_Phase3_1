@@ -6,10 +6,62 @@ import logging
 import platform
 import threading
 import time
+import urllib.request
 from collections import deque
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+class _MjpegCapture:
+    """Bounded HTTP MJPEG reader that cannot hang forever inside FFmpeg."""
+
+    def __init__(self, url: str, timeout_s: float = 4.0) -> None:
+        request = urllib.request.Request(
+            url,
+            headers={"Connection": "close", "User-Agent": "ATLAS-camera/1.0"},
+        )
+        self._response = urllib.request.urlopen(request, timeout=timeout_s)
+        self._buffer = bytearray()
+        self._opened = True
+
+    def isOpened(self) -> bool:  # noqa: N802 - OpenCV-compatible API
+        return self._opened
+
+    def set(self, *_args: Any) -> bool:
+        return False
+
+    def read(self) -> tuple[bool, Any]:
+        import cv2  # type: ignore
+        import numpy as np  # type: ignore
+
+        while self._opened:
+            start = self._buffer.find(b"\xff\xd8")
+            end = self._buffer.find(b"\xff\xd9", max(0, start + 2))
+            if start >= 0 and end > start:
+                jpeg = bytes(self._buffer[start : end + 2])
+                del self._buffer[: end + 2]
+                encoded = np.frombuffer(jpeg, dtype=np.uint8)
+                frame = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
+                if frame is not None:
+                    return True, frame
+                continue
+            read = getattr(self._response, "read1", None)
+            if read is None:
+                read = self._response.read
+            chunk = read(65536)
+            if not chunk:
+                self._opened = False
+                return False, None
+            self._buffer.extend(chunk)
+            if len(self._buffer) > 4 * 1024 * 1024:
+                marker = self._buffer.rfind(b"\xff\xd8")
+                self._buffer = self._buffer[marker:] if marker >= 0 else bytearray()
+        return False, None
+
+    def release(self) -> None:
+        self._opened = False
+        self._response.close()
 
 
 def normalize_camera_source(source: str | int) -> str | int:
@@ -92,6 +144,12 @@ class CameraSource:
             capture = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
         elif isinstance(self.source, int) and platform.system() == "Linux":
             capture = cv2.VideoCapture(self.source, cv2.CAP_V4L2)
+        elif (
+            isinstance(self.source, str)
+            and self.source.lower().startswith(("http://", "https://"))
+            and "/stream" in self.source.lower()
+        ):
+            capture = _MjpegCapture(self.source)
         else:
             # ESP32 MJPEG streams occasionally stop sending frames without
             # closing the HTTP connection. Ask FFmpeg to return from a stuck
@@ -190,12 +248,17 @@ class CameraSource:
                     reconnect_delay = min(reconnect_delay * 1.8, 10.0)
                     continue
 
-            ok, frame = self._capture.read()
+            read_error: str | None = None
+            try:
+                ok, frame = self._capture.read()
+            except Exception as exc:
+                ok, frame = False, None
+                read_error = f"{type(exc).__name__}: {exc}"
             if not ok:
                 with self._lock:
                     self._consecutive_failures += 1
                     failures = self._consecutive_failures
-                    self._last_error = "camera read failed"
+                    self._last_error = read_error or "camera read failed"
                 # One empty network frame should not tear down the stream. Three
                 # failures means the reader owns a controlled reconnect instead.
                 if failures < 3:
@@ -223,6 +286,7 @@ class CameraSource:
                 self._last_frame_at = time.monotonic()
                 self._frame_times.append(self._last_frame_at)
                 self._consecutive_failures = 0
+                self._last_error = None
             self._ready.set()
 
         if self._capture is not None:

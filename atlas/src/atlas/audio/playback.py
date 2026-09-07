@@ -6,10 +6,91 @@ import math
 import shutil
 import struct
 import subprocess
+import time
 from array import array
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 from .devices import find_alsa_playback, find_pulse_playback
+
+_OUTPUT_DEVICE_SEPARATOR = "|||"
+
+
+def join_output_device_names(*names: str) -> str:
+    """Encode one or more playback targets in the existing TTS string API."""
+    return _OUTPUT_DEVICE_SEPARATOR.join(name.strip() for name in names if name.strip())
+
+
+def split_output_device_names(value: str) -> tuple[str, ...]:
+    """Decode playback targets while preserving compatibility with one device."""
+    return tuple(
+        dict.fromkeys(
+            name.strip()
+            for name in str(value).split(_OUTPUT_DEVICE_SEPARATOR)
+            if name.strip()
+        )
+    )
+
+
+class _FanoutWriter:
+    def __init__(self, streams: list[BinaryIO]) -> None:
+        self._streams = streams
+
+    @property
+    def closed(self) -> bool:
+        return all(stream.closed for stream in self._streams)
+
+    def write(self, data: bytes) -> int:
+        error: OSError | None = None
+        for stream in self._streams:
+            try:
+                stream.write(data)
+            except OSError as exc:
+                error = exc
+        if error is not None:
+            raise error
+        return len(data)
+
+    def close(self) -> None:
+        for stream in self._streams:
+            if not stream.closed:
+                stream.close()
+
+
+class _PlaybackGroup:
+    """Small Popen-compatible facade that writes PCM to several players."""
+
+    def __init__(self, processes: list[subprocess.Popen]) -> None:
+        self.processes = processes
+        self.stdin = _FanoutWriter(
+            [process.stdin for process in processes if process.stdin is not None]
+        )
+
+    @property
+    def returncode(self) -> int | None:
+        codes = [process.returncode for process in self.processes]
+        if any(code is None for code in codes):
+            return None
+        return 0 if all(code == 0 for code in codes) else 1
+
+    def poll(self) -> int | None:
+        codes = [process.poll() for process in self.processes]
+        return None if any(code is None for code in codes) else self.returncode
+
+    def wait(self, timeout: float | None = None) -> int:
+        deadline = None if timeout is None else time.monotonic() + timeout
+        for process in self.processes:
+            remaining = (
+                None
+                if deadline is None
+                else max(0.0, deadline - time.monotonic())
+            )
+            process.wait(timeout=remaining)
+        return int(self.returncode or 0)
+
+    def kill(self) -> None:
+        for process in self.processes:
+            if process.poll() is None:
+                process.kill()
 
 
 def normalize_volume(volume_percent: int) -> int:
@@ -71,16 +152,29 @@ def open_raw_player(
     output_device_name: str,
     sample_rate: int,
     channels: int = 1,
-) -> subprocess.Popen:
-    return subprocess.Popen(
-        raw_playback_command(output_device_name, sample_rate, channels),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-    )
+) -> Any:
+    names = split_output_device_names(output_device_name)
+    if not names:
+        names = (output_device_name,)
+    processes: list[subprocess.Popen] = []
+    try:
+        for name in names:
+            processes.append(
+                subprocess.Popen(
+                    raw_playback_command(name, sample_rate, channels),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                )
+            )
+    except Exception:
+        for process in processes:
+            process.kill()
+        raise
+    return processes[0] if len(processes) == 1 else _PlaybackGroup(processes)
 
 
-def finish_raw_player(process: subprocess.Popen, timeout_s: float = 15.0) -> bool:
+def finish_raw_player(process: Any, timeout_s: float = 15.0) -> bool:
     stdin: BinaryIO | None = process.stdin
     if stdin is not None and not stdin.closed:
         stdin.close()

@@ -7,8 +7,8 @@ fps="${ATLAS_ARDUCAM_FPS:-30}"
 if (( $# > 0 )); then
   sensors=("$@")
 else
-  # JetPack 6 may expose a camera connected to CAM0 as sensor-id 1.
-  sensors=(1 0)
+  # Probe this Jetson's confirmed CAM0 mapping first, then the alternate index.
+  sensors=(0 1)
 fi
 
 if ! command -v gst-launch-1.0 >/dev/null 2>&1; then

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import os
 import struct
 import sys
@@ -24,7 +25,13 @@ from atlas.audio.devices import (
     parse_pactl_defaults,
     select_pulse_device,
 )
-from atlas.audio.playback import scale_pcm_s16le
+from atlas.audio.playback import (
+    finish_raw_player,
+    join_output_device_names,
+    open_raw_player,
+    scale_pcm_s16le,
+    split_output_device_names,
+)
 from atlas.audio.stt import TranscriptResult
 from atlas.audio.whisper_stt import WhisperSTT
 from atlas.config.loader import load_settings
@@ -52,6 +59,48 @@ def test_pcm_volume_scaling_preserves_shape_and_applies_gain():
     assert scale_pcm_s16le(pcm, 100) == pcm
     assert struct.unpack("<hhh", scale_pcm_s16le(pcm, 50)) == (-5000, 0, 5000)
     assert struct.unpack("<hhh", scale_pcm_s16le(pcm, 0)) == (0, 0, 0)
+
+
+def test_raw_pcm_playback_fans_out_to_both_devices(monkeypatch):
+    players = []
+
+    class FakePlayer:
+        def __init__(self, command, **_kwargs):
+            self.command = command
+            self.stdin = io.BytesIO()
+            self.returncode = None
+            players.append(self)
+
+        def wait(self, timeout=None):
+            self.returncode = 0
+            return 0
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.returncode = -9
+
+    monkeypatch.setattr("atlas.audio.playback.subprocess.Popen", FakePlayer)
+    monkeypatch.setattr(
+        "atlas.audio.playback.raw_playback_command",
+        lambda name, *_args: ["player", name],
+    )
+    encoded = join_output_device_names("Shokz", "Judge speaker")
+    assert split_output_device_names(encoded) == ("Shokz", "Judge speaker")
+
+    player = open_raw_player(encoded, 24000)
+    player.stdin.write(b"shared audio")
+    written = [item.stdin.getvalue() for item in players]
+    assert finish_raw_player(player)
+    assert [item.command for item in players] == [
+        ["player", "Shokz"],
+        ["player", "Judge speaker"],
+    ]
+    assert written == [
+        b"shared audio",
+        b"shared audio",
+    ]
 
 
 def test_pulse_defaults_fail_closed_when_pactl_is_unavailable(monkeypatch):

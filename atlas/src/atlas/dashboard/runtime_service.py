@@ -18,6 +18,7 @@ import yaml
 
 from atlas.app.dependency_container import Container
 from atlas.audio.devices import find_alsa_playback, find_pulse_playback
+from atlas.audio.playback import join_output_device_names
 from atlas.config.settings import Settings
 from atlas.dashboard.visitor_activation import (
     clean_greeting_name,
@@ -336,7 +337,24 @@ class RuntimeService:
             return self._headset_output_name
         if route == "speaker" and self._speaker_output_name:
             return self._speaker_output_name
+        if (
+            route == "both"
+            and self._headset_output_name
+            and self._speaker_output_name
+        ):
+            return join_output_device_names(
+                self._headset_output_name, self._speaker_output_name
+            )
         raise ValueError("judge speaker name is not configured")
+
+    def _audio_output_names(self, route: str) -> tuple[str, ...]:
+        if route == "both":
+            return tuple(
+                name
+                for name in (self._headset_output_name, self._speaker_output_name)
+                if name
+            )
+        return (self._audio_output_name(route),)
 
     @staticmethod
     def _audio_device_available(output_name: str) -> bool:
@@ -345,7 +363,8 @@ class RuntimeService:
         )
 
     def audio_status(self) -> dict[str, Any]:
-        active_name = self._audio_output_name(self.audio_route)
+        active_names = self._audio_output_names(self.audio_route)
+        active_name = " + ".join(active_names) or "Unconfigured"
         tts = self.container.tts
         provider_status = getattr(tts, "provider_status", None)
         return {
@@ -360,6 +379,10 @@ class RuntimeService:
             "speaker_available": bool(
                 self._speaker_output_name
                 and self._audio_device_available(self._speaker_output_name)
+            ),
+            "both_available": all(
+                bool(name) and self._audio_device_available(name)
+                for name in (self._headset_output_name, self._speaker_output_name)
             ),
             "microphone_route": "headset",
             "provider": (
@@ -381,12 +404,16 @@ class RuntimeService:
             if volume_percent is None
             else min(100, max(0, int(volume_percent)))
         )
+        output_names = self._audio_output_names(next_route)
         output_name = self._audio_output_name(next_route)
         if (
             self.container.settings.mode == RunMode.DEVICE
-            and not self._audio_device_available(output_name)
+            and not all(self._audio_device_available(name) for name in output_names)
         ):
-            raise LookupError(f"audio output is unavailable: {output_name}")
+            unavailable = [
+                name for name in output_names if not self._audio_device_available(name)
+            ]
+            raise LookupError(f"audio output is unavailable: {', '.join(unavailable)}")
         tts = self.container.tts
         tts.set_output_device(output_name)
         tts.set_volume(next_volume)
@@ -530,6 +557,12 @@ class RuntimeService:
             logger.debug("Arducam preview is not ready yet: %s", exc)
         status = source.status()
         status["source"] = "Jetson CSI / nvarguscamerasrc"
+        if status.get("last_error"):
+            status["operator_message"] = (
+                f"Argus sensor {hardware.arducam_sensor_id} produced no frame. "
+                "Restart nvargus-daemon or cold power-cycle, then reseat the "
+                "ribbon if the direct V4L2 test still times out."
+            )
         return {**status, **configured}
 
     def arducam_frame_jpeg(self) -> bytes:

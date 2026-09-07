@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import time
 
-from atlas.vision.camera_source import CameraSource, build_nvargus_pipeline
+from atlas.vision.camera_source import (
+    CameraSource,
+    _MjpegCapture,
+    build_nvargus_pipeline,
+)
 
 
 def test_nvargus_pipeline_uses_requested_sensor_and_low_latency_sink() -> None:
@@ -56,3 +60,32 @@ def test_camera_status_marks_stalled_network_frame_unready() -> None:
 
     assert status["ready"] is False
     assert status["last_frame_age_s"] is not None
+
+
+def test_mjpeg_reader_extracts_one_complete_jpeg(monkeypatch) -> None:
+    import cv2
+    import numpy as np
+
+    ok, jpeg = cv2.imencode(".jpg", np.zeros((12, 16, 3), dtype=np.uint8))
+    assert ok
+
+    class Response:
+        def __init__(self) -> None:
+            self.parts = iter((b"multipart header\r\n", jpeg.tobytes()))
+
+        def read1(self, _size: int) -> bytes:
+            return next(self.parts, b"")
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "atlas.vision.camera_source.urllib.request.urlopen",
+        lambda *_args, **_kwargs: Response(),
+    )
+    capture = _MjpegCapture("http://camera:81/stream")
+
+    ready, frame = capture.read()
+
+    assert ready is True
+    assert frame.shape == (12, 16, 3)

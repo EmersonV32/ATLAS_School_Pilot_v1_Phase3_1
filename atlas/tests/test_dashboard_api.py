@@ -87,6 +87,7 @@ class TestHealthAndStatus:
         assert 'data-admin-tab="settings"' in res.text
         assert 'data-audio-route="headset"' in res.text
         assert 'data-audio-route="speaker"' in res.text
+        assert 'data-audio-route="both"' in res.text
         assert 'id="btn-test-audio"' in res.text
         assert 'id="audio-volume"' in res.text
         assert "Apply camera" not in res.text
@@ -104,6 +105,12 @@ class TestHealthAndStatus:
             language_select.index(option) for option in expected_options
         )
         assert "ATLAS_ADMIN_LANGUAGE_OPTIONS" not in res.text
+        assert [option.code for option in ADMIN_LANGUAGE_OPTIONS[:4]] == [
+            "en",
+            "fr",
+            "es",
+            "zh",
+        ]
 
     def test_arducam_preview_is_private_and_degrades_when_disabled(self, client):
         assert client.get("/api/admin/arducam/status").status_code == 401
@@ -265,6 +272,22 @@ class TestAudioControls:
 
         assert response.status_code == 200
         assert response.json()["played"] is True
+
+    def test_both_route_fans_out_without_changing_microphone(self, client):
+        response = client.put(
+            "/api/admin/audio",
+            json={"route": "both", "volume_percent": 72},
+            headers=_admin(client),
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["route"] == "both"
+        assert body["output_device_name"] == "Shokz OpenComm2 UC + UACDemoV1.0"
+        assert body["microphone_route"] == "headset"
+        assert client.app.state.service.container.tts.output_device_name == (
+            "Shokz OpenComm2 UC|||UACDemoV1.0"
+        )
 
 
 class TestManualArtwork:
