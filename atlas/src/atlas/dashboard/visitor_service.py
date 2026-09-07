@@ -650,7 +650,8 @@ class VisitorService:
                 "ready" if named_greeting_ready else "unavailable",
                 (
                     "Only coarse preferences transfer; the optional name is "
-                    "kept only in local memory and erased when the visit ends."
+                    "used only for the private local greeting and erased "
+                    "immediately afterward."
                     if named_greeting_ready
                     else "A local voice for the private greeting is unavailable."
                 ),

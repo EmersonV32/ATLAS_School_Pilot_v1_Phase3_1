@@ -8,14 +8,20 @@ result, and any remaining limitation. Do not remove older entries.
 
 **Changed:** Normalized the embedded remote Bash command to LF before SSH sends
 it from Windows. This prevents a CRLF checkout from turning `pipefail` into an
-invalid Bash option before the atomic Jetson deployment begins.
+invalid Bash option before the atomic Jetson deployment begins. The
+post-deployment audit also aligned the visitor readiness API with immediate
+name erasure after the private local greeting.
 
 **Validation:** Both PowerShell deployment files parse cleanly. The original
 failure was reproduced at remote line one, before backup or runtime replacement,
 and the existing Jetson service remained active with a healthy `/health` result.
+The readiness wording has a dedicated runtime-backed regression test.
 
-**Deployment result:** Pending the corrected full deployment and on-device
-acceptance checks.
+**Deployment result:** Full deployment succeeded on the Jetson. All 2,886 tests
+passed, the seven YOLO labels matched the content pack, a fresh FP16 TensorRT
+engine was exported, the service restarted without retries, `/health` returned
+healthy, and both dashboards plus the camera frame returned HTTP 200. Backup:
+`/tmp/atlas_visitor_backup_20260907_094645`.
 
 **Remaining limitation:** The complete TensorRT and hardware checks run only on
 the target Jetson during deployment.

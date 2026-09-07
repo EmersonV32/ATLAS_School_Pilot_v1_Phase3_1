@@ -422,6 +422,14 @@ class TestVisitorContract:
         assert profile["status"] == "unavailable"
         assert "local voice" in profile["detail"].lower()
 
+    def test_profile_readiness_copy_promises_immediate_name_erasure(self):
+        readiness = VisitorService(runtime_service=_FakeRuntime()).readiness()
+        profile = next(item for item in readiness["items"] if item["id"] == "profile")
+
+        assert "private local greeting" in profile["detail"]
+        assert "erased immediately afterward" in profile["detail"]
+        assert "visit ends" not in profile["detail"]
+
     @pytest.mark.parametrize("language", ["en", "fr", "es", "it", "zh-Hant"])
     def test_mock_readiness_accepts_all_current_speech_languages(
         self, visitor_client, language
