@@ -20,7 +20,7 @@ CLASS_IDS = {
     "starry_night": 5,
     "sunflowers": 6,
 }
-NEW_ARTWORKS = {key: value for key, value in CLASS_IDS.items() if value in {0, 1, 2, 4}}
+NEW_ARTWORKS = {key: value for key, value in CLASS_IDS.items() if value in {0, 1, 2, 6}}
 
 
 def parse_args() -> argparse.Namespace:

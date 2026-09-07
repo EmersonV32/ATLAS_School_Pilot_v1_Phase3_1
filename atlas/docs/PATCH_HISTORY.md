@@ -6,10 +6,11 @@ result, and any remaining limitation. Do not remove older entries.
 
 ## 2026-09-07 - YOLO deployment-domain diagnostic
 
-**Changed:** Added a reusable dataset split audit and passed ATLAS's lowest
-configured per-class confidence threshold into the Ultralytics backend. The
-existing post-filter still enforces the dedicated higher threshold for
-Tutankhamun's mask.
+**Changed:** Added a reusable dataset split audit, corrected the phone-domain
+training target from Tutankhamun to Sunflowers, updated the recovery checkpoint
+hash, and passed ATLAS's lowest configured per-class confidence threshold into
+the Ultralytics backend. The existing post-filter still enforces the dedicated
+higher threshold for Tutankhamun's mask.
 
 **Validation:** The pre-fine-tune checkpoint scored `0.949017` mAP50 on the
 152-image test split but misclassified the saved real XIAO Pearl frame as Mona
@@ -25,8 +26,10 @@ as a deployment-camera release gate.
 prepared for the normal Jetson deployment workflow.
 
 **Remaining limitation:** Real XIAO frames exist only for Pearl. Great Wave,
-Liberty, and Tutankhamun still require a session-separated, real-camera
-validation set and physical release test.
+Liberty, and Sunflowers still require a session-separated, real-camera
+validation set and physical release test. The current checkpoint was trained
+before the target-set correction, so Sunflowers has not received phone-domain
+fine-tuning.
 
 ## 2026-09-07 - YOLO phone-display domain update
 
