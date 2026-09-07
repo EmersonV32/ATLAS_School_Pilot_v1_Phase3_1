@@ -7,6 +7,7 @@ import time
 from atlas.vision.camera_source import (
     CameraSource,
     _MjpegCapture,
+    build_gstreamer_jpeg_command,
     build_nvargus_pipeline,
 )
 
@@ -26,6 +27,23 @@ def test_nvargus_pipeline_uses_requested_sensor_and_low_latency_sink() -> None:
     assert "framerate=(fraction)30/1" in pipeline
     assert "nvvidconv flip-method=2" in pipeline
     assert pipeline.endswith("appsink drop=true max-buffers=1 sync=false")
+
+
+def test_gstreamer_subprocess_replaces_opencv_sink_with_jpeg_pipe() -> None:
+    pipeline = build_nvargus_pipeline(
+        sensor_id=0,
+        width=1920,
+        height=1080,
+        fps=30,
+    )
+
+    command = build_gstreamer_jpeg_command(pipeline)
+
+    assert command[:2] == ["gst-launch-1.0", "-q"]
+    assert "nvarguscamerasrc" in command
+    assert "jpegenc" in command
+    assert "fdsink" in command
+    assert "appsink" not in command
 
 
 def test_camera_status_reports_observed_fps_without_opening_hardware() -> None:

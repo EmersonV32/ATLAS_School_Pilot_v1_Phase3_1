@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import logging
+import os
 import platform
+import select
+import shlex
+import subprocess
 import threading
 import time
 import urllib.request
@@ -11,6 +15,73 @@ from collections import deque
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def build_gstreamer_jpeg_command(pipeline: str) -> list[str]:
+    """Replace OpenCV appsink with a JPEG pipe for builds without GStreamer."""
+    producer = pipeline.split("appsink", 1)[0].rstrip(" !")
+    output = f"{producer} ! jpegenc quality=85 ! fdsink fd=1"
+    return ["gst-launch-1.0", "-q", *shlex.split(output)]
+
+
+class _GstreamerSubprocessCapture:
+    """Read CSI frames through native GStreamer when pip OpenCV lacks it."""
+
+    def __init__(self, pipeline: str, timeout_s: float = 3.0) -> None:
+        self._process = subprocess.Popen(
+            build_gstreamer_jpeg_command(pipeline),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        self._buffer = bytearray()
+        self._timeout_s = timeout_s
+
+    def isOpened(self) -> bool:  # noqa: N802 - OpenCV-compatible API
+        return self._process.poll() is None and self._process.stdout is not None
+
+    def set(self, *_args: Any) -> bool:
+        return False
+
+    def read(self) -> tuple[bool, Any]:
+        import cv2  # type: ignore
+        import numpy as np  # type: ignore
+
+        stdout = self._process.stdout
+        if stdout is None:
+            return False, None
+        deadline = time.monotonic() + self._timeout_s
+        while self._process.poll() is None:
+            start = self._buffer.find(b"\xff\xd8")
+            end = self._buffer.find(b"\xff\xd9", max(0, start + 2))
+            if start >= 0 and end > start:
+                jpeg = bytes(self._buffer[start : end + 2])
+                del self._buffer[: end + 2]
+                frame = cv2.imdecode(
+                    np.frombuffer(jpeg, dtype=np.uint8), cv2.IMREAD_COLOR
+                )
+                if frame is not None:
+                    return True, frame
+                continue
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False, None
+            ready, _, _ = select.select([stdout], [], [], remaining)
+            if not ready:
+                return False, None
+            chunk = os.read(stdout.fileno(), 65536)
+            if not chunk:
+                return False, None
+            self._buffer.extend(chunk)
+        return False, None
+
+    def release(self) -> None:
+        if self._process.poll() is None:
+            self._process.terminate()
+            try:
+                self._process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self._process.kill()
+                self._process.wait(timeout=2)
 
 
 class _MjpegCapture:
@@ -149,7 +220,10 @@ class CameraSource:
 
         if isinstance(self.source, str) and self.source.startswith("gstreamer:"):
             pipeline = self.source.removeprefix("gstreamer:").strip()
-            capture = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+            if "GStreamer:                   NO" in cv2.getBuildInformation():
+                capture = _GstreamerSubprocessCapture(pipeline)
+            else:
+                capture = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
         elif isinstance(self.source, int) and platform.system() == "Linux":
             capture = cv2.VideoCapture(self.source, cv2.CAP_V4L2)
         elif (
