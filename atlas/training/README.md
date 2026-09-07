@@ -22,6 +22,21 @@ The script checks that every source label maps to an ATLAS artwork ID and
 writes `training/datasets/atlas-artworks-v4/data.yaml` without modifying the
 original Roboflow export.
 
+For the camera-generalization retrain, rebuild the dataset by reviewed capture
+ranges, then add synthetic XIAO-style phone scenes generated only from training
+crops:
+
+```powershell
+python training/prepare_artwork_dataset_v5.py
+python scripts/build_phone_yolo_dataset.py `
+  --source training/datasets/atlas-artworks-v5-base `
+  --output training/datasets/atlas-artworks-v5 `
+  --samples-per-class 180
+```
+
+The v5 preparation intentionally excludes a buffer between validation and test
+ranges. Its `split_manifest.json` records every assignment and class count.
+
 ## Training
 
 Install the vision extra in an environment with a CUDA-capable NVIDIA GPU:
@@ -31,9 +46,11 @@ pip install -e ".[vision]"
 python training/train_artwork_detector.py
 ```
 
-The default run fine-tunes `yolo26n.pt` at 640px and writes results under
-`training/runs/yolo26n-atlas-v4/`. It also evaluates the saved `best.pt` on the
-held-out test split.
+The current handoff run starts from untouched `yolo26n.pt` at 640px and writes
+results under `runs/yolo26n-atlas-v5-camera/`. Starting from the v4 ATLAS
+checkpoint would contaminate the new test because that checkpoint saw the old
+random split. The script evaluates `best.pt` on the locked test at both 640px
+and production 416px.
 
 ## Release gate
 

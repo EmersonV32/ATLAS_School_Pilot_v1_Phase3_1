@@ -4,9 +4,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$sourceDataset = Join-Path $PSScriptRoot "datasets\atlas-artworks-v4"
+$sourceDataset = Join-Path $PSScriptRoot "datasets\atlas-artworks-v5"
 $handoffSource = Join-Path $PSScriptRoot "handoff"
-$packageName = "ATLAS-artwork-detector-training-v4"
+$packageName = "ATLAS-artwork-detector-training-v5-camera"
 $packageRoot = Join-Path $OutputDirectory $packageName
 $archive = Join-Path $OutputDirectory "$packageName.zip"
 
@@ -27,10 +27,10 @@ Copy-Item -LiteralPath (Join-Path $sourceDataset "test") -Destination $packageRo
 Copy-Item -LiteralPath (Join-Path $handoffSource "README.md") -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $handoffSource "requirements.txt") -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $handoffSource "train.py") -Destination $packageRoot
+Copy-Item -LiteralPath (Join-Path $sourceDataset "split_manifest.json") -Destination $packageRoot
 New-Item -ItemType Directory -Path (Join-Path $packageRoot "dataset") | Out-Null
 Copy-Item -LiteralPath (Join-Path $handoffSource "data.yaml.template") -Destination (Join-Path $packageRoot "dataset")
 Rename-Item -LiteralPath (Join-Path $packageRoot "dataset\data.yaml.template") -NewName "data.yaml"
-
 Get-ChildItem -LiteralPath $packageRoot -Recurse -File |
     Get-FileHash -Algorithm SHA256 |
     ForEach-Object { "{0}  {1}" -f $_.Hash, $_.Path.Substring($packageRoot.Length + 1) } |

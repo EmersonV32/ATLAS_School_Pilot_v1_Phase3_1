@@ -4,6 +4,32 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-07 - Leakage-resistant YOLO v5 training package
+
+**Changed:** Added a reviewed capture-range split that keeps adjacent phone
+frames together and omits a buffer between validation and locked test ranges.
+The phone-scene builder can now derive references exclusively from training
+crops and simulates XIAO blur, glare, white balance, sensor noise, compression,
+perspective, and scale. Updated the external GPU handoff to train from untouched
+`yolo26n.pt` and evaluate the candidate at 640px and production 416px. The old
+v4 checkpoint is deliberately not used because it saw the former random split.
+
+**Validation:** Rebuilt 698 train, 233 validation, and 220 locked-test real
+images; all seven classes are present in every split. Added 720 synthetic
+training-only scenes. The split audit found zero exact files, repeated source
+keys, or same-sequence neighbors within five frames across train versus
+validation/test. Ruff passed and the focused training-tool suite passed 3
+tests. The generated 74,730,312-byte handoff archive passed all 3,747 recorded
+file hashes and has SHA-256
+`759933d321f0e077e09ec4d04778b467a0ca93d09a3d57fd2d80cb7e8236fb06`.
+
+**Deployment result:** Training tools only; the active ATLAS checkpoint and
+Jetson runtime are unchanged.
+
+**Remaining limitation:** The candidate still requires external CUDA training,
+locked-test review, TensorRT export on the Jetson, and physical testing of all
+seven artworks before deployment.
+
 ## 2026-09-07 - YOLO deployment-domain diagnostic
 
 **Changed:** Added a reusable dataset split audit, corrected the phone-domain

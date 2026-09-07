@@ -24,5 +24,6 @@
 
 # Local computer-vision training datasets and generated checkpoints.
 /atlas/training/datasets/
+/atlas/training/base/
 /atlas/training/runs/
 /atlas/training/outgoing/
