@@ -66,8 +66,7 @@ hardware:
   camera_width: 800
   camera_height: 600
   camera_fps: 15
-  # The headset mount holds the XIAO sensor sideways; normalize before YOLO.
-  camera_rotation_degrees: 90
+  camera_rotation_degrees: 0
   camera_reconnect_s: 1.0
   # Arducam UC-517 Rev D3 / IMX477 on the CSI connector. This Jetson
   # enumerates J12 CAM0 as sensor-id=0. This source is admin-preview only.
@@ -97,6 +96,8 @@ hardware:
   # auto prefers TensorRT when the engine exists and falls back to PyTorch.
   yolo_backend: auto
   yolo_imgsz: 416
+  # Keep the dashboard horizontal while presenting upright pixels to YOLO.
+  vision_rotation_degrees: 90
   vision_conf_threshold: 0.24
   vision_mask_conf_threshold: 0.45
   vision_center_weight: 0.55

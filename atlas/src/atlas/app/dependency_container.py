@@ -227,6 +227,7 @@ class Container:
                     mask_conf_threshold=hw.vision_mask_conf_threshold,
                     center_weight=hw.vision_center_weight,
                     image_size=hw.yolo_imgsz,
+                    rotation_degrees=hw.vision_rotation_degrees,
                     fallback_model_path=fallback_path,
                 )
             else:

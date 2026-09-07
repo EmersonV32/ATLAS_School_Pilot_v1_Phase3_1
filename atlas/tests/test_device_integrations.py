@@ -44,6 +44,7 @@ from atlas.vision.yolo_detector import (
     YoloDetector,
     bbox_center_score,
     normalize_yolo_label,
+    restore_bbox_orientation,
 )
 
 
@@ -353,6 +354,18 @@ def test_center_score_prioritises_center():
     corner = bbox_center_score((0.0, 0.0, 0.2, 0.2))
     assert center == 1.0
     assert center > corner
+
+
+def test_rotated_inference_bbox_maps_back_to_horizontal_frame():
+    rotated = (0.2, 0.1, 0.8, 0.9)
+
+    restored = restore_bbox_orientation(rotated, 90)
+    assert tuple(round(value, 6) for value in restored) == (
+        0.1,
+        0.2,
+        0.9,
+        0.8,
+    )
 
 
 def test_yolo_fallback_requires_a_real_distinct_file(tmp_path):

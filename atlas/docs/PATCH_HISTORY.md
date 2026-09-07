@@ -4,6 +4,25 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-07 - Horizontal preview with upright YOLO inference
+
+**Changed:** Restored the dashboard camera frame to horizontal 800x600 while
+rotating only the pixels passed to YOLO by 90 degrees. This compensates for the
+physical headset sensor orientation without making the operator preview
+portrait. Detection boxes are transformed back into preview coordinates.
+
+**Validation:** The training release confirms rotation augmentation was disabled
+(`degrees: 0.0`). Fifty-five focused local tests and 35 Jetson tests passed.
+The deployed camera sustained 14.3-15.1 FPS at 800x600 with zero reconnects.
+
+**Deployment result:** Active on the Jetson. Rollback:
+`/tmp/atlas_inference_rotation_backup_20260907.tar.gz`.
+
+**Remaining limitation:** Two captured verification frames showed only the
+ceiling, not a new artwork. A physical test with each new artwork filling the
+view is still required; if raw confidence remains low, the v4 dataset needs
+XIAO-camera examples rather than another runtime threshold change.
+
 ## 2026-09-07 - XIAO resolution guard and YOLO truthfulness
 
 **Changed:** Added an automatic ESP32 camera-profile check on every open and

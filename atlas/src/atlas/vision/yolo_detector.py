@@ -51,6 +51,20 @@ def bbox_center_score(bbox: tuple[float, float, float, float]) -> float:
     return max(0.0, min(1.0, 1.0 - distance / max_distance))
 
 
+def restore_bbox_orientation(
+    bbox: tuple[float, float, float, float], rotation_degrees: int
+) -> tuple[float, float, float, float]:
+    """Map a normalized inference bbox back to the dashboard frame."""
+    x1, y1, x2, y2 = bbox
+    if rotation_degrees == 90:
+        return (y1, 1.0 - x2, y2, 1.0 - x1)
+    if rotation_degrees == 180:
+        return (1.0 - x2, 1.0 - y2, 1.0 - x1, 1.0 - y1)
+    if rotation_degrees == 270:
+        return (1.0 - y2, x1, 1.0 - y1, x2)
+    return bbox
+
+
 class YoloDetector(BaseDetector):
     def __init__(
         self,
@@ -61,6 +75,7 @@ class YoloDetector(BaseDetector):
         image_size: int = 416,
         device: str | int | None = 0,
         fallback_model_path: str | None = None,
+        rotation_degrees: int = 0,
     ) -> None:
         self._model_path = model_path
         self._fallback_model_path = fallback_model_path
@@ -69,6 +84,9 @@ class YoloDetector(BaseDetector):
         self._center_weight = max(0.0, min(1.0, center_weight))
         self._image_size = image_size
         self._device = device
+        if rotation_degrees not in (0, 90, 180, 270):
+            raise ValueError("rotation_degrees must be 0, 90, 180, or 270")
+        self._rotation_degrees = rotation_degrees
         self._model = None
         self._active_model_path: str | None = None
 
@@ -138,9 +156,19 @@ class YoloDetector(BaseDetector):
             return None
         if self._model is None:
             self.warm_up()
+        inference_frame = frame
+        if self._rotation_degrees:
+            import cv2  # type: ignore
+
+            rotate_codes = {
+                90: cv2.ROTATE_90_CLOCKWISE,
+                180: cv2.ROTATE_180,
+                270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+            }
+            inference_frame = cv2.rotate(frame, rotate_codes[self._rotation_degrees])
         try:
             results = self._model.predict(
-                frame,
+                inference_frame,
                 imgsz=self._image_size,
                 device=self._device,
                 verbose=False,
@@ -149,7 +177,7 @@ class YoloDetector(BaseDetector):
             if not self._activate_fallback(exc):
                 raise
             results = self._model.predict(
-                frame,
+                inference_frame,
                 imgsz=self._image_size,
                 device=self._device,
                 verbose=False,
@@ -170,7 +198,10 @@ class YoloDetector(BaseDetector):
                 )
                 if confidence < threshold:
                     continue
-                bbox = tuple(float(value) for value in box.xyxyn[0])
+                inference_bbox = tuple(float(value) for value in box.xyxyn[0])
+                bbox = restore_bbox_orientation(
+                    inference_bbox, self._rotation_degrees
+                )
                 center_score = bbox_center_score(bbox)
                 priority = (
                     1.0 - self._center_weight
