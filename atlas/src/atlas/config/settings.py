@@ -83,6 +83,11 @@ class HardwareSettings(BaseModel):
     # A numeric string opens a local camera ("0"). A URL opens the XIAO
     # ESP32-S3 Sense MJPEG stream ("http://192.168.x.x:81/stream").
     camera_source: str = "0"
+    # ESP32 camera control endpoint. When set, ATLAS reapplies the expected
+    # sensor profile whenever the MJPEG stream opens or reconnects.
+    camera_control_url: str = ""
+    camera_framesize: int = Field(default=11, ge=0, le=21)
+    camera_jpeg_quality: int = Field(default=14, ge=4, le=63)
     camera_index: int = 0
     camera_width: int = 1280
     camera_height: int = 720

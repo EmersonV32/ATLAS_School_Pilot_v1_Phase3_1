@@ -133,7 +133,9 @@ class ArtworkTracker:
     # -- status ------------------------------------------------------------
     def status(self) -> dict:
         """Privacy-safe snapshot for the dashboard."""
-        current = self._manual or self._last_stable
+        current = self._manual or (
+            self._last_stable if self._allow_last_stable else self._latest_visual
+        )
         return {
             "artwork_id": current.artwork_id if current else None,
             "label": current.label if current else None,

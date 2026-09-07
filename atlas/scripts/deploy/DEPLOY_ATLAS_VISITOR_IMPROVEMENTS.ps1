@@ -39,6 +39,7 @@ $files = @(
     "scripts/atlas.service",
     "scripts/check_arducam.sh",
     "scripts/diagnose_yolo_dataset.py",
+    "scripts/diagnose_yolo_images.py",
     "scripts/export_tensorrt.py",
     "scripts/install_user_service.sh",
     "scripts/validate_artwork_release.py",
@@ -85,6 +86,7 @@ paths=(
   scripts/atlas.service
   scripts/check_arducam.sh
   scripts/diagnose_yolo_dataset.py
+  scripts/diagnose_yolo_images.py
   scripts/export_tensorrt.py
   scripts/install_user_service.sh
   scripts/validate_artwork_release.py

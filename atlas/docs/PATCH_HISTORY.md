@@ -4,6 +4,32 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-07 - XIAO resolution guard and YOLO truthfulness
+
+**Changed:** Added an automatic ESP32 camera-profile check on every open and
+reconnect, enforcing SVGA 800x600 and JPEG quality 14. Camera status now reports
+the received dimensions instead of only the requested dimensions. Fixed artwork
+status so device mode no longer displays an old detection after the artwork has
+left the frame, and added a reusable raw image/model comparison diagnostic.
+
+**Validation:** The deployed TensorRT engine and source `.pt` produced matching
+predictions for all four new artwork classes at 416px. The live source was found
+at ESP32 framesize 9 (480x320), corrected to framesize 11, and then measured at
+800x600. The headset mount was also found to rotate the sensor by 90 degrees;
+after normalizing that orientation, the live detector recognized Mona Lisa at
+50.7% confidence and cleared the result when it left the frame. The camera
+reported zero reconnects during the verification interval and varied from 6.5
+to 14.9 FPS as JPEG scene complexity changed. All local tests and 20 focused
+Jetson tests passed.
+
+**Deployment result:** The focused hotfix is active on the Jetson. Rollback:
+`/tmp/atlas_camera_vision_backup_20260907.tar.gz`; pre-rotation device settings:
+`/tmp/atlas_settings_before_rotation_20260907.yaml`.
+
+**Remaining limitation:** The current camera scene must contain an artwork to
+physically verify a live detection. Flash the recovery firmware once so the
+camera-side watchdog is also persistent independently of ATLAS.
+
 ## 2026-09-07 - Live dual-camera recovery
 
 **Changed:** Corrected the live XIAO profile from an oversized camera-side mode

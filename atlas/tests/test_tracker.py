@@ -73,6 +73,8 @@ class TestStability:
         for _ in range(3):
             tracker.update()
         assert tracker.update() is None
+        assert tracker.status()["artwork_id"] is None
+        assert tracker.status()["source"] == "none"
 
     def test_visualization_reports_only_the_current_frame_box(self):
         detection = ArtworkDetection(

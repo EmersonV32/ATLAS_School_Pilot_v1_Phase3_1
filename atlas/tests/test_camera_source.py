@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 
 from atlas.vision.camera_source import (
@@ -59,6 +60,60 @@ def test_camera_status_reports_observed_fps_without_opening_hardware() -> None:
     assert status["observed_fps"] == 2.0
     assert status["requested_fps"] == 15
     assert status["reconnect_count"] == 0
+
+
+def test_camera_status_reports_actual_frame_dimensions() -> None:
+    import numpy as np
+
+    source = CameraSource("http://atlas-camera.local:81/stream")
+    with source._lock:
+        source._frame = np.zeros((600, 800, 3), dtype=np.uint8)
+        source._actual_height, source._actual_width = source._frame.shape[:2]
+
+    status = source.status()
+
+    assert status["actual_width"] == 800
+    assert status["actual_height"] == 600
+
+
+def test_network_camera_profile_corrects_mismatched_settings(monkeypatch) -> None:
+    requested_urls: list[str] = []
+
+    class Response:
+        def __init__(self, body: bytes = b"") -> None:
+            self.body = body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def read(self, *_args) -> bytes:
+            return self.body
+
+    def fake_urlopen(request, **_kwargs):
+        url = request.full_url
+        requested_urls.append(url)
+        if url.endswith("/status"):
+            return Response(json.dumps({"framesize": 9, "quality": 14}).encode())
+        return Response()
+
+    monkeypatch.setattr(
+        "atlas.vision.camera_source.urllib.request.urlopen", fake_urlopen
+    )
+    source = CameraSource(
+        "http://atlas-camera.local:81/stream",
+        control_url="http://atlas-camera.local",
+        control_profile={"framesize": 11, "quality": 14},
+    )
+
+    source._ensure_network_camera_profile()
+
+    assert requested_urls == [
+        "http://atlas-camera.local/status",
+        "http://atlas-camera.local/control?var=framesize&val=11",
+    ]
 
 
 def test_camera_reconnect_delay_has_a_safe_minimum() -> None:

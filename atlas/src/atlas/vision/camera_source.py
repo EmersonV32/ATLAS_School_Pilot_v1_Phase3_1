@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import platform
@@ -10,6 +11,7 @@ import shlex
 import subprocess
 import threading
 import time
+import urllib.parse
 import urllib.request
 from collections import deque
 from typing import Any
@@ -190,6 +192,8 @@ class CameraSource:
         rotation_degrees: int = 0,
         reconnect_s: float = 1.0,
         name: str = "camera",
+        control_url: str = "",
+        control_profile: dict[str, int] | None = None,
     ) -> None:
         self.source = normalize_camera_source(source)
         self.width = width
@@ -200,6 +204,18 @@ class CameraSource:
             raise ValueError("camera_rotation_degrees must be 0, 90, 180, or 270")
         self.reconnect_s = max(0.1, reconnect_s)
         self.name = name
+        parsed_source = (
+            urllib.parse.urlsplit(self.source)
+            if isinstance(self.source, str)
+            else None
+        )
+        inferred_control_url = (
+            f"{parsed_source.scheme}://{parsed_source.hostname}"
+            if parsed_source and parsed_source.scheme and parsed_source.hostname
+            else ""
+        )
+        self.control_url = (control_url or inferred_control_url).rstrip("/")
+        self.control_profile = control_profile or {}
 
         self._capture = None
         self._frame: Any = None
@@ -209,14 +225,52 @@ class CameraSource:
         self._opened_at = 0.0
         self._reconnect_count = 0
         self._consecutive_failures = 0
+        self._actual_width: int | None = None
+        self._actual_height: int | None = None
         self._frame_times: deque[float] = deque(maxlen=60)
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._ready = threading.Event()
         self._thread: threading.Thread | None = None
 
+    def _ensure_network_camera_profile(self) -> None:
+        """Reapply ESP32 settings after power cycles and stream reconnects."""
+        if not self.control_url or not self.control_profile:
+            return
+        request = urllib.request.Request(
+            f"{self.control_url}/status",
+            headers={"Connection": "close", "User-Agent": "ATLAS-camera/1.0"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=2.0) as response:
+                status = json.loads(response.read().decode("utf-8"))
+            changed: list[str] = []
+            for key, expected in self.control_profile.items():
+                if status.get(key) == expected:
+                    continue
+                query = urllib.parse.urlencode({"var": key, "val": expected})
+                control = urllib.request.Request(
+                    f"{self.control_url}/control?{query}",
+                    headers={
+                        "Connection": "close",
+                        "User-Agent": "ATLAS-camera/1.0",
+                    },
+                )
+                with urllib.request.urlopen(control, timeout=2.0) as response:
+                    response.read()
+                changed.append(f"{key}={expected}")
+            if changed:
+                logger.info("Camera profile corrected: %s", ", ".join(changed))
+        except Exception as exc:
+            # Profile telemetry is advisory: a working stream must remain usable
+            # even if a third-party network camera has no ESP32 control endpoint.
+            logger.warning("Could not verify camera profile: %s", exc)
+
     def _open(self):
         import cv2  # type: ignore
+
+        if isinstance(self.source, str) and "/stream" in self.source.lower():
+            self._ensure_network_camera_profile()
 
         if isinstance(self.source, str) and self.source.startswith("gstreamer:"):
             pipeline = self.source.removeprefix("gstreamer:").strip()
@@ -367,6 +421,7 @@ class CameraSource:
                 frame = cv2.rotate(frame, rotate_codes[self.rotation_degrees])
             with self._lock:
                 self._frame = frame
+                self._actual_height, self._actual_width = frame.shape[:2]
                 self._frame_number += 1
                 self._last_frame_at = time.monotonic()
                 self._frame_times.append(self._last_frame_at)
@@ -421,6 +476,8 @@ class CameraSource:
                 "requested_width": self.width,
                 "requested_height": self.height,
                 "requested_fps": self.fps,
+                "actual_width": self._actual_width,
+                "actual_height": self._actual_height,
                 "reconnect_count": self._reconnect_count,
                 "consecutive_failures": self._consecutive_failures,
             }

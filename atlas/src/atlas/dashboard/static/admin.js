@@ -363,8 +363,10 @@ async function refreshStatus() {
       ? `${artwork.stable ? "Stable" : "Detecting"} / ${artwork.source}` : "Camera stream";
     const camera = status.camera || {};
     $("metric-camera").textContent = camera.ready ? "Live" : "Disconnected";
+    const cameraResolution = camera.actual_width && camera.actual_height
+      ? ` @ ${camera.actual_width}x${camera.actual_height}` : "";
     $("vision-camera-fps").textContent = camera.observed_fps != null
-      ? `${Number(camera.observed_fps).toFixed(1)} fps` : "--";
+      ? `${Number(camera.observed_fps).toFixed(1)} fps${cameraResolution}` : "--";
     if (camera.last_error) {
       $("camera-source").textContent = `Recovering: ${camera.last_error}`;
     }

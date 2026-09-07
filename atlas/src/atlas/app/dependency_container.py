@@ -172,6 +172,11 @@ class Container:
                 fps=hw.camera_fps,
                 rotation_degrees=hw.camera_rotation_degrees,
                 reconnect_s=hw.camera_reconnect_s,
+                control_url=hw.camera_control_url,
+                control_profile={
+                    "framesize": hw.camera_framesize,
+                    "quality": hw.camera_jpeg_quality,
+                },
             )
         return self._camera_source
 
