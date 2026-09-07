@@ -91,6 +91,19 @@ def test_close_paraphrase_and_named_artwork_work_without_camera_context():
     assert "Leonardo da Vinci" in result.response
 
 
+@pytest.mark.parametrize(
+    "question",
+    (
+        "Where is the bathroom?",
+        "What should I do next?",
+        "What is the weather?",
+        "Who made this museum?",
+    ),
+)
+def test_unrelated_questions_do_not_trigger_scripted_artwork_answers(question):
+    assert match_scripted_intent(question, "en") is None
+
+
 def test_traditional_chinese_is_recognized_and_returned():
     result = resolve_scripted_faq(
         "這件作品是誰畫的？",

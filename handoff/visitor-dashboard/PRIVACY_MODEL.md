@@ -5,7 +5,7 @@
 | Input | Lifetime | Server | Admin |
 |---|---|---|---|
 | Language | Session | Yes | Yes |
-| Optional first name | Active visit | Local memory only | Boolean only |
+| Optional first name | Until first wake greeting | Local memory only | Boolean only |
 | Exact age | Until client derivation | Never | Never |
 | Derived age guidance | Session | Yes | Summary |
 | Expertise/interests/accessibility | Session | Yes | Yes |
@@ -14,10 +14,8 @@
 The browser must not use cookies, localStorage, sessionStorage, or IndexedDB
 for visitor state. The optional name crosses the local API only in the start
 request, bypasses cloud TTS through the private Piper path, and is erased from
-runtime memory only when the visit ends. It is retained so later private local
-features can reuse it, but the current answer pipeline never places it in a
-prompt, retrieval query, cloud speech request, status response, or log. Reset or
-staff stop erases the runtime profile; page reload erases remaining browser data.
+runtime memory immediately after the first greeting. Reset, staff stop, or page
+reload erases the remaining browser profile.
 
 ## Public versus prototype logging
 

@@ -48,9 +48,9 @@ Accepts an optional visit-only local greeting name:
 The schema accepts at most 40 Unicode letters plus spaces, apostrophes, and
 hyphens. The name passes directly from browser memory to local runtime memory,
 is spoken only through the configured local Piper voice after the selected-
-language wake phrase, remains only in runtime memory for the active visit, and
-is erased on stop. It is never placed in monitoring, logs, retrieval, prompts,
-status responses, or cloud requests.
+language wake phrase, and is erased from runtime memory immediately after that
+greeting. It is never placed in monitoring, logs, retrieval, prompts, status
+responses, or cloud requests.
 
 The route atomically validates language, transfer state, private local voice
 availability when a name was entered, and all other readiness items. In device

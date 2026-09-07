@@ -284,12 +284,12 @@ class TestVisitorShell:
         assert "5 to 120" not in html
         assert '"age":' not in source
 
-    def test_name_privacy_copy_promises_visit_only_retention(self, visitor_client):
+    def test_name_privacy_copy_promises_one_time_local_use(self, visitor_client):
         html = visitor_client.get("/").text
 
-        assert "name stays only in the local ATLAS unit for this visit" in html
-        assert "is erased when the visit ends" in html
-        assert "used once" not in html
+        assert "name is used once by the local ATLAS unit" in html
+        assert "cleared after use" in html
+        assert "name stays only" not in html
 
     def test_help_request_has_a_prominent_admin_state(self, visitor_client):
         html = visitor_client.get("/admin").text

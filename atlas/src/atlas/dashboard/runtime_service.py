@@ -170,7 +170,7 @@ class RuntimeService:
         self._visitor_expertise: str | None = None
         self._wake_required = False
         self._wake_activated = True
-        self._visitor_name: str | None = None
+        self._greeting_name: str | None = None
         hardware = container.settings.hardware
         configured_output = str(hardware.audio_output_name).strip()
         self._headset_output_name = str(hardware.headset_name).strip()
@@ -213,7 +213,7 @@ class RuntimeService:
         self.demo_active = bool(demo)
         self._wake_required = bool(wake_required)
         self._wake_activated = not self._wake_required
-        self._visitor_name = clean_greeting_name(greeting_name)
+        self._greeting_name = clean_greeting_name(greeting_name)
         self.session_id = new_session_id()
         self.container.logger.log(
             session_id=self.session_id,
@@ -242,7 +242,7 @@ class RuntimeService:
         self.demo_active = False
         self._wake_required = False
         self._wake_activated = True
-        self._visitor_name = None
+        self._greeting_name = None
         self._visitor_interests = []
         self._visitor_accessibility = []
         self._visitor_expertise = None
@@ -294,7 +294,7 @@ class RuntimeService:
             return True
         if not wake_phrase_matches(transcript, self.language):
             return False
-        name = self._visitor_name
+        name = self._greeting_name
         greeting = local_greeting(self.language, name)
         if name:
             spoken = bool(
@@ -308,6 +308,7 @@ class RuntimeService:
             )
             return False
         self._wake_activated = True
+        self._greeting_name = None
         logger.info(
             "[Activation] Wake phrase accepted; local greeting completed "
             "[language=%s audio_played=%s]",

@@ -572,11 +572,11 @@ _QUESTION_PHRASES = {
         "zh": ("这是什么", "我在看什么", "这件作品叫什么", "这是哪件作品"),
     },
     "artist": {
-        "en": ("who painted", "who made", "who created", "which artist", "name the artist"),
-        "fr": ("qui a peint", "qui a fait", "qui a cree", "quel artiste", "nom de l artiste"),
-        "es": ("quien pinto", "quien hizo", "quien creo", "que artista", "nombre del artista"),
-        "it": ("chi ha dipinto", "chi ha fatto", "chi ha creato", "quale artista", "nome dell artista"),
-        "zh": ("谁画的", "谁做的", "谁创作的", "哪位艺术家", "作者是谁"),
+        "en": ("who painted", "who made it", "who created it", "which artist", "name the artist"),
+        "fr": ("qui a peint", "qui a fait cette oeuvre", "qui a cree cette oeuvre", "quel artiste", "nom de l artiste"),
+        "es": ("quien pinto", "quien hizo esta obra", "quien creo esta obra", "que artista", "nombre del artista"),
+        "it": ("chi ha dipinto", "chi ha fatto quest opera", "chi ha creato quest opera", "quale artista", "nome dell artista"),
+        "zh": ("谁画的", "这件作品是谁做的", "这件作品是谁创作的", "哪位艺术家", "作者是谁"),
     },
     "date": {
         "en": ("when was", "what year", "how old is", "when did the artist"),
@@ -807,27 +807,27 @@ def match_scripted_intent(question: str, language: str) -> str | None:
             return intent
     if len(normalized) < 8:
         return None
-    best_intent = None
-    best_ratio = 0.0
     words = normalized.split()
     word_set = set(words)
     for intent, normalized_phrase, phrase_words in phrase_index:
         if not word_set.intersection(phrase_words):
             continue
-        ratio = SequenceMatcher(None, normalized, normalized_phrase).ratio()
         phrase_word_count = len(phrase_words)
         for start in range(max(0, len(words) - phrase_word_count + 1)):
-            window = " ".join(words[start : start + phrase_word_count])
+            window_words = words[start : start + phrase_word_count]
+            window = " ".join(window_words)
             window_ratio = SequenceMatcher(
                 None,
                 window,
                 normalized_phrase,
             ).ratio()
-            if window_ratio >= 0.84:
+            token_ratios = (
+                SequenceMatcher(None, actual, expected).ratio()
+                for actual, expected in zip(window_words, phrase_words, strict=True)
+            )
+            if window_ratio >= 0.84 and all(ratio >= 0.70 for ratio in token_ratios):
                 return intent
-        if ratio > best_ratio:
-            best_intent, best_ratio = intent, ratio
-    return best_intent if best_ratio >= 0.70 else None
+    return None
 
 
 def _named_artwork(question: str) -> str | None:

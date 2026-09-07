@@ -114,8 +114,8 @@ class VisitorService:
     """Owns ephemeral onboarding and optionally activates one device session.
 
     Exact ages, raw media, prompts, transcript text, and answer text do not cross
-    this boundary. An optional first name crosses into local runtime memory for
-    the visit, then is cleared without logging, storage, RAG, or cloud use.
+    this boundary. An optional first name crosses once into local runtime memory
+    for the greeting, then is cleared without logging, storage, RAG, or cloud use.
     """
 
     def __init__(self, runtime_service: RuntimeBridge | None = None) -> None:

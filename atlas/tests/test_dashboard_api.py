@@ -168,10 +168,8 @@ class TestSession:
         assert service.wake_pending is True
         assert service.activate_from_wake("Hello ATLAS") is True
         assert service.wake_pending is False
-        assert service._visitor_name == "Emerson"
+        assert service._greeting_name is None
         assert "Emerson" not in caplog.text
-        service.stop_session()
-        assert service._visitor_name is None
 
     def test_failed_private_greeting_keeps_the_wake_gate_closed(
         self, client, monkeypatch
@@ -186,7 +184,7 @@ class TestSession:
 
         assert service.activate_from_wake("Hello ATLAS") is False
         assert service.wake_pending is True
-        assert service._visitor_name == "Emerson"
+        assert service._greeting_name == "Emerson"
 
     def test_profile_update(self, client):
         res = client.post(

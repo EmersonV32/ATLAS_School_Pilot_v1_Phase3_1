@@ -30,8 +30,8 @@
 - Visitor start now creates a selected-language wake gate. Only “Hello ATLAS”
   or its configured local-language equivalent activates normal question
   handling; wake matching is deterministic and adds no LLM request.
-- The optional first name uses a local-only Piper greeting, remains only in
-  private runtime memory for the active visit, and is erased on stop. It cannot
+- The optional first name uses a local-only Piper greeting and is erased
+  immediately after that greeting. It cannot
   enter Gemini, Cartesia, RAG, status responses, logs, or monitoring.
 - Browser age reduction now separates visitors aged 6 or younger into an
   `early_child` profile. The prompt specifies one idea at a time, common words,

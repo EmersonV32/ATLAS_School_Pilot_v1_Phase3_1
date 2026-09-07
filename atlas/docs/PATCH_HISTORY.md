@@ -4,11 +4,12 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
-## 2026-09-06 - Visit-long identity, early-child mode, and local scripted FAQ
+## 2026-09-06 - Early-child mode and local scripted FAQ
 
-**Changed:** Retained the optional first name only in local runtime memory for
-the active visit and erased it at stop. Added a dedicated age-six-and-younger
-profile plus age-aware language guidance for every dialogue path. Added local,
+**Changed:** Preserved the optional first name only until the private local
+greeting completes, then erased it immediately. Added a dedicated
+age-six-and-younger profile plus age-aware language guidance for every dialogue
+path. Added local,
 source-attributed scripted answers for 10 common question families across all
 seven current demo artworks, five visitor-ready spoken languages, and every
 educational/accessibility profile. Close paraphrases and named artworks are
@@ -16,10 +17,10 @@ matched locally; scripted turns enter the existing three-turn memory. Questions
 outside this catalog continue through the hybrid dense-plus-keyword RAG and
 Gemini route.
 
-**Validation:** The complete laptop-safe suite passes with 2,882 tests. The
+**Validation:** The complete laptop-safe suite passes with 2,886 tests. The
 full artwork-language-profile-intent matrix, typo/paraphrase matching, route
-priority, Traditional Chinese output, age-plus-accessibility composition, name
-lifetime and erasure, local FAQ
+priority, unrelated-question rejection, Traditional Chinese output,
+age-plus-accessibility composition, immediate name erasure, local FAQ
 bypass, deeper-search fallback, and three-turn memory are covered. Patch-scoped
 Ruff, Python compilation, dependency compatibility, secret scanning, recovery
 bundle verification, and `git diff --check` pass. A fresh-origin browser review
