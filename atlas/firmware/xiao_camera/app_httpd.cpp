@@ -37,9 +37,15 @@ int led_duty = 0;
 #endif
 
 volatile bool isStreaming = false;
+volatile uint32_t lastStreamFrameAtMs = 0;
 
 bool cameraStreamActive() {
   return isStreaming;
+}
+
+bool cameraStreamStalled(uint32_t nowMs, uint32_t timeoutMs) {
+  return isStreaming && lastStreamFrameAtMs != 0 &&
+         static_cast<uint32_t>(nowMs - lastStreamFrameAtMs) >= timeoutMs;
 }
 
 typedef struct {
@@ -238,6 +244,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   httpd_resp_set_hdr(req, "X-Framerate", kAtlasTargetFpsHeader);
 
   isStreaming = true;
+  lastStreamFrameAtMs = millis();
 #if defined(LED_GPIO_NUM)
   enable_led(true);
 #endif
@@ -285,6 +292,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
       log_e("Send frame failed");
       break;
     }
+    lastStreamFrameAtMs = millis();
     int64_t fr_end = esp_timer_get_time();
     const int64_t frame_due = last_frame + kAtlasFrameIntervalUs;
     if (fr_end < frame_due) {
@@ -307,6 +315,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   }
 
   isStreaming = false;
+  lastStreamFrameAtMs = 0;
 #if defined(LED_GPIO_NUM)
   enable_led(false);
 #endif

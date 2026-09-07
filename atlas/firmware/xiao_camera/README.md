@@ -23,7 +23,9 @@ The default balanced profile is 800x600 SVGA JPEG at quality 14 and a maximum
 of 15 streamed frames per second. The stream sends only fresh frames, disables
 browser caching, and enables Wi-Fi power saving whenever no stream client is
 connected. Quality 14 retains the 800x600 artwork detail while avoiding the
-motion-heavy frame stalls measured at quality 10.
+motion-heavy frame stalls measured at quality 10. A five-second stream
+watchdog restarts the camera automatically if a client connection wedges while
+partial frame bytes are being transmitted.
 
 After flashing, leave the camera streaming for 20 minutes and record the
 observed FPS and enclosure temperature from the admin dashboard before sealing

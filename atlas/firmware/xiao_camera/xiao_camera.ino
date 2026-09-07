@@ -13,6 +13,7 @@ constexpr char kHostname[] = "atlas-camera";
 constexpr uint32_t kWifiConnectTimeoutMs = 30000;
 constexpr uint32_t kWifiReconnectIntervalMs = 3000;
 constexpr uint32_t kWifiReconnectTimeoutMs = 30000;
+constexpr uint32_t kStreamStallRestartMs = 5000;
 uint32_t wifiLostAtMs = 0;
 uint32_t nextWifiReconnectAtMs = 0;
 
@@ -138,6 +139,7 @@ bool initializeCamera() {
 
 void startCameraServer();
 bool cameraStreamActive();
+bool cameraStreamStalled(uint32_t nowMs, uint32_t timeoutMs);
 
 void setup() {
   Serial.begin(115200);
@@ -172,6 +174,11 @@ void setup() {
 
 void loop() {
   maintainWifi();
+  if (cameraStreamStalled(millis(), kStreamStallRestartMs)) {
+    Serial.println("[Camera] Stream stalled; restarting camera server.");
+    delay(100);
+    ESP.restart();
+  }
   static bool wifiSleepEnabled = false;
   const bool shouldSleep = !cameraStreamActive();
   if (wifiSleepEnabled != shouldSleep) {

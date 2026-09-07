@@ -17,23 +17,29 @@ mapping to Argus sensor 0, and added a reusable YOLO dataset diagnostic.
 files pass Ruff, JavaScript and PowerShell parse checks pass, and a direct
 20-second XIAO camera benchmark sustained 14.0 FPS with zero reconnects. A
 Jetson-side baseline reproduced 9.1 FPS at JPEG quality 10; the same deployed
-runtime then sustained 11.7-15.0 FPS with sub-0.06-second frame age and no
-reconnect increase after switching to quality 14. The deployed TensorRT engine
-scored mAP50 0.9526 and mAP50-95 0.8417 on all 152 held-out test images at 7.9
-ms inference per image.
+runtime initially sustained 11.7-15.0 FPS with sub-0.06-second frame age after
+switching to quality 14. A longer run then reproduced a partial-JPEG stream
+stall, leading to a second receiver fix that enforces a two-second complete-frame
+deadline and reconnects immediately. The deployed TensorRT engine scored mAP50
+0.9526 and mAP50-95 0.8417 on all 152 held-out test images at 7.9 ms inference
+per image.
 
 **Deployment result:** Runtime commit `5b84733` deployed successfully after all
 2,891 Jetson tests passed and a fresh FP16 TensorRT engine was built. The
 service is healthy with zero restarts. Both physical audio outputs were found,
 the `Both` route was selected at 100 percent, and its test sound returned
-`played: true`. Backup: `/tmp/atlas_visitor_backup_20260907_115030`.
+`played: true`. The camera deadline hotfix passed 75 focused Jetson tests and
+was installed with rollback backup
+`/tmp/atlas_camera_hotfix_backup_20260907_122849`. Full deployment backup:
+`/tmp/atlas_visitor_backup_20260907_115030`.
 
 **Remaining limitation:** The IMX477 enumerates as `/dev/video0` and Argus
 sensor 0, but currently returns zero frames through both direct V4L2 and Argus
 tests. A privileged Argus restart or cold power cycle is required to separate a
 wedged camera stack from a ribbon or sensor fault. XIAO quality 14 is active
-live, but its updated recovery firmware must be flashed once to preserve that
-setting across a XIAO power cycle.
+live. Its updated recovery firmware, including a five-second stream watchdog,
+compiles successfully but must be flashed once to preserve quality 14 and make
+camera-side stalls self-recovering across future use.
 
 ## 2026-09-07 - Windows-to-Jetson deployment newline hardening
 
