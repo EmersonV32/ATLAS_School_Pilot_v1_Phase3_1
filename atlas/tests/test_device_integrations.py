@@ -380,6 +380,41 @@ def test_yolo_fallback_requires_a_real_distinct_file(tmp_path):
     assert not detector._fallback_available()
 
 
+def test_yolo_passes_lowest_class_threshold_to_backend():
+    class FakeModel:
+        def __init__(self):
+            self.kwargs = None
+
+        def predict(self, _frame, **kwargs):
+            self.kwargs = kwargs
+            box = SimpleNamespace(
+                conf=[0.245],
+                cls=[0],
+                xyxyn=[[0.2, 0.2, 0.8, 0.8]],
+            )
+            return [
+                SimpleNamespace(
+                    boxes=[box],
+                    names={0: "girl_with_a_pearl_earring"},
+                )
+            ]
+
+    model = FakeModel()
+    detector = YoloDetector(
+        model_path="unused.pt",
+        conf_threshold=0.24,
+        mask_conf_threshold=0.45,
+    )
+    detector._model = model
+
+    detection = detector.detect(object())
+
+    assert model.kwargs["conf"] == 0.24
+    assert detection is not None
+    assert detection.artwork_id == "girl_with_a_pearl_earring"
+    assert detection.confidence == 0.245
+
+
 def test_shokz_aliases_score_even_when_dongle_is_named_loop():
     requested = "Shokz OpenComm2 UC"
     assert device_name_score("Shokz OpenComm2 UC", requested) > 0

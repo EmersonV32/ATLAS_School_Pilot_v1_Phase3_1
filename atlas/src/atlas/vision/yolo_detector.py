@@ -170,6 +170,7 @@ class YoloDetector(BaseDetector):
             results = self._model.predict(
                 inference_frame,
                 imgsz=self._image_size,
+                conf=min(self._conf_threshold, self._mask_conf_threshold),
                 device=self._device,
                 verbose=False,
             )
@@ -179,6 +180,7 @@ class YoloDetector(BaseDetector):
             results = self._model.predict(
                 inference_frame,
                 imgsz=self._image_size,
+                conf=min(self._conf_threshold, self._mask_conf_threshold),
                 device=self._device,
                 verbose=False,
             )

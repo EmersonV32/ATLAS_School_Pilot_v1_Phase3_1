@@ -4,6 +4,30 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-07 - YOLO deployment-domain diagnostic
+
+**Changed:** Added a reusable dataset split audit and passed ATLAS's lowest
+configured per-class confidence threshold into the Ultralytics backend. The
+existing post-filter still enforces the dedicated higher threshold for
+Tutankhamun's mask.
+
+**Validation:** The pre-fine-tune checkpoint scored `0.949017` mAP50 on the
+152-image test split but misclassified the saved real XIAO Pearl frame as Mona
+Lisa at `0.031843`. The deployed checkpoint and TensorRT engine scored
+`0.952821` and `0.954254` mAP50 on that split; the engine identified the same
+real frame as Pearl at `0.309082` and the production tracker marked it stable
+on its third cycle. PT and TensorRT expose the same seven canonical classes.
+The split audit found no exact duplicates but found same-class sequential
+train neighbors for 109 of 152 test images, so the test score is not accepted
+as a deployment-camera release gate.
+
+**Deployment result:** Diagnostic complete; runtime threshold correction is
+prepared for the normal Jetson deployment workflow.
+
+**Remaining limitation:** Real XIAO frames exist only for Pearl. Great Wave,
+Liberty, and Tutankhamun still require a session-separated, real-camera
+validation set and physical release test.
+
 ## 2026-09-07 - YOLO phone-display domain update
 
 **Changed:** Fine-tuned the supplied seven-class `best.pt` with 400 synthetic
