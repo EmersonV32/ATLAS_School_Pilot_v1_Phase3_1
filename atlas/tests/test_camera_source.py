@@ -89,3 +89,32 @@ def test_mjpeg_reader_extracts_one_complete_jpeg(monkeypatch) -> None:
 
     assert ready is True
     assert frame.shape == (12, 16, 3)
+
+
+def test_mjpeg_reader_rejects_endless_partial_frame(monkeypatch) -> None:
+    class Response:
+        def read1(self, _size: int) -> bytes:
+            return b"partial jpeg bytes"
+
+        def close(self) -> None:
+            return None
+
+    ticks = iter((10.0, 10.1, 12.1))
+    monkeypatch.setattr(
+        "atlas.vision.camera_source.urllib.request.urlopen",
+        lambda *_args, **_kwargs: Response(),
+    )
+    monkeypatch.setattr(
+        "atlas.vision.camera_source.time.monotonic",
+        lambda: next(ticks),
+    )
+    capture = _MjpegCapture("http://camera:81/stream", timeout_s=2.0)
+
+    try:
+        capture.read()
+    except TimeoutError as exc:
+        assert "no complete frame" in str(exc)
+    else:
+        raise AssertionError("partial MJPEG stream did not time out")
+
+    assert capture.isOpened() is False

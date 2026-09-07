@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class _MjpegCapture:
     """Bounded HTTP MJPEG reader that cannot hang forever inside FFmpeg."""
 
-    def __init__(self, url: str, timeout_s: float = 4.0) -> None:
+    def __init__(self, url: str, timeout_s: float = 2.0) -> None:
         request = urllib.request.Request(
             url,
             headers={"Connection": "close", "User-Agent": "ATLAS-camera/1.0"},
@@ -24,6 +24,7 @@ class _MjpegCapture:
         self._response = urllib.request.urlopen(request, timeout=timeout_s)
         self._buffer = bytearray()
         self._opened = True
+        self._frame_timeout_s = timeout_s
 
     def isOpened(self) -> bool:  # noqa: N802 - OpenCV-compatible API
         return self._opened
@@ -35,7 +36,14 @@ class _MjpegCapture:
         import cv2  # type: ignore
         import numpy as np  # type: ignore
 
+        deadline = time.monotonic() + self._frame_timeout_s
         while self._opened:
+            if time.monotonic() >= deadline:
+                self.release()
+                raise TimeoutError(
+                    f"MJPEG stream produced no complete frame for "
+                    f"{self._frame_timeout_s:.1f}s"
+                )
             start = self._buffer.find(b"\xff\xd8")
             end = self._buffer.find(b"\xff\xd9", max(0, start + 2))
             if start >= 0 and end > start:
@@ -257,7 +265,10 @@ class CameraSource:
             if not ok:
                 with self._lock:
                     self._consecutive_failures += 1
-                    failures = self._consecutive_failures
+                    failures = (
+                        3 if read_error is not None else self._consecutive_failures
+                    )
+                    self._consecutive_failures = failures
                     self._last_error = read_error or "camera read failed"
                 # One empty network frame should not tear down the stream. Three
                 # failures means the reader owns a controlled reconnect instead.
