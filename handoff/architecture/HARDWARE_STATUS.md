@@ -50,8 +50,8 @@ Enter before it begins:
 - Build options: OPI PSRAM and 8 MB maximum application partition
 - Controls: `http://atlas-camera.local`
 - Stream: `http://atlas-camera.local:81/stream`
-- Native stream: 640x480 JPEG quality 10, latest-frame buffering, Wi-Fi sleep disabled
-- Verified throughput from Jetson: 23.62 FPS (22.75 FPS with desktop rendering)
+- Native stream: 800x600 JPEG quality 14, latest-frame buffering, 15 FPS target
+- Verified live ATLAS throughput: 11.7-15.0 FPS with fresh frames and no reconnect increase
 - Sustained YOLO inference on Orin NX: 40.6 ms median at `imgsz=416`
 
 The camera announces `atlas-camera.local` with mDNS, so a DHCP address change

@@ -76,7 +76,7 @@ The pre-deployment snapshot is retained on the Jetson at:
 | Shokz microphone and speaker | Ready | Runtime readiness reports both audio directions available. |
 | Shokz multifunction button | Ready | Manual capture is mapped to input event key `164`; physical press should be rechecked before a demo. |
 | XIAO ESP32-S3 Sense camera | Connected on new firmware | ATLAS receives fresh 800x600 frames at a 15 FPS target. Hot-plug and automatic stream recovery work; sustained thermal validation remains required. |
-| Camera firmware profile | Flashed and short-tested | SVGA 800x600 JPEG, quality 10, maximum 15 streamed FPS, idle Wi-Fi power saving. |
+| Camera firmware profile | Runtime-tuned; reflash pending | SVGA 800x600 JPEG, quality 14, maximum 15 streamed FPS, idle Wi-Fi power saving. Quality 14 is active now; flash the updated recovery firmware to preserve it across a XIAO power cycle. |
 | Gemini | Ready | Cloud response provider is available. |
 | Deepgram / Whisper | Ready with fallback | Deepgram is primary; local Whisper is fallback. |
 | Cartesia / Piper | Degraded with fallback | Cartesia is unavailable at the latest service check; Piper is ready for English, French, and Traditional Chinese. |
