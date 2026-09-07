@@ -4,6 +4,24 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-07 - Live dual-camera recovery
+
+**Changed:** Corrected the live XIAO profile from an oversized camera-side mode
+to SVGA with JPEG quality 14. Added a native `gst-launch` JPEG-pipe fallback for
+Arducam capture because ATLAS's YOLO virtual-environment OpenCV was built
+without GStreamer support, while preserving that OpenCV build for YOLO.
+
+**Validation:** The XIAO delivered 15.0 FPS with a 0.008-second frame age. The
+Arducam delivered 27.5 FPS at 1920x1080 with zero reconnects; its protected
+frame endpoint returned HTTP 200 and a 106,544-byte JPEG. The CSI fallback
+passed seven focused tests locally and on the Jetson.
+
+**Deployment result:** Runtime commit `faf2bb1` was installed and the service
+is active. Rollback: `/tmp/atlas_csi_hotfix_20260907_130024`.
+
+**Remaining limitation:** Flash the already compiled XIAO recovery firmware to
+make its SVGA/quality profile and five-second camera-side watchdog persistent.
+
 ## 2026-09-07 - Dual audio, camera recovery, and hardware diagnostics
 
 **Changed:** Added a `Both` route to the admin audio controls so Cartesia audio,
