@@ -17,11 +17,13 @@ failure was reproduced at remote line one, before backup or runtime replacement,
 and the existing Jetson service remained active with a healthy `/health` result.
 The readiness wording has a dedicated runtime-backed regression test.
 
-**Deployment result:** Full deployment succeeded on the Jetson. All 2,886 tests
-passed, the seven YOLO labels matched the content pack, a fresh FP16 TensorRT
-engine was exported, the service restarted without retries, `/health` returned
-healthy, and both dashboards plus the camera frame returned HTTP 200. Backup:
-`/tmp/atlas_visitor_backup_20260907_094645`.
+**Deployment result:** Final full deployment of runtime commit `14aaf29`
+succeeded on the Jetson. All 2,887 tests passed, the seven YOLO labels matched
+the content pack, a fresh FP16 TensorRT engine was exported, the service
+restarted without retries, `/health` returned healthy, and both dashboards plus
+the camera frame returned HTTP 200. The live camera stabilized at 14.5-14.8 FPS
+with zero reconnects during a 20-second post-startup sample. Backup:
+`/tmp/atlas_visitor_backup_20260907_100738`.
 
 **Remaining limitation:** The complete TensorRT and hardware checks run only on
 the target Jetson during deployment.
