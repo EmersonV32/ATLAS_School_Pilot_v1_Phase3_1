@@ -123,7 +123,7 @@ class HardwareSettings(BaseModel):
     yolo_tensorrt_path: str = "models/atlas_yolo.engine"
     yolo_backend: Literal["auto", "pytorch", "tensorrt"] = "auto"
     yolo_imgsz: int = 416
-    vision_rotation_degrees: Literal[0, 90, 180, 270] = 90
+    vision_rotation_degrees: Literal[0, 90, 180, 270] = 0
     vision_conf_threshold: float = 0.24
     vision_mask_conf_threshold: float = 0.45
     vision_center_weight: float = 0.55

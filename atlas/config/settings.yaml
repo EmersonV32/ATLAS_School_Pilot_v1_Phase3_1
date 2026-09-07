@@ -97,7 +97,7 @@ hardware:
   yolo_backend: auto
   yolo_imgsz: 416
   # Keep the dashboard horizontal while presenting upright pixels to YOLO.
-  vision_rotation_degrees: 90
+  vision_rotation_degrees: 0
   vision_conf_threshold: 0.24
   vision_mask_conf_threshold: 0.45
   vision_center_weight: 0.55

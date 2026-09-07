@@ -4,6 +4,29 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-07 - YOLO phone-display domain update
+
+**Changed:** Fine-tuned the supplied seven-class `best.pt` with 400 synthetic
+XIAO-style phone-display scenes for the four failing classes: Girl with a Pearl
+Earring, The Great Wave, Liberty Leading the People, and Tutankhamun's mask.
+The training set retained all 866 original training images. Corrected inference
+rotation to zero after a captured 800x600 frame proved that the camera pixels
+were already upright. Added reproducible dataset-building and fine-tuning tools.
+
+**Validation:** The old checkpoint misclassified the captured Pearl frame as
+Mona Lisa at 3.2%. The updated checkpoint detected Pearl at 27.1%, and its
+Jetson-built TensorRT FP16 engine detected it at 30.9%. Original validation-set
+performance remained at 96.9% mAP50 and improved to 86.5% mAP50-95. All seven
+checkpoint and engine class IDs match `config/artwork_labels.yaml`.
+
+**Deployment result:** Updated PT and TensorRT engine active on the Jetson.
+Rollback weights are `/tmp/atlas_yolo_before_phone_finetune.pt` and
+`/tmp/atlas_yolo_before_phone_finetune.engine`.
+
+**Remaining limitation:** The captured real-camera proof covers Girl with a
+Pearl Earring. The other three updated classes still need one live physical
+test each; their original validation results remain strong.
+
 ## 2026-09-07 - Horizontal preview with upright YOLO inference
 
 **Changed:** Restored the dashboard camera frame to horizontal 800x600 while
