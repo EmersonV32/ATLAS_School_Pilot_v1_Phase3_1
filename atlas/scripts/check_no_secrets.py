@@ -19,22 +19,30 @@ PATTERNS = {
 def repository_root() -> Path:
     return Path(
         subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
+            ["git", "-c", "core.quotePath=false", "rev-parse", "--show-toplevel"],
             cwd=ROOT,
             check=True,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
         ).stdout.strip()
     )
 
 
 def tracked_files(root: Path) -> list[Path]:
     result = subprocess.run(
-        ["git", "ls-files", "-co", "--exclude-standard", "--full-name"],
+        [
+            "git",
+            "-c",
+            "core.quotePath=false",
+            "ls-files",
+            "-co",
+            "--exclude-standard",
+            "--full-name",
+        ],
         cwd=root,
         check=True,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     return [root / line for line in result.stdout.splitlines() if line]
 

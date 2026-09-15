@@ -23,6 +23,26 @@ let latestHealth = null;
 let latestAudio = null;
 let latestConfig = null;
 let latestLogs = { runtime: [], events: [] };
+const refreshInFlight = new Set();
+
+async function fetchWithTimeout(path, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(path, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error && error.name === "AbortError") throw new Error("Request timed out");
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function guardedRefresh(name, callback) {
+  if (refreshInFlight.has(name)) return;
+  refreshInFlight.add(name);
+  Promise.resolve(callback()).finally(() => refreshInFlight.delete(name));
+}
 
 function token() {
   return $("inp-token").value.trim();
@@ -40,7 +60,8 @@ async function api(path, options = {}, protectedRoute = false) {
   if (protectedRoute && authRequired && !token()) throw new Error("Admin token required");
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (protectedRoute && authRequired) headers["X-Atlas-Admin-Token"] = token();
-  const response = await fetch(path, { ...options, headers });
+  const { timeoutMs = 8000, ...fetchOptions } = options;
+  const response = await fetchWithTimeout(path, { ...fetchOptions, headers }, timeoutMs);
   let body = null;
   try { body = await response.json(); } catch (_) { /* no response body */ }
   if (!response.ok) {
@@ -327,7 +348,7 @@ async function applyAudioChange(patch) {
 
 async function refreshStatus() {
   try {
-    const status = await api("/status");
+    const status = await api("/status", {}, true);
     latestStatus = status;
     $("admin-state").textContent = status.emergency_stopped ? "Emergency stop" : "Online";
     $("admin-state").className = `status-pill ${status.emergency_stopped ? "danger" : "ok"}`;
@@ -506,12 +527,12 @@ function setVisitorMonitorCollapsed(collapsed, { persist = true } = {}) {
 function startRefreshLoops() {
   if (refreshIntervals.length) return;
   refreshIntervals = [
-    window.setInterval(refreshStatus, 2000),
-    window.setInterval(refreshHealth, 12000),
-    window.setInterval(refreshLogs, 1500),
-    window.setInterval(refreshVisitorStatus, 1000),
-    window.setInterval(refreshAudio, 5000),
-    window.setInterval(refreshArducamStatus, 2000),
+    window.setInterval(() => guardedRefresh("status", refreshStatus), 3000),
+    window.setInterval(() => guardedRefresh("health", refreshHealth), 15000),
+    window.setInterval(() => guardedRefresh("logs", refreshLogs), 3000),
+    window.setInterval(() => guardedRefresh("visitor", refreshVisitorStatus), 2000),
+    window.setInterval(() => guardedRefresh("audio", refreshAudio), 10000),
+    window.setInterval(() => guardedRefresh("arducam", refreshArducamStatus), 5000),
   ];
 }
 
@@ -629,7 +650,7 @@ async function refreshLogs(force = false) {
   try {
     const [runtime, events] = await Promise.all([
       api(`/logs/runtime${logFormats.runtime === "human" ? "/human" : ""}?limit=500`, {}, true),
-      api(`/logs/recent${logFormats.events === "human" ? "/human" : ""}?limit=200`),
+      api(`/logs/recent${logFormats.events === "human" ? "/human" : ""}?limit=200`, {}, true),
     ]);
     const guidedEvents = logFormats.events === "human";
     latestLogs = { runtime: runtime.lines, events };
@@ -649,7 +670,7 @@ async function applyExperience() {
     profile: $("sel-profile").value,
     pack_id: $("sel-pack").value,
     accessibility_mode: $("chk-accessibility").checked,
-  }) });
+  }) }, true);
   experienceDirty = false;
 }
 
@@ -670,9 +691,11 @@ async function refreshCamera() {
   if (cameraRequestInFlight) return;
   cameraRequestInFlight = true;
   try {
-    const response = await fetch(`/camera/frame.jpg?t=${Date.now()}`, {
+    const headers = authRequired ? { "X-Atlas-Admin-Token": token() } : {};
+    const response = await fetchWithTimeout(`/camera/frame.jpg?t=${Date.now()}`, {
       cache: "no-store",
-    });
+      headers,
+    }, 2500);
     if (!response.ok) throw new Error(`camera returned ${response.status}`);
     const nextUrl = URL.createObjectURL(await response.blob());
     const image = $("admin-camera");
@@ -682,7 +705,7 @@ async function refreshCamera() {
     if (previousUrl) URL.revokeObjectURL(previousUrl);
     $("camera-state").textContent = "Live";
     $("camera-state").className = "status-pill ok";
-    scheduleCameraRefresh(120);
+    scheduleCameraRefresh(350);
   } catch (_) {
     if (cameraObjectUrl) {
       URL.revokeObjectURL(cameraObjectUrl);
@@ -735,17 +758,17 @@ async function refreshArducamStatus() {
 
 async function refreshArducam() {
   if (!adminUnlocked || document.body.dataset.adminView !== "arducam") {
-    scheduleArducamRefresh(750);
+    scheduleArducamRefresh(2000);
     return;
   }
   if (arducamRequestInFlight) return;
   arducamRequestInFlight = true;
   try {
     const headers = authRequired ? { "X-Atlas-Admin-Token": token() } : {};
-    const response = await fetch(`/api/admin/arducam/frame.jpg?t=${Date.now()}`, {
+    const response = await fetchWithTimeout(`/api/admin/arducam/frame.jpg?t=${Date.now()}`, {
       cache: "no-store",
       headers,
-    });
+    }, 2500);
     if (!response.ok) {
       const message = response.status === 503
         ? "Camera disconnected."
@@ -762,7 +785,7 @@ async function refreshArducam() {
     if (previousUrl) URL.revokeObjectURL(previousUrl);
     $("arducam-state").textContent = "Live";
     $("arducam-state").className = "status-pill ok";
-    scheduleArducamRefresh(120);
+    scheduleArducamRefresh(500);
   } catch (error) {
     if (arducamObjectUrl) {
       URL.revokeObjectURL(arducamObjectUrl);
@@ -876,13 +899,13 @@ $("cfg-llm-provider").addEventListener("change", () => {
   }
 });
 
-$("btn-override").addEventListener("click", () => api("/session/manual-artwork", { method: "POST", body: JSON.stringify({ artwork_id: $("sel-artwork").value }) }).then(refreshStatus).catch((error) => notice(error.message, true)));
-$("btn-clear-override").addEventListener("click", () => api("/session/manual-artwork", { method: "DELETE" }).then(refreshStatus).catch((error) => notice(error.message, true)));
-$("btn-capture").addEventListener("click", () => api("/session/capture", { method: "POST" }).then(() => notice("Artwork capture requested")).catch((error) => notice(error.message, true)));
+$("btn-override").addEventListener("click", () => api("/session/manual-artwork", { method: "POST", body: JSON.stringify({ artwork_id: $("sel-artwork").value }) }, true).then(refreshStatus).catch((error) => notice(error.message, true)));
+$("btn-clear-override").addEventListener("click", () => api("/session/manual-artwork", { method: "DELETE" }, true).then(refreshStatus).catch((error) => notice(error.message, true)));
+$("btn-capture").addEventListener("click", () => api("/session/capture", { method: "POST" }, true).then(() => notice("Artwork capture requested")).catch((error) => notice(error.message, true)));
 
 $("btn-ingest").addEventListener("click", () => api("/content/ingest", { method: "POST", body: JSON.stringify({ pack_id: $("content-pack").value, reset: true }) }, true).then((result) => renderObject("content-result", result)).catch((error) => notice(error.message, true)));
 $("btn-eval").addEventListener("click", () => api("/eval/rag", { method: "POST" }, true).then((result) => renderObject("content-result", result)).catch((error) => notice(error.message, true)));
-$("btn-estop").addEventListener("click", () => api("/hardware/emergency-stop", { method: "POST" }).then(() => Promise.all([refreshStatus(), refreshHealth()])));
+$("btn-estop").addEventListener("click", () => api("/hardware/emergency-stop", { method: "POST" }, true).then(() => Promise.all([refreshStatus(), refreshHealth()])));
 $("btn-clear-estop").addEventListener("click", () => api("/hardware/clear-emergency-stop", { method: "POST" }, true).then(() => Promise.all([refreshStatus(), refreshHealth()])).catch((error) => notice(error.message, true)));
 $("btn-refresh-logs").addEventListener("click", () => refreshLogs(true));
 $("log-search").addEventListener("input", renderLogSnapshot);

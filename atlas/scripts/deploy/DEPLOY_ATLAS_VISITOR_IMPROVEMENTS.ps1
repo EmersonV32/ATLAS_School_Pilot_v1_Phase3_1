@@ -75,6 +75,8 @@ archive='__ARCHIVE__'
 backup='/tmp/atlas_visitor_backup___STAMP__'
 paths=(
   data/content_packs/demo_pack
+  data/chroma
+  data/sqlite
   config/artwork_labels.yaml
   firmware/xiao_camera/xiao_camera.ino
   models/atlas_yolo.pt
@@ -150,6 +152,10 @@ if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python scripts/export_t
   exit 1
 fi
 restore_device_config
+if ! /home/super-alex/atlas/venvs/atlas-school-pilot/bin/python -m atlas.rag.ingest --pack data/content_packs/demo_pack --mode device --reset; then
+  rollback
+  exit 1
+fi
 install -m 0644 "$root/scripts/atlas.service" "$HOME/.config/systemd/user/atlas.service"
 systemctl --user daemon-reload
 if ! systemctl --user start atlas.service; then
@@ -158,7 +164,7 @@ if ! systemctl --user start atlas.service; then
 fi
 ready=0
 for attempt in $(seq 1 45); do
-  if curl -fsS http://127.0.0.1:8765/health > /dev/null; then
+  if curl -fsS http://127.0.0.1:8765/ready > /dev/null; then
     ready=1
     break
   fi

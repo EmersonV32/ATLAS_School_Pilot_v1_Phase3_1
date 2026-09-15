@@ -10,6 +10,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import wave
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -48,6 +49,43 @@ class PiperTTS(BaseTTS):
         self._output_device_name = output_device_name
         self._volume_percent = normalize_volume(volume_percent)
         self._command: list[str] | None = None
+        self._process_lock = threading.Lock()
+        self._active_processes: set[subprocess.Popen] = set()
+        self._cancelled = threading.Event()
+
+    def _run_process(
+        self,
+        command: list[str],
+        *,
+        input_data: bytes | None = None,
+        timeout_s: float = 30.0,
+    ) -> subprocess.CompletedProcess:
+        """Run a cancellable Piper or playback subprocess."""
+        if self._cancelled.is_set():
+            return subprocess.CompletedProcess(command, -1, b"", b"cancelled")
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE if input_data is not None else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        with self._process_lock:
+            self._active_processes.add(process)
+        try:
+            stdout, stderr = process.communicate(input=input_data, timeout=timeout_s)
+            return subprocess.CompletedProcess(
+                command,
+                process.returncode,
+                stdout,
+                stderr,
+            )
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate(timeout=2)
+            raise
+        finally:
+            with self._process_lock:
+                self._active_processes.discard(process)
 
     def set_output_device(self, output_device_name: str) -> None:
         self._output_device_name = str(output_device_name).strip()
@@ -121,9 +159,7 @@ class PiperTTS(BaseTTS):
                 if playback_device:
                     playback += ["-D", playback_device]
                 playback.append(output_path)
-            return subprocess.run(
-                playback, capture_output=True, timeout=30, check=False
-            )
+            return self._run_process(playback)
 
         with ThreadPoolExecutor(max_workers=len(names)) as executor:
             results = list(executor.map(play, names))
@@ -138,6 +174,7 @@ class PiperTTS(BaseTTS):
 
     def cue(self) -> bool:
         """Play an immediate two-note cue so the visitor knows to speak."""
+        self._cancelled.clear()
         fd, output_path = tempfile.mkstemp(prefix="atlas-cue-", suffix=".wav")
         os.close(fd)
         try:
@@ -167,6 +204,7 @@ class PiperTTS(BaseTTS):
             Path(output_path).unlink(missing_ok=True)
 
     def speak(self, text: str, language: str = "en") -> bool:
+        self._cancelled.clear()
         voice = self._voice_for(language)
         try:
             if self._command is None:
@@ -174,13 +212,10 @@ class PiperTTS(BaseTTS):
             fd, output_path = tempfile.mkstemp(prefix="atlas-tts-", suffix=".wav")
             os.close(fd)
             try:
-                synthesis = subprocess.run(
+                synthesis = self._run_process(
                     self._resolve_command()
                     + ["--model", str(voice), "--output-file", output_path],
-                    input=(text.strip() + "\n").encode("utf-8"),
-                    capture_output=True,
-                    timeout=30,
-                    check=False,
+                    input_data=(text.strip() + "\n").encode("utf-8"),
                 )
                 if synthesis.returncode != 0 or not Path(output_path).stat().st_size:
                     logger.warning(
@@ -201,3 +236,15 @@ class PiperTTS(BaseTTS):
 
     def supports_private_language(self, language: str = "en") -> bool:
         return str(language).lower().split("-", 1)[0] in self._voices
+
+    def abort_utterance(self) -> None:
+        """Terminate active synthesis/playback so stop and e-stop are immediate."""
+        self._cancelled.set()
+        with self._process_lock:
+            processes = list(self._active_processes)
+        for process in processes:
+            if process.poll() is None:
+                process.kill()
+
+    def close(self) -> None:
+        self.abort_utterance()

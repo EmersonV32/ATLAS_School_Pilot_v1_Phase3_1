@@ -9,6 +9,7 @@ same dependency-injection pattern in later phases.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from atlas.config.loader import load_settings
@@ -38,6 +39,11 @@ class Container:
         self._tts = None
         self._hardware = None
         self._session_runner = None
+        # The live voice loop and the dashboard's typed-question endpoint share
+        # one dialogue engine, provider set, and three-turn memory.  Serialize
+        # them so two questions cannot corrupt context or speak over each other.
+        self.interaction_lock = threading.Lock()
+        self.interaction_cancel_event = threading.Event()
 
     @property
     def logger(self) -> EventLogger:
@@ -121,6 +127,7 @@ class Container:
                 self._llm_client = GeminiClient(
                     model=llm.model,
                     api_key_env=llm.gemini_api_key_env,
+                    timeout_s=llm.timeout_s,
                 )
             elif use_cloud_llm:
                 from atlas.dialogue.openai_compatible_client import (
@@ -291,6 +298,11 @@ class Container:
                     local_files_only=(
                         self.settings.hardware.whisper_local_files_only
                     ),
+                    vad_threshold=self.settings.speech.silero_threshold,
+                    silero_model_path=self.settings.speech.silero_model_path,
+                    min_speech_ms=self.settings.speech.silero_min_speech_ms,
+                    min_silence_ms=self.settings.speech.silero_min_silence_ms,
+                    pre_roll_ms=self.settings.speech.silero_pre_roll_ms,
                 )
                 speech = self.settings.speech
                 use_deepgram = (
@@ -422,11 +434,9 @@ class Container:
                 retriever=make_retriever(self.retriever),
                 manual_capture=self.manual_artwork_capture,
                 listen_duration_s=self.settings.speech.listen_duration_s,
-                # Never split one visitor response over multiple synthesis
-                # requests. A continuous Cartesia stream can fall back or
-                # shift timbre between segments, which is worse than waiting
-                # briefly for Gemini's short complete answer.
-                stream_responses=False,
+                stream_responses=self.settings.llm.streaming_enabled,
+                interaction_lock=self.interaction_lock,
+                cancel_event=self.interaction_cancel_event,
                 log_transcripts=self.settings.logging.log_transcripts,
                 log_llm_responses=(
                     self.settings.logging.log_llm_responses

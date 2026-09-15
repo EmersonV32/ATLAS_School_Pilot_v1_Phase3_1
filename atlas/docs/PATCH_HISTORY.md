@@ -4,6 +4,64 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-14 - Visitor runtime reliability hardening (branch only)
+
+**Changed:**
+
+- Serialized typed and spoken interactions through one shared lock and added a
+  shared cancellation signal. Session stop and emergency-stop now prevent late
+  cloud responses, abort active Cartesia/Piper audio, and avoid conversation
+  memory races (`src/atlas/app/dependency_container.py`,
+  `src/atlas/pipeline/session_runner.py`, and dashboard runtime/API files).
+- Made the dashboard the first recovery surface during device startup. Required
+  provider preload now reports and retries instead of killing the dashboard;
+  `/ready` returns `503` until required components recover, while `/health`
+  continues reporting startup/degraded state. Camera loss pauses only new visual
+  context and no longer strands voice/session controls
+  (`src/atlas/app/device_runtime.py`).
+- Added the configured Gemini transport deadline, safe localized handling for
+  malformed structured output and self-reported unsupported claims, accurate
+  no-context grounding telemetry, and cancellation-aware dialogue streaming
+  (`src/atlas/dialogue`).
+- Added local Whisper/Silero speech endpointing, non-blocking background recovery
+  of cloud STT, single-deadline Cartesia failure handling, and cancellable Piper
+  synthesis/playback (`src/atlas/audio`).
+- Protected status, camera, legacy session, typed-question, log, and emergency
+  routes with the administrator token. Bounded and de-duplicated browser polling,
+  cached JPEGs per camera frame, and updated the visitor cache. The visitor layout
+  now constrains the phone-width gallery/header to its padded container
+  (`src/atlas/dashboard`).
+- Extended the visitor deployment backup to SQLite/Chroma, rebuilt RAG indexes
+  after restoring device settings, and changed the post-restart gate from basic
+  HTTP availability to `/ready`
+  (`scripts/deploy/DEPLOY_ATLAS_VISITOR_IMPROVEMENTS.ps1`).
+- Made the secret and recovery verification scripts decode Git output as UTF-8,
+  so repositories below a non-ASCII Windows path are checked instead of failing
+  before inspection (`scripts/check_no_secrets.py` and
+  `scripts/verify_recovery_bundle.py`).
+- Added the unexecuted Jetson release gate at
+  `docs/handoff/VISITOR_RELIABILITY_JETSON_ACCEPTANCE.md` and regression coverage
+  for the new failure paths.
+
+**Validation:** The complete local suite passed `2912 tests` (`pytest -q`), and
+an independent collection pass also found `2912 tests`. Ruff passed on every
+modified Python file; `compileall` passed for `src` and `tests`; Node syntax
+checks passed for the three modified dashboard scripts; the deployment PowerShell
+file parsed without errors; the no-secrets and recovery-bundle checks passed.
+Desktop, iPad portrait, iPad landscape, and authenticated admin-gate renders were
+inspected. An exact 390-CSS-pixel browser measurement reported matching viewport
+and document widths with the help control inside the viewport. Two dependency
+deprecation warnings from Starlette/FastAPI remain and do not fail the suite.
+
+**Deployment result:** Committed only to the dedicated
+`codex/visitor-reliability-hardening` development branch after validation. It is
+not merged into `main` and was not deployed to the Jetson.
+
+**Remaining limitation:** Local validation cannot prove TensorRT recognition,
+camera reconnection, XIAO/EV3/headset behavior, thermal stability, live-provider
+recovery, or latency on the Jetson. J1-J16 in the acceptance document remain
+`NOT TESTED` and block the normal merge decision until the Jetson is connected.
+
 ## 2026-09-07 - Leakage-resistant YOLO v5 training package
 
 **Changed:** Added a reviewed capture-range split that keeps adjacent phone

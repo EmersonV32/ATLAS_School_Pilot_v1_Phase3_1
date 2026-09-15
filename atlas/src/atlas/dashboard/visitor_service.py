@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import RLock
@@ -72,7 +73,13 @@ def _component_is_ready(value: object) -> bool:
     if not isinstance(value, str) or not value.strip():
         return False
     lowered = value.lower()
-    return "error" not in lowered and "unavailable" not in lowered
+    if lowered in {"empty", "starting", "loading"}:
+        return False
+    if "error" in lowered or "recovering" in lowered:
+        return False
+    if "unavailable" in lowered and "ready" not in lowered:
+        return False
+    return True
 
 
 def _runtime_headset_ready(runtime: RuntimeBridge) -> bool | None:
@@ -123,7 +130,19 @@ class VisitorService:
         self._runtime_service = runtime_service
         self._scenario = "ready"
         self._help_request: dict | None = None
+        self._headset_probe_at = 0.0
+        self._headset_probe_result: bool | None = None
         self._state = self._new_state()
+
+    def _headset_ready(self) -> bool | None:
+        """Cache subprocess-backed device probes across readiness polling."""
+        now = time.monotonic()
+        if now - self._headset_probe_at < 5.0:
+            return self._headset_probe_result
+        result = _runtime_headset_ready(self._runtime_service)
+        self._headset_probe_at = now
+        self._headset_probe_result = result
+        return result
 
     @property
     def mode(self) -> str:
@@ -545,12 +564,8 @@ class VisitorService:
         provider_audio_ready = _component_is_ready(
             components.get("stt")
         ) and _component_is_ready(components.get("tts"))
-        headset_connected = _runtime_headset_ready(self._runtime_service)
-        audio_ready = (
-            headset_connected
-            if headset_connected is not None
-            else provider_audio_ready
-        )
+        headset_connected = self._headset_ready()
+        audio_ready = provider_audio_ready and headset_connected is not False
         connection_ready = _component_is_ready(components.get("llm"))
         content_ready = all(
             _component_is_ready(components.get(name))
@@ -624,7 +639,10 @@ class VisitorService:
             self._item(
                 "camera",
                 "Camera",
-                "ready" if camera_ready else "unavailable",
+                # Voice, local FAQ, and global artwork search remain usable
+                # without a fresh frame.  Camera loss removes automatic visual
+                # context, but must not strand an otherwise ready visitor.
+                "ready" if camera_ready else "degraded",
                 camera_detail,
             ),
             self._item(

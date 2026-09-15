@@ -9,6 +9,7 @@ import logging
 import queue
 import sys
 import threading
+import time
 import types
 from urllib.parse import parse_qs, urlparse
 
@@ -577,6 +578,65 @@ def test_stt_primary_retries_after_transient_failure():
     assert recovered is not None
     assert recovered.text == "cloud answer"
     assert stt.primary_ready
+
+
+def test_stt_primary_reconnect_does_not_delay_current_fallback_question():
+    release_retry = threading.Event()
+    retry_started = threading.Event()
+
+    class SlowPrimary(_FakeSTT):
+        def warm_up(self):
+            retry_started.set()
+            release_retry.wait(timeout=1.0)
+
+    class PreparedFallback(_FakeSTT):
+        def __init__(self):
+            super().__init__(text="local answer")
+            self.prepared = False
+
+        def prepare_listen(self):
+            self.prepared = True
+
+    primary = SlowPrimary()
+    fallback = PreparedFallback()
+    stt = FallbackSTT(primary, fallback, primary_retry_interval_s=0)
+    stt.primary_ready = False
+    stt.fallback_ready = True
+
+    started = time.perf_counter()
+    stt.prepare_listen()
+    elapsed = time.perf_counter() - started
+
+    assert retry_started.wait(timeout=0.2)
+    assert elapsed < 0.2
+    assert fallback.prepared is True
+    release_retry.set()
+    stt._primary_retry_thread.join(timeout=1.0)
+
+
+def test_cartesia_timeout_is_not_retried_for_another_full_deadline():
+    class TimedOutConnection:
+        def __init__(self):
+            self.closed = False
+
+        def send(self, _payload):
+            return None
+
+        def recv(self, timeout):
+            raise TimeoutError(f"no audio after {timeout}s")
+
+        def close(self):
+            self.closed = True
+
+    connection = TimedOutConnection()
+    reconnects = []
+    tts = CartesiaTTS(voice_id="voice-id", response_timeout_s=0.01)
+    tts._connection = connection
+    tts._connect = lambda: reconnects.append(True)
+
+    assert tts.speak("Museum answer") is False
+    assert connection.closed is True
+    assert reconnects == []
 
 
 def test_tts_falls_back_before_any_cloud_audio_started(caplog):

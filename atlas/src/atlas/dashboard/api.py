@@ -14,12 +14,12 @@ from html import escape
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from atlas.app.dependency_container import Container, build_container
 from atlas.dashboard.auth import make_admin_guard
-from atlas.dashboard.runtime_service import RuntimeService
+from atlas.dashboard.runtime_service import InteractionBusyError, RuntimeService
 from atlas.dashboard.schemas import (
     AdminDemoStartRequest,
     AskRequest,
@@ -205,11 +205,23 @@ def create_app(
     def health() -> dict:
         return service.health()
 
-    @app.get("/status")
+    @app.get("/ready", response_class=JSONResponse)
+    def ready() -> JSONResponse:
+        payload = service.health()
+        return JSONResponse(
+            content=payload,
+            status_code=200 if payload.get("status") == "ok" else 503,
+        )
+
+    @app.get("/status", dependencies=[Depends(require_admin)])
     def status() -> dict:
         return service.status()
 
-    @app.get("/camera/frame.jpg", response_class=Response)
+    @app.get(
+        "/camera/frame.jpg",
+        response_class=Response,
+        dependencies=[Depends(require_admin)],
+    )
     def camera_frame() -> Response:
         try:
             frame = service.camera_frame_jpeg()
@@ -242,15 +254,15 @@ def create_app(
         )
 
     # -- session ------------------------------------------------------------
-    @app.post("/session/start")
+    @app.post("/session/start", dependencies=[Depends(require_admin)])
     def session_start() -> dict:
         return service.start_session()
 
-    @app.post("/session/stop")
+    @app.post("/session/stop", dependencies=[Depends(require_admin)])
     def session_stop() -> dict:
         return service.stop_session()
 
-    @app.post("/session/profile")
+    @app.post("/session/profile", dependencies=[Depends(require_admin)])
     def session_profile(req: SessionProfileRequest) -> dict:
         return service.set_profile(
             language=req.language,
@@ -259,18 +271,22 @@ def create_app(
             accessibility_mode=req.accessibility_mode,
         )
 
-    @app.post("/session/manual-artwork")
+    @app.post(
+        "/session/manual-artwork", dependencies=[Depends(require_admin)]
+    )
     def manual_artwork(req: ManualArtworkRequest) -> dict:
         try:
             return service.set_manual_artwork(req.artwork_id)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    @app.delete("/session/manual-artwork")
+    @app.delete(
+        "/session/manual-artwork", dependencies=[Depends(require_admin)]
+    )
     def clear_manual_artwork() -> dict:
         return service.clear_manual_artwork()
 
-    @app.post("/session/capture")
+    @app.post("/session/capture", dependencies=[Depends(require_admin)])
     def capture_artwork() -> dict:
         try:
             return service.capture_artwork()
@@ -280,11 +296,24 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     # -- typed-question fallback -------------------------------------------
-    @app.post("/ask", response_model=AskResponse)
+    @app.post(
+        "/ask",
+        response_model=AskResponse,
+        dependencies=[Depends(require_admin)],
+    )
     def ask(req: AskRequest) -> AskResponse:
-        return AskResponse(
-            **service.ask(req.question, language=req.language, profile=req.profile)
-        )
+        try:
+            return AskResponse(
+                **service.ask(
+                    req.question,
+                    language=req.language,
+                    profile=req.profile,
+                )
+            )
+        except InteractionBusyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     # -- content ------------------------------------------------------------
     @app.get("/content/packs")
@@ -319,7 +348,7 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # -- logs ---------------------------------------------------------------
-    @app.get("/logs/recent")
+    @app.get("/logs/recent", dependencies=[Depends(require_admin)])
     def logs_recent(limit: int = 50) -> list[dict]:
         return service.recent_logs(limit=min(max(limit, 1), 200))
 
@@ -331,12 +360,14 @@ def create_app(
     def logs_runtime_human(limit: int = 250) -> dict:
         return service.human_runtime_logs(limit=min(max(limit, 1), 1000))
 
-    @app.get("/logs/recent/human")
+    @app.get("/logs/recent/human", dependencies=[Depends(require_admin)])
     def logs_recent_human(limit: int = 50) -> list[dict]:
         return service.human_recent_logs(limit=min(max(limit, 1), 200))
 
     # -- hardware -----------------------------------------------------------
-    @app.post("/hardware/emergency-stop")
+    @app.post(
+        "/hardware/emergency-stop", dependencies=[Depends(require_admin)]
+    )
     def emergency_stop() -> dict:
         return service.emergency_stop()
 
@@ -344,7 +375,10 @@ def create_app(
         "/hardware/clear-emergency-stop", dependencies=[Depends(require_admin)]
     )
     def clear_emergency_stop() -> dict:
-        return service.clear_emergency_stop()
+        try:
+            return service.clear_emergency_stop()
+        except InteractionBusyError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     # -- demo controls ------------------------------------------------------
     @app.post("/demo/simulate", dependencies=[Depends(require_admin)])

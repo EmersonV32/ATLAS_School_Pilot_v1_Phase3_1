@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 import unicodedata
 from collections.abc import Callable
@@ -304,6 +305,8 @@ class SessionRunner:
         manual_capture=None,
         log_transcripts: bool = False,
         log_llm_responses: bool = False,
+        interaction_lock: Any | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> None:
         self._detector = detector
         self._stt = stt
@@ -316,6 +319,8 @@ class SessionRunner:
         self._manual_capture = manual_capture
         self._log_transcripts = log_transcripts
         self._log_llm_responses = log_llm_responses
+        self._interaction_lock = interaction_lock or threading.Lock()
+        self._cancel_event = cancel_event or threading.Event()
         self._last_language = "en"
         self._preferred_language = "en"
         self._preferred_profile = "adult_beginner"
@@ -811,8 +816,43 @@ class SessionRunner:
         detection: ArtworkDetection | None = None,
     ) -> SessionResult:
         """Answer an utterance captured independently from the vision loop."""
+        if not self._interaction_lock.acquire(blocking=False):
+            logger.warning(
+                "[Cycle] Dropped voice question: another interaction is active"
+            )
+            return SessionResult(
+                detection=detection,
+                transcript=transcript,
+                dialogue=None,
+                error="interaction_busy",
+            )
+        try:
+            return self._respond_to_transcript_unlocked(
+                transcript,
+                frame=frame,
+                detection=detection,
+            )
+        finally:
+            self._interaction_lock.release()
+
+    def _respond_to_transcript_unlocked(
+        self,
+        transcript: TranscriptResult,
+        *,
+        frame: Any = None,
+        detection: ArtworkDetection | None = None,
+    ) -> SessionResult:
+        """Run a voice response while the shared interaction lock is held."""
         cycle_started = time.perf_counter()
         self._last_language = transcript.language
+
+        if self._cancel_event.is_set():
+            return SessionResult(
+                detection=detection,
+                transcript=transcript,
+                dialogue=None,
+                error="interaction_cancelled",
+            )
 
         switch_target = requested_language(transcript.text)
         if switch_target is not None:
@@ -929,6 +969,13 @@ class SessionRunner:
             "[Timing] RAG %.0f ms",
             (time.perf_counter() - retrieval_started) * 1000.0,
         )
+        if self._cancel_event.is_set():
+            return SessionResult(
+                detection=detection,
+                transcript=transcript,
+                dialogue=None,
+                error="interaction_cancelled",
+            )
 
         tts_results: list[bool] = []
         llm_started = time.perf_counter()
@@ -937,6 +984,8 @@ class SessionRunner:
 
         def speak_sentence(sentence: str) -> None:
             nonlocal sentence_number
+            if self._cancel_event.is_set() or not sentence.strip():
+                return
             sentence_number += 1
             if self._log_llm_responses:
                 logger.info("[LLM sentence %d] %s", sentence_number, sentence)
@@ -1009,6 +1058,7 @@ class SessionRunner:
                     visitor_age=_age_hint_to_number(transcript.age_hint),
                     profile=self._preferred_profile,
                     artwork_id=artwork_id,
+                    cancel_event=self._cancel_event,
                 )
             except Exception:
                 if continuous_tts:
@@ -1022,6 +1072,21 @@ class SessionRunner:
                 visitor_age=_age_hint_to_number(transcript.age_hint),
                 profile=self._preferred_profile,
                 artwork_id=artwork_id,
+                cancel_event=self._cancel_event,
+            )
+
+        if (
+            self._cancel_event.is_set()
+            or dialogue_result.error == "interaction_cancelled"
+        ):
+            self._tts.abort_utterance()
+            self._hw.reset_exhibit()
+            self._hw.set_status_led("off")
+            return SessionResult(
+                detection=detection,
+                transcript=transcript,
+                dialogue=dialogue_result,
+                error="interaction_cancelled",
             )
 
         if continuous_tts:

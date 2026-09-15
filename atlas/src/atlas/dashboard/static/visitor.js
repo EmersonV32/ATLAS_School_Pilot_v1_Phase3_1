@@ -190,6 +190,20 @@ let connectionState = "connecting";
 let readinessSnapshot = null;
 let readinessRefreshTimer = null;
 let readinessRefreshInFlight = false;
+let serverPollInFlight = false;
+
+async function fetchWithTimeout(path, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(path, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error && error.name === "AbortError") throw new Error(t("error.unavailable"));
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
 
 function format(template, values = {}) {
   return String(template).replace(/\{(\w+)\}/g, (_, key) => (
@@ -203,7 +217,12 @@ function t(key, fallback = "") {
 
 async function api(path, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-  const response = await fetch(path, { ...options, headers, cache: "no-store" });
+  const { timeoutMs = 8000, ...fetchOptions } = options;
+  const response = await fetchWithTimeout(
+    path,
+    { ...fetchOptions, headers, cache: "no-store" },
+    timeoutMs,
+  );
   let body = null;
   try { body = await response.json(); } catch (_) { /* empty response */ }
   if (!response.ok) {
@@ -310,7 +329,7 @@ function applyTranslations() {
 }
 
 async function setLocale(locale) {
-  const response = await fetch(`/static/visitor/locales/${encodeURIComponent(locale)}.json`, { cache: "no-store" });
+  const response = await fetchWithTimeout(`/static/visitor/locales/${encodeURIComponent(locale)}.json`, { cache: "no-store" });
   if (!response.ok) throw new Error(t("error.unavailable"));
   const localeData = await response.json();
   activeStrings = { ...ENGLISH_STRINGS, ...(localeData.strings || {}) };
@@ -609,7 +628,7 @@ function renderInterests() {
 }
 
 async function loadInterests() {
-  interestManifest = await fetch("/static/visitor/interests.json", { cache: "no-store" }).then((response) => response.json());
+  interestManifest = await fetchWithTimeout("/static/visitor/interests.json", { cache: "no-store" }).then((response) => response.json());
   renderInterests();
 }
 
@@ -705,6 +724,8 @@ async function requestHelp() {
 }
 
 async function pollServerState() {
+  if (serverPollInFlight) return;
+  serverPollInFlight = true;
   try {
     const bootstrap = await api("/api/visitor/bootstrap");
     const state = bootstrap.state;
@@ -724,6 +745,8 @@ async function pollServerState() {
   } catch (_) {
     connectionState = "offline";
     updateConnectionStatus();
+  } finally {
+    serverPollInFlight = false;
   }
 }
 
@@ -761,7 +784,7 @@ async function initialize() {
   $("btn-start-experience").addEventListener("click", startExperience);
   ["pointerdown", "keydown", "touchstart"].forEach((eventName) => document.addEventListener(eventName, restartInactivityTimer, { passive: true }));
   if (!["in_use", "thank_you"].includes(bootstrap.state.phase)) restartInactivityTimer();
-  window.setInterval(pollServerState, 1500);
+  window.setInterval(pollServerState, 3000);
   startWelcomeSlideshow();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js").catch(() => {});
 }

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import deque
 
 from atlas.models.languages import ADMIN_LANGUAGE_CODES
 
 from .devices import find_sounddevice_input
+from .silero_vad import SileroVAD
 from .stt import BaseSTT, TranscriptResult
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,11 @@ class WhisperSTT(BaseSTT):
         channels: int = 1,
         beam_size: int = 5,
         local_files_only: bool = True,
+        vad_threshold: float = 0.5,
+        silero_model_path: str = "models/silero_vad.onnx",
+        min_speech_ms: int = 250,
+        min_silence_ms: int = 1200,
+        pre_roll_ms: int = 250,
     ) -> None:
         self._model_size = model_size
         self._device = device
@@ -36,6 +43,15 @@ class WhisperSTT(BaseSTT):
         self._model = None
         self._input_device: int | None = None
         self._language: str | None = None
+        self._vad = SileroVAD(
+            vad_threshold,
+            sample_rate,
+            model_path=silero_model_path,
+        )
+        self._vad_ready = False
+        self._min_speech_ms = max(0, min_speech_ms)
+        self._min_silence_ms = max(0, min_silence_ms)
+        self._pre_roll_ms = max(0, pre_roll_ms)
 
     def set_language(self, language: str) -> None:
         normalized = str(language).split("-", 1)[0].lower()
@@ -68,6 +84,15 @@ class WhisperSTT(BaseSTT):
                 self._compute_type,
                 self._input_device,
             )
+            try:
+                self._vad.warm_up()
+                self._vad_ready = True
+            except Exception as exc:
+                logger.warning(
+                    "Silero endpointing unavailable; Whisper will use the full "
+                    "listen window: %s",
+                    exc,
+                )
         except ImportError:
             logger.error("faster-whisper and sounddevice are required")
             raise
@@ -84,19 +109,65 @@ class WhisperSTT(BaseSTT):
             import numpy as np  # type: ignore
             import sounddevice as sd  # type: ignore
 
-            audio = sd.rec(
-                int(duration_s * self._sample_rate),
-                samplerate=self._sample_rate,
-                channels=self._channels,
-                dtype="float32",
-                device=self._input_device,
-            )
-            sd.wait()
-            mono = np.asarray(audio, dtype=np.float32).reshape(-1)
+            if self._vad_ready and self._sample_rate == 16000 and self._channels == 1:
+                pcm = self._record_until_silence(sd, duration_s)
+                if not pcm:
+                    return None
+                mono = np.frombuffer(pcm, dtype="<i2").astype(np.float32) / 32768.0
+            else:
+                audio = sd.rec(
+                    int(duration_s * self._sample_rate),
+                    samplerate=self._sample_rate,
+                    channels=self._channels,
+                    dtype="float32",
+                    device=self._input_device,
+                )
+                sd.wait()
+                mono = np.asarray(audio, dtype=np.float32).reshape(-1)
             return self._transcribe(mono, started=started)
         except Exception as exc:
             logger.warning("STT failed: %s", exc)
             return None
+
+    def _record_until_silence(self, sounddevice, duration_s: float) -> bytes:
+        """Record one local utterance and stop after speech-ending silence."""
+        frame_samples = 512
+        frame_ms = 1000.0 * frame_samples / self._sample_rate
+        pre_roll_frames = max(1, int(self._pre_roll_ms / frame_ms))
+        speech_confirmation_frames = max(1, int(self._min_speech_ms / frame_ms))
+        pre_roll = deque(maxlen=pre_roll_frames + speech_confirmation_frames)
+        captured: list[bytes] = []
+        speech_started = False
+        speech_ms = 0.0
+        silence_ms = 0.0
+        self._vad.reset()
+        deadline = time.monotonic() + duration_s
+        with sounddevice.RawInputStream(
+            samplerate=self._sample_rate,
+            blocksize=frame_samples,
+            channels=1,
+            dtype="int16",
+            device=self._input_device,
+        ) as stream:
+            while time.monotonic() < deadline:
+                frame, overflowed = stream.read(frame_samples)
+                if overflowed:
+                    logger.warning("Whisper input overflow detected")
+                pcm = bytes(frame)
+                speech = self._vad.is_speech(pcm)
+                if not speech_started:
+                    pre_roll.append(pcm)
+                    speech_ms = speech_ms + frame_ms if speech else 0.0
+                    if speech_ms >= self._min_speech_ms:
+                        speech_started = True
+                        captured.extend(pre_roll)
+                        silence_ms = 0.0
+                    continue
+                captured.append(pcm)
+                silence_ms = 0.0 if speech else silence_ms + frame_ms
+                if silence_ms >= self._min_silence_ms:
+                    break
+        return b"".join(captured)
 
     def transcribe_pcm(self, pcm: bytes) -> TranscriptResult | None:
         """Recover a cloud-failed question without asking the visitor to repeat it."""

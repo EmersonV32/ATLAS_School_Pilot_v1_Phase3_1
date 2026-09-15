@@ -26,10 +26,14 @@ class GeminiClient:
         model: str = "gemini-2.5-flash",
         api_key: str | None = None,
         api_key_env: str = "GEMINI_API_KEY",
+        timeout_s: float = 20.0,
     ) -> None:
+        if timeout_s <= 0:
+            raise ValueError("timeout_s must be greater than zero")
         self.model_name = model
         self._api_key_env = api_key_env
         self._api_key = api_key or os.getenv(api_key_env, "")
+        self._timeout_s = float(timeout_s)
         self._client = None  # lazy-loaded
 
     # ------------------------------------------------------------------
@@ -55,7 +59,13 @@ class GeminiClient:
                 "Or use MockLLMClient for dev mode."
             )
 
-        self._client = genai.Client(api_key=self._api_key)
+        # google-genai's HTTP timeout is expressed in milliseconds.  Applying
+        # it at the SDK transport level bounds both normal and streaming calls,
+        # including a socket that stops producing chunks.
+        self._client = genai.Client(
+            api_key=self._api_key,
+            http_options={"timeout": int(self._timeout_s * 1000)},
+        )
         logger.info("GeminiClient: loaded model %s", self.model_name)
 
     # ------------------------------------------------------------------
@@ -165,6 +175,10 @@ class GeminiClient:
         produced_text = False
         last_response = None
         for response in response_stream:
+            if time.perf_counter() - started > self._timeout_s:
+                raise TimeoutError(
+                    f"Gemini stream exceeded {self._timeout_s:.1f}s deadline"
+                )
             last_response = response
             text = response.text or ""
             if text:

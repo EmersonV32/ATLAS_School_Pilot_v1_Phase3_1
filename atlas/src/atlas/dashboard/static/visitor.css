@@ -293,10 +293,13 @@ body.is-rtl-language .dialog-close { right: auto; left: 0.55rem; }
   .privacy-seal { width: 10rem; }
 }
 @media (max-width: 38rem) {
-  .visitor-header { align-items: flex-start; }
-  .visitor-header-actions { gap: 0.4rem; }
-  .visitor-status { max-width: 10rem; }
+  .visitor-header { min-width: 0; align-items: flex-start; gap: 0.5rem; }
+  .visitor-brand { min-width: 0; }
+  .visitor-brand small { display: none; }
+  .visitor-header-actions { min-width: 0; gap: 0.4rem; }
+  .visitor-status { min-width: 0; max-width: 8.5rem; }
   .onboarding-screen { padding: 1.25rem; }
+  .welcome-gallery { width: 100%; }
   h1 { font-size: 2rem; }
   .language-grid, .expertise-grid, .accessibility-grid, .readiness-list, .about-form { grid-template-columns: 1fr; }
   .interest-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); }

@@ -158,7 +158,7 @@ class TestVisitorShell:
         assert 'id="admin-workspace"' in response.text
         assert 'class="admin-page admin-locked"' in response.text
         assert "/static/style.css?v=18" in response.text
-        assert "/static/admin.js?v=17" in response.text
+        assert "/static/admin.js?v=18" in response.text
         assert 'id="btn-toggle-visitor-monitor"' in response.text
         assert 'id="btn-save-config-top"' in response.text
         assert 'data-log-format="human"' in response.text
@@ -180,13 +180,26 @@ class TestVisitorShell:
         assert "prefers-reduced-motion" in css
         assert ":focus-visible" in css
 
+    def test_dashboard_polling_is_bounded_and_authenticated(self):
+        admin_source = (STATIC_DIR / "admin.js").read_text(encoding="utf-8")
+        visitor_source = (STATIC_DIR / "visitor.js").read_text(encoding="utf-8")
+
+        assert "fetchWithTimeout" in admin_source
+        assert "guardedRefresh" in admin_source
+        assert "scheduleCameraRefresh(350)" in admin_source
+        assert '"X-Atlas-Admin-Token": token()' in admin_source
+        assert "fetchWithTimeout" in visitor_source
+        assert "serverPollInFlight" in visitor_source
+        assert "window.setInterval(pollServerState, 3000)" in visitor_source
+
     def test_service_worker_caches_only_explicit_static_shell(self, visitor_client):
         response = visitor_client.get("/service-worker.js")
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v28"' in response.text
-        assert '"/static/visitor.js?v=28"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v30"' in response.text
+        assert '"/static/visitor.css?v=29"' in response.text
+        assert '"/static/visitor.js?v=29"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/assets/expertise-mona.webp"' in response.text
@@ -198,8 +211,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=28" in html
-        assert "/static/visitor.js?v=28" in html
+        assert "/static/visitor.css?v=29" in html
+        assert "/static/visitor.js?v=29" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
@@ -229,7 +242,9 @@ class TestVisitorShell:
 
     def test_guided_log_endpoints_keep_operator_text_readable(self, visitor_client):
         runtime = visitor_client.get("/logs/runtime/human?limit=5", headers=_admin())
-        events = visitor_client.get("/logs/recent/human?limit=5")
+        events = visitor_client.get(
+            "/logs/recent/human?limit=5", headers=_admin()
+        )
         assert runtime.status_code == 200
         assert runtime.json()["available"] is False
         assert events.status_code == 200
@@ -483,8 +498,8 @@ class TestVisitorContract:
         responses = [
             visitor_client.get("/api/visitor/bootstrap").json(),
             visitor_client.get("/api/admin/live-status", headers=_admin()).json(),
-            visitor_client.get("/status").json(),
-            visitor_client.get("/logs/recent").json(),
+            visitor_client.get("/status", headers=_admin()).json(),
+            visitor_client.get("/logs/recent", headers=_admin()).json(),
         ]
         serialized = json.dumps(responses)
         assert "Ada" not in serialized
@@ -637,6 +652,7 @@ class TestRuntimeBridge:
         monkeypatch.setattr(
             "atlas.dashboard.visitor_service.find_alsa_playback", lambda _: "plughw:1,0"
         )
+        service._headset_probe_at -= 6.0
         reconnected = next(
             item for item in service.readiness()["items"] if item["id"] == "headset"
         )
@@ -809,7 +825,7 @@ class TestRuntimeBridge:
             "expertise": None,
         }
 
-    def test_admin_demo_keeps_running_session_when_readiness_is_blocked(self):
+    def test_admin_demo_can_restart_while_camera_is_recovering(self):
         runtime = _FakeRuntime()
         service = VisitorService(runtime_service=runtime)
         service.start_demo(language="en", profile="adult_beginner")
@@ -817,14 +833,13 @@ class TestRuntimeBridge:
         runtime.camera_age_s = None
         runtime.camera_error = "camera disconnected"
 
-        with pytest.raises(RuntimeError, match="Camera"):
-            service.start_demo(language="fr", profile="expert")
+        service.start_demo(language="fr", profile="expert")
 
         state = service.live_status()["state"]
         assert state["phase"] == "in_use"
-        assert state["language"] == "en"
-        assert runtime.started == 1
-        assert runtime.stopped == 0
+        assert state["language"] == "fr"
+        assert runtime.started == 2
+        assert runtime.stopped == 1
 
     def test_runtime_bridge_ignores_kiosk_reset_during_active_visit(self):
         runtime = _FakeRuntime()
@@ -839,15 +854,14 @@ class TestRuntimeBridge:
         assert service.stop()["stopped"] is True
         assert runtime.stopped == 1
 
-    def test_runtime_bridge_blocks_start_without_a_fresh_camera(self):
+    def test_runtime_bridge_allows_start_without_a_fresh_camera(self):
         service = VisitorService(runtime_service=_FakeRuntime(camera_ready=False))
         service.progress(VisitorProgressRequest(**_progress(step="privacy")))
 
         readiness = service.readiness()
         camera = next(item for item in readiness["items"] if item["id"] == "camera")
-        assert camera["status"] == "unavailable"
-        with pytest.raises(RuntimeError, match="Camera"):
-            service.start()
+        assert camera["status"] == "degraded"
+        assert service.start()["phase"] == "in_use"
 
     def test_runtime_bridge_reports_disconnected_camera_without_hiding_site(self):
         service = VisitorService(
@@ -861,21 +875,20 @@ class TestRuntimeBridge:
         readiness = service.readiness()
         camera = next(item for item in readiness["items"] if item["id"] == "camera")
 
-        assert camera["status"] == "unavailable"
+        assert camera["status"] == "degraded"
         assert camera["detail"] == (
             "Camera disconnected. Reconnect it when ready; this website "
             "remains available."
         )
 
-    def test_runtime_bridge_blocks_a_stale_camera_frame(self):
+    def test_runtime_bridge_allows_a_stale_camera_frame_in_degraded_mode(self):
         service = VisitorService(runtime_service=_FakeRuntime(camera_age_s=3.1))
         service.progress(VisitorProgressRequest(**_progress(step="privacy")))
 
         readiness = service.readiness()
         camera = next(item for item in readiness["items"] if item["id"] == "camera")
-        assert camera["status"] == "unavailable"
-        with pytest.raises(RuntimeError, match="Camera"):
-            service.start()
+        assert camera["status"] == "degraded"
+        assert service.start()["phase"] == "in_use"
 
     def test_runtime_bridge_blocks_preview_only_language(self):
         service = VisitorService(runtime_service=_FakeRuntime())

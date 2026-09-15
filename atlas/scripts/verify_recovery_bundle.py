@@ -59,11 +59,11 @@ FORBIDDEN_REPOSITORY_PREFIXES = ("codex-final-handoff/",)
 
 def _git(*args: str, cwd: Path = PROJECT_ROOT) -> str:
     return subprocess.run(
-        ["git", *args],
+        ["git", "-c", "core.quotePath=false", *args],
         cwd=cwd,
         check=True,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     ).stdout
 
 

@@ -85,6 +85,7 @@ class CartesiaTTS(BaseTTS):
         self._volume_percent = normalize_volume(volume_percent)
         self._connection = None
         self._lock = threading.Lock()
+        self._speak_lock = threading.Lock()
         self.playback_started = False
         self.last_first_audio_ms: float | None = None
         self.last_total_ms: float | None = None
@@ -408,6 +409,7 @@ class CartesiaTTS(BaseTTS):
                             self._output_device_name,
                             self._sample_rate,
                         )
+                        self._utterance_player = player
                         self.playback_started = True
                         self.last_first_audio_ms = (
                             time.perf_counter() - started
@@ -444,18 +446,27 @@ class CartesiaTTS(BaseTTS):
             raise
         finally:
             self.last_total_ms = (time.perf_counter() - started) * 1000.0
+            if self._utterance_context_id is None:
+                self._utterance_player = None
 
     def speak(self, text: str, language: str = "en") -> bool:
         if not text.strip():
             return False
-        with self._lock:
+        # Keep ordinary requests serialized without holding the state lock
+        # while waiting for network/audio. abort_utterance can then close the
+        # socket and stop playback immediately from the dashboard stop path.
+        with self._speak_lock:
             for attempt in range(2):
                 try:
                     return self._speak_once(text.strip(), language)
                 except Exception as exc:
                     audio_started = self.playback_started
                     self._close_connection()
-                    if attempt == 0 and not audio_started:
+                    if (
+                        attempt == 0
+                        and not audio_started
+                        and not isinstance(exc, TimeoutError)
+                    ):
                         logger.warning(
                             "[Cartesia] Socket stale before playback; reconnecting once"
                         )

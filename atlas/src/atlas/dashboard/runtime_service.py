@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,11 @@ from atlas.utils.time import Timer
 logger = logging.getLogger(__name__)
 
 _DEFAULT_PROFILE = EducationalLevel.ADULT_BEGINNER.value
+_DEVICE_PROBE_TTL_S = 5.0
+
+
+class InteractionBusyError(RuntimeError):
+    """Raised when a second question arrives during an active interaction."""
 
 
 def _human_runtime_line(line: str) -> str:
@@ -188,6 +195,13 @@ class RuntimeService:
         self.audio_volume_percent = int(hardware.audio_volume_percent)
         self.last_answer: dict[str, Any] | None = None
         self._pending_settings: Settings | None = None
+        self._startup_statuses: dict[str, str] = {}
+        self._startup_lock = threading.RLock()
+        self._audio_probe_cache: dict[str, tuple[float, bool]] = {}
+        self._jpeg_lock = threading.Lock()
+        self._camera_jpeg_cache: tuple[int, bytes] | None = None
+        self._arducam_jpeg_cache: tuple[int, bytes] | None = None
+        self._emergency_requested = False
         # Demo-only simulation flags (never active outside dev/demo mode).
         self.demo_flags: set[str] = set()
 
@@ -199,18 +213,24 @@ class RuntimeService:
         wake_required: bool = False,
         greeting_name: str | None = None,
     ) -> dict[str, Any]:
-        self.container.dialogue_engine.reset_conversation()
-        configure = getattr(
-            self.container.dialogue_engine,
-            "configure_personalization",
-            None,
-        )
-        if callable(configure):
-            configure(
-                interests=self._visitor_interests,
-                accessibility=self._visitor_accessibility,
-                expertise=self._visitor_expertise,
+        if not self.container.interaction_lock.acquire(timeout=0.25):
+            raise InteractionBusyError("the previous interaction is still stopping")
+        try:
+            self.container.interaction_cancel_event.clear()
+            self.container.dialogue_engine.reset_conversation()
+            configure = getattr(
+                self.container.dialogue_engine,
+                "configure_personalization",
+                None,
             )
+            if callable(configure):
+                configure(
+                    interests=self._visitor_interests,
+                    accessibility=self._visitor_accessibility,
+                    expertise=self._visitor_expertise,
+                )
+        finally:
+            self.container.interaction_lock.release()
         self.demo_active = bool(demo)
         self._wake_required = bool(wake_required)
         self._wake_activated = not self._wake_required
@@ -234,6 +254,7 @@ class RuntimeService:
         }
 
     def stop_session(self) -> dict[str, Any]:
+        self._cancel_interaction()
         if self.session_id:
             self.container.logger.log(
                 session_id=self.session_id, state="session", event="session_stop"
@@ -249,6 +270,16 @@ class RuntimeService:
         self._visitor_expertise = None
         self.container.dialogue_engine.reset_conversation()
         return {"stopped_session_id": stopped, "demo_active": False}
+
+    def _cancel_interaction(self) -> None:
+        """Stop speech immediately and prevent a late cloud answer being spoken."""
+        self.container.interaction_cancel_event.set()
+        tts = getattr(self.container, "_tts", None)
+        if tts is not None:
+            try:
+                tts.abort_utterance()
+            except Exception:
+                logger.exception("Could not abort the active TTS utterance")
 
     def set_profile(
         self,
@@ -320,6 +351,9 @@ class RuntimeService:
 
     def private_local_speech_ready(self, language: str | None = None) -> bool:
         """Report whether a name can be spoken without any cloud provider."""
+        with self._startup_lock:
+            if self._startup_statuses.get("TTS") not in {None, "ready"}:
+                return False
         selected = _to_language(language or self.language).value
         return bool(self.container.tts.supports_private_language(selected))
 
@@ -356,15 +390,35 @@ class RuntimeService:
             )
         return (self._audio_output_name(route),)
 
-    @staticmethod
-    def _audio_device_available(output_name: str) -> bool:
-        return bool(
+    def _audio_device_available(self, output_name: str) -> bool:
+        now = time.monotonic()
+        cached = self._audio_probe_cache.get(output_name)
+        if cached is not None and now - cached[0] < _DEVICE_PROBE_TTL_S:
+            return cached[1]
+        available = bool(
             find_pulse_playback(output_name) or find_alsa_playback(output_name)
         )
+        self._audio_probe_cache[output_name] = (now, available)
+        return available
 
     def audio_status(self) -> dict[str, Any]:
         active_names = self._audio_output_names(self.audio_route)
         active_name = " + ".join(active_names) or "Unconfigured"
+        with self._startup_lock:
+            tts_startup = self._startup_statuses.get("TTS")
+        if tts_startup not in {None, "ready"}:
+            return {
+                "route": self.audio_route,
+                "volume_percent": self.audio_volume_percent,
+                "output_device_name": active_name,
+                "headset_name": self._headset_output_name,
+                "speaker_name": self._speaker_output_name,
+                "headset_available": False,
+                "speaker_available": False,
+                "both_available": False,
+                "microphone_route": "headset",
+                "provider": tts_startup or "starting",
+            }
         tts = self.container.tts
         provider_status = getattr(tts, "provider_status", None)
         return {
@@ -479,6 +533,18 @@ class RuntimeService:
         return status
 
     def artwork_status(self) -> dict[str, Any]:
+        tracker = getattr(self.container, "_artwork_tracker", None)
+        with self._startup_lock:
+            startup_active = bool(self._startup_statuses)
+        if tracker is None and startup_active:
+            return {
+                "artwork_id": None,
+                "label": None,
+                "confidence": None,
+                "stable": False,
+                "source": "starting",
+                "manual_override": False,
+            }
         status = self.container.artwork_tracker.status()
         if "low_confidence" in self.demo_flags:
             status["confidence"] = 0.30
@@ -490,9 +556,19 @@ class RuntimeService:
         """Return one annotated in-memory frame without storing it."""
         import cv2
 
-        frame, _ = self.container.camera_source.latest(copy=True)
+        camera = getattr(self.container, "_camera_source", None)
+        if camera is None:
+            raise RuntimeError("camera is still starting")
+        frame, frame_number = camera.latest(copy=True)
         if frame is None:
             raise RuntimeError("camera has no current frame")
+
+        with self._jpeg_lock:
+            if (
+                self._camera_jpeg_cache is not None
+                and self._camera_jpeg_cache[0] == frame_number
+            ):
+                return self._camera_jpeg_cache[1]
 
         visual = self.container.artwork_tracker.visualization_status()
         bbox = visual.get("bbox")
@@ -524,11 +600,14 @@ class RuntimeService:
             )
 
         ok, encoded = cv2.imencode(
-            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80]
         )
         if not ok:
             raise RuntimeError("camera frame encoding failed")
-        return encoded.tobytes()
+        payload = encoded.tobytes()
+        with self._jpeg_lock:
+            self._camera_jpeg_cache = (frame_number, payload)
+        return payload
 
     def arducam_status(self) -> dict[str, Any]:
         """Return privacy-safe state for the independent CSI admin preview."""
@@ -574,15 +653,24 @@ class RuntimeService:
             raise RuntimeError("Arducam preview is disabled in settings")
         source = self.container.arducam_source
         source.start(timeout_s=2.0)
-        frame, _ = source.latest(copy=True)
+        frame, frame_number = source.latest(copy=True)
         if frame is None:
             raise RuntimeError("Arducam has no current frame")
+        with self._jpeg_lock:
+            if (
+                self._arducam_jpeg_cache is not None
+                and self._arducam_jpeg_cache[0] == frame_number
+            ):
+                return self._arducam_jpeg_cache[1]
         ok, encoded = cv2.imencode(
-            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80]
         )
         if not ok:
             raise RuntimeError("Arducam frame encoding failed")
-        return encoded.tobytes()
+        payload = encoded.tobytes()
+        with self._jpeg_lock:
+            self._arducam_jpeg_cache = (frame_number, payload)
+        return payload
 
     def _artwork_map(self) -> dict[str, str]:
         """artwork_id -> title for the selected pack."""
@@ -606,6 +694,21 @@ class RuntimeService:
         language: str | None = None,
         profile: str | None = None,
     ) -> dict[str, Any]:
+        if not self.container.interaction_lock.acquire(blocking=False):
+            raise InteractionBusyError("another visitor interaction is in progress")
+        try:
+            return self._ask_unlocked(question, language=language, profile=profile)
+        finally:
+            self.container.interaction_lock.release()
+
+    def _ask_unlocked(
+        self,
+        question: str,
+        language: str | None = None,
+        profile: str | None = None,
+    ) -> dict[str, Any]:
+        if self.container.interaction_cancel_event.is_set():
+            raise InteractionBusyError("the visitor session is stopped")
         lang = _to_language(language or self.language)
         level = _to_level(profile or self.profile)
         settings = self.container.settings
@@ -623,13 +726,14 @@ class RuntimeService:
                 accessibility=self._visitor_accessibility,
             )
         if scripted is not None:
-            remember = getattr(
-                self.container.dialogue_engine,
-                "remember_local_response",
-                None,
-            )
-            if callable(remember):
-                remember(question, scripted.response)
+            if self.health().get("status") == "ok":
+                remember = getattr(
+                    self.container.dialogue_engine,
+                    "remember_local_response",
+                    None,
+                )
+                if callable(remember):
+                    remember(question, scripted.response)
             answer = {
                 "answer": scripted.response,
                 "language": lang.value,
@@ -680,6 +784,9 @@ class RuntimeService:
                 "error": "simulated_llm_timeout",
             }
 
+        if self.health().get("status") != "ok":
+            raise RuntimeError("ATLAS providers are not ready")
+
         with Timer() as total:
             result = self.container.retriever.retrieve(
                 RetrievalQuery(
@@ -698,6 +805,7 @@ class RuntimeService:
                 language=lang.value,
                 profile=level.value,
                 artwork_id=artwork_id,
+                cancel_event=self.container.interaction_cancel_event,
             )
 
         answer = {
@@ -903,12 +1011,31 @@ class RuntimeService:
 
     # -- hardware ---------------------------------------------------------------
     def emergency_stop(self) -> dict[str, Any]:
-        self.container.hardware.emergency_stop()
+        self._cancel_interaction()
+        self._emergency_requested = True
+        hardware = getattr(self.container, "_hardware", None)
+        if hardware is not None:
+            hardware.emergency_stop()
         return {"emergency_stopped": True}
 
     def clear_emergency_stop(self) -> dict[str, Any]:
-        self.container.hardware.clear_emergency_stop()
+        if not self.container.interaction_lock.acquire(timeout=0.25):
+            raise InteractionBusyError("the active interaction is still stopping")
+        try:
+            hardware = getattr(self.container, "_hardware", None)
+            if hardware is not None:
+                hardware.clear_emergency_stop()
+            self._emergency_requested = False
+            if self.session_id is not None:
+                self.container.interaction_cancel_event.clear()
+        finally:
+            self.container.interaction_lock.release()
         return {"emergency_stopped": False}
+
+    def apply_pending_emergency_stop(self) -> None:
+        """Apply an early dashboard stop after the hardware adapter preloads."""
+        if self._emergency_requested:
+            self.container.hardware.emergency_stop()
 
     # -- demo controls -------------------------------------------------------
     def demo_simulate(self, scenario: str) -> dict[str, Any]:
@@ -932,8 +1059,55 @@ class RuntimeService:
         return {"demo_flags": sorted(self.demo_flags), "scenario": scenario}
 
     # -- health / status / logs --------------------------------------------------
+    def set_startup_statuses(self, statuses: dict[str, str]) -> None:
+        """Publish preload state without constructing components in HTTP threads."""
+        with self._startup_lock:
+            self._startup_statuses = dict(statuses)
+
     def health(self) -> dict[str, Any]:
         c = self.container
+        with self._startup_lock:
+            startup = dict(self._startup_statuses)
+        if startup:
+            mapping = {
+                "vector_store": "RAG",
+                "fts_store": "RAG",
+                "retriever": "RAG",
+                "llm": "Gemini",
+                "stt": "STT",
+                "tts": "TTS",
+                "vision": "YOLO",
+                "hardware": "EV3",
+            }
+            components = {
+                key: startup.get(source, "not required")
+                for key, source in mapping.items()
+            }
+            required = ("YOLO", "STT", "TTS", "RAG")
+            llm = c.settings.llm
+            if llm.provider == "gemini" and llm.cloud_llm_enabled:
+                required += ("Gemini",)
+            values = [startup.get(name, "starting") for name in required]
+            if all(value == "ready" for value in values):
+                overall = "ok"
+            elif any(
+                value.startswith(("unavailable", "error")) for value in values
+            ):
+                overall = "degraded"
+            else:
+                overall = "starting"
+            hardware = getattr(c, "_hardware", None)
+            return {
+                "status": overall,
+                "mode": c.settings.mode.value,
+                "components": components,
+                "startup": startup,
+                "emergency_stopped": bool(
+                    self._emergency_requested
+                    or getattr(hardware, "emergency_stopped", False)
+                ),
+            }
+
         components: dict[str, str] = {}
         try:
             components["vector_store"] = (
@@ -963,19 +1137,35 @@ class RuntimeService:
             components["hardware"] = type(c.hardware).__name__
         except Exception as exc:
             components["container"] = f"error: {type(exc).__name__}"
+        unhealthy = any(
+            value == "empty" or value.startswith(("error", "unavailable"))
+            for value in components.values()
+        )
         return {
-            "status": "ok",
+            "status": "degraded" if unhealthy else "ok",
             "mode": c.settings.mode.value,
             "components": components,
             "emergency_stopped": bool(
-                getattr(c.hardware, "emergency_stopped", False)
+                self._emergency_requested
+                or getattr(c.hardware, "emergency_stopped", False)
             ),
         }
 
     def status(self) -> dict[str, Any]:
         settings = self.container.settings
+        with self._startup_lock:
+            startup = dict(self._startup_statuses)
+        camera_source = getattr(self.container, "_camera_source", None)
         try:
-            camera_status = self.container.camera_source.status()
+            camera_status = (
+                camera_source.status()
+                if camera_source is not None
+                else {
+                    "ready": False,
+                    "last_frame_age_s": None,
+                    "last_error": "camera is starting",
+                }
+            )
         except Exception as exc:
             camera_status = {
                 "ready": False,
@@ -990,6 +1180,18 @@ class RuntimeService:
                 "grounded": self.last_answer["grounded"],
                 "latency_ms": self.last_answer["total_latency_ms"],
             }
+        tracker = getattr(self.container, "_artwork_tracker", None)
+        if tracker is None and startup:
+            artwork = {
+                "artwork_id": None,
+                "label": None,
+                "confidence": None,
+                "stable": False,
+                "source": "starting",
+            }
+        else:
+            artwork = self.artwork_status()
+        hardware = getattr(self.container, "_hardware", None)
         return {
             "mode": settings.mode.value,
             "session_id": self.session_id,
@@ -1001,7 +1203,7 @@ class RuntimeService:
                 else ("waiting_for_wake" if self.wake_pending else "active")
             ),
             "experience": self.experience_settings(),
-            "artwork": self.artwork_status(),
+            "artwork": artwork,
             "camera": camera_status,
             "last_answer": last,
             "demo_flags": sorted(self.demo_flags),
@@ -1017,7 +1219,8 @@ class RuntimeService:
                 "cloud_llm_provider": settings.llm.provider,
             },
             "emergency_stopped": bool(
-                getattr(self.container.hardware, "emergency_stopped", False)
+                self._emergency_requested
+                or getattr(hardware, "emergency_stopped", False)
             ),
         }
 

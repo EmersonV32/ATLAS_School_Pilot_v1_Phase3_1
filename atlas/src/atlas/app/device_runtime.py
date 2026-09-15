@@ -374,23 +374,73 @@ class DeviceRuntime:
             required += ("Gemini",)
         return required
 
+    def _safe_preload(self) -> dict[str, str]:
+        """Convert an unexpected preload exception into recoverable status."""
+        try:
+            return self.preload()
+        except Exception as exc:
+            logger.exception("ATLAS preload failed before component reporting: %s", exc)
+            return {
+                name: f"unavailable: {type(exc).__name__}: {exc}"
+                for name in self._required_components()
+            }
+
     def run(
         self,
         max_interactions: int = 0,
         wait_for_terminal: bool = False,
     ) -> None:
-        statuses = self.preload()
-        required = self._required_components()
-        failed = [name for name in required if statuses.get(name) != "ready"]
-        if failed:
-            raise RuntimeError("required components unavailable: " + ", ".join(failed))
-
+        # Bring up the recovery surface first.  A failed model, index, camera,
+        # or cloud provider must remain diagnosable instead of killing the only
+        # dashboard operators can use to understand the failure.
+        statuses: dict[str, str] = {
+            name: "starting"
+            for name in ("Camera", "YOLO", "STT", "TTS", "RAG", "Gemini")
+        }
         try:
             statuses["Dashboard"] = self._start_dashboard()
         except Exception as exc:
             statuses["Dashboard"] = f"unavailable: {exc}"
             logger.warning("Dashboard startup failed: %s", exc)
-        statuses["Button"] = self._start_headset_button_listener()
+        if self._dashboard_service is not None:
+            self._dashboard_service.set_startup_statuses(statuses)
+
+        statuses.update(self._safe_preload())
+        if self._dashboard_service is not None:
+            self._dashboard_service.set_startup_statuses(statuses)
+        required = self._required_components()
+        failed = [name for name in required if statuses.get(name) != "ready"]
+        try:
+            while failed:
+                logger.error(
+                    "Required components unavailable; dashboard remains online "
+                    "and preload will retry [components=%s]",
+                    ",".join(failed),
+                )
+                print(
+                    "[Recovery] Waiting for required components: "
+                    + ", ".join(failed)
+                )
+                time.sleep(5.0)
+                retry_statuses = self._safe_preload()
+                statuses.update(retry_statuses)
+                if self._dashboard_service is not None:
+                    self._dashboard_service.set_startup_statuses(statuses)
+                failed = [
+                    name for name in required if statuses.get(name) != "ready"
+                ]
+        except KeyboardInterrupt:
+            self._stop_dashboard()
+            self.container.close()
+            return
+
+        try:
+            statuses["Button"] = self._start_headset_button_listener()
+        except Exception as exc:
+            statuses["Button"] = f"unavailable: {exc}"
+            logger.exception("Headset button listener failed to start: %s", exc)
+        if self._dashboard_service is not None:
+            self._dashboard_service.apply_pending_emergency_stop()
 
         print("\n[Startup] ATLAS device runtime preload complete")
         for name in (
@@ -440,7 +490,7 @@ class DeviceRuntime:
             while max_interactions <= 0 or completed < max_interactions:
                 frame, last_frame_number = camera.wait_for_new_frame(
                     after_number=last_frame_number,
-                    timeout_s=2.0,
+                    timeout_s=0.25,
                 )
                 if frame is None:
                     now = time.monotonic()
@@ -453,9 +503,17 @@ class DeviceRuntime:
                             camera_status.get("last_error") or "none",
                         )
                         last_missing_frame_log_at = now
-                    continue
-
-                detection = tracker.update(frame)
+                    detection = None
+                else:
+                    try:
+                        detection = tracker.update(frame)
+                    except Exception as exc:
+                        logger.exception(
+                            "Vision update failed; voice session remains active: %s",
+                            exc,
+                        )
+                        frame = None
+                        detection = None
                 dashboard_session_id = (
                     self._dashboard_service.session_id
                     if self._dashboard_service is not None
@@ -527,6 +585,12 @@ class DeviceRuntime:
 
                 if self._capture_requested.is_set():
                     self._capture_requested.clear()
+                    if frame is None:
+                        logger.warning(
+                            "Manual capture deferred because no camera frame is ready"
+                        )
+                        print("[Capture] Camera frame unavailable; try again shortly")
+                        continue
                     print("[Capture] Identifying the centered artwork...")
                     result = runner.capture_context(
                         frame,
@@ -613,6 +677,13 @@ class DeviceRuntime:
                     finally:
                         listener.response_finished()
                     vision_hold.reset()
+                    continue
+
+                # Camera recovery must not stop session lifecycle, wake-word,
+                # question, or stop handling above.  It only pauses new visual
+                # context updates and preserves the last stable artwork.
+                if frame is None:
+                    time.sleep(self.settings.vision_poll_interval_s)
                     continue
 
                 centered = bool(

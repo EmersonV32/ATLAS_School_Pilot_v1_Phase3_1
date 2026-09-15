@@ -25,8 +25,9 @@ def test_generate_uses_new_genai_client_without_network(monkeypatch):
             return SimpleNamespace(text=" Leonardo da Vinci. ")
 
     class FakeClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key, http_options=None):
             calls["api_key"] = api_key
+            calls["http_options"] = http_options
             self.models = FakeModels()
 
     google_module = ModuleType("google")
@@ -51,6 +52,7 @@ def test_generate_uses_new_genai_client_without_network(monkeypatch):
 
     assert answer == "Leonardo da Vinci."
     assert calls["api_key"] == "private-test-key"
+    assert calls["http_options"] == {"timeout": 20000}
     assert calls["model"] == "gemini-test"
     assert calls["contents"] == "Who painted this?"
     assert calls["config"].max_output_tokens == 42
@@ -71,7 +73,8 @@ def test_generate_sends_ordered_conversation_history(monkeypatch):
             return SimpleNamespace(text="The Last Supper.")
 
     class FakeClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key, http_options=None):
+            calls["http_options"] = http_options
             self.models = FakeModels()
 
     google_module = ModuleType("google")
@@ -115,8 +118,9 @@ def test_generate_stream_yields_sdk_chunks_without_network(monkeypatch):
             ]
 
     class FakeClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key, http_options=None):
             calls["api_key"] = api_key
+            calls["http_options"] = http_options
             self.models = FakeModels()
 
     google_module = ModuleType("google")
@@ -168,7 +172,8 @@ def test_identify_artwork_sends_in_memory_jpeg_and_parses_id(monkeypatch):
             return SimpleNamespace(text="mona_lisa")
 
     class FakeClient:
-        def __init__(self, api_key):
+        def __init__(self, api_key, http_options=None):
+            calls["http_options"] = http_options
             self.models = FakeModels()
 
     google_module = ModuleType("google")

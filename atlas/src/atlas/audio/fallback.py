@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 from .stt import BaseSTT, TranscriptResult
@@ -26,6 +27,8 @@ class FallbackSTT(BaseSTT):
         self.last_provider: str | None = None
         self._primary_retry_interval_s = max(0.0, primary_retry_interval_s)
         self._primary_failed_at = 0.0
+        self._primary_retry_thread: threading.Thread | None = None
+        self._closed = threading.Event()
 
     def _mark_primary_failed(self) -> None:
         self.primary_ready = False
@@ -109,19 +112,9 @@ class FallbackSTT(BaseSTT):
         self.fallback.set_language(language)
 
     def prepare_listen(self) -> None:
-        should_try_primary = self.primary_ready or self._primary_retry_due()
-        if should_try_primary:
-            was_unavailable = not self.primary_ready
+        if self.primary_ready:
             try:
-                if was_unavailable:
-                    self.primary.warm_up()
                 self.primary.prepare_listen()
-                self.primary_ready = True
-                if was_unavailable:
-                    logger.info(
-                        "[STT] Primary recovered: %s",
-                        type(self.primary).__name__,
-                    )
                 return
             except Exception as exc:
                 self._mark_primary_failed()
@@ -131,10 +124,49 @@ class FallbackSTT(BaseSTT):
                     type(self.fallback).__name__,
                     exc,
                 )
+        elif self._primary_retry_due():
+            self._start_primary_retry()
         if self.fallback_ready:
             self.fallback.prepare_listen()
 
+    def _start_primary_retry(self) -> None:
+        """Reconnect cloud STT without delaying the current local question."""
+        if (
+            self._primary_retry_thread is not None
+            and self._primary_retry_thread.is_alive()
+        ):
+            return
+        # Move the retry deadline immediately so rapid listen loops cannot
+        # create multiple reconnect threads before this one enters warm_up.
+        self._primary_failed_at = time.monotonic()
+
+        def retry() -> None:
+            try:
+                self.primary.warm_up()
+                self.primary.prepare_listen()
+                if self._closed.is_set():
+                    return
+                self.primary_ready = True
+                logger.info(
+                    "[STT] Primary recovered in background: %s",
+                    type(self.primary).__name__,
+                )
+            except Exception as exc:
+                self._mark_primary_failed()
+                logger.warning(
+                    "[STT] Background primary recovery failed: %s",
+                    exc,
+                )
+
+        self._primary_retry_thread = threading.Thread(
+            target=retry,
+            name="atlas-stt-primary-retry",
+            daemon=True,
+        )
+        self._primary_retry_thread.start()
+
     def close(self) -> None:
+        self._closed.set()
         self.primary.close()
         self.fallback.close()
 
@@ -253,6 +285,7 @@ class FallbackTTS(BaseTTS):
                     exc,
                 )
                 started = False
+                self.primary_ready = False
             if started:
                 self._streaming_primary = True
                 self._locked_adapter = self.primary
@@ -307,6 +340,7 @@ class FallbackTTS(BaseTTS):
                 type(self.primary).__name__,
                 exc,
             )
+            self.primary_ready = False
             return False
 
     def end_utterance(self) -> bool:
@@ -352,6 +386,7 @@ class FallbackTTS(BaseTTS):
                 exc,
             )
             result = False
+            self.primary_ready = False
         if result:
             self.last_provider = type(self.primary).__name__
             self._last_adapter = self.primary
@@ -359,6 +394,7 @@ class FallbackTTS(BaseTTS):
             self._locked_adapter = None
             self._utterance_had_audio = False
             return True
+        self.primary_ready = False
         # A continuous provider may have already handed audio to the output
         # process before it reports a late stream error. Replaying the queued
         # sentences with Piper here creates the audible mid-answer voice swap
@@ -385,6 +421,10 @@ class FallbackTTS(BaseTTS):
             self.primary.abort_utterance()
         except Exception as exc:
             logger.warning("[TTS] Could not abort primary utterance: %s", exc)
+        try:
+            self.fallback.abort_utterance()
+        except Exception as exc:
+            logger.warning("[TTS] Could not abort fallback utterance: %s", exc)
 
     def speak(self, text: str, language: str = "en") -> bool:
         if self._locked_adapter is not None and not self._streaming_primary:

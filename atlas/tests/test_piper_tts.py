@@ -39,7 +39,8 @@ def test_piper_wav_playback_fans_out_to_both_outputs(monkeypatch, tmp_path):
     )
     monkeypatch.setattr("atlas.audio.piper_tts.shutil.which", lambda _name: True)
     monkeypatch.setattr(
-        "atlas.audio.piper_tts.subprocess.run",
+        tts,
+        "_run_process",
         lambda command, **_kwargs: (
             played.append(command)
             or SimpleNamespace(returncode=0, stderr=b"")
@@ -53,3 +54,26 @@ def test_piper_wav_playback_fans_out_to_both_outputs(monkeypatch, tmp_path):
             ["paplay", "--device=pulse-Judge speaker", str(output_path)],
         ]
     )
+
+
+def test_piper_abort_terminates_every_active_process():
+    class ActiveProcess:
+        def __init__(self):
+            self.killed = False
+
+        def poll(self):
+            return None
+
+        def kill(self):
+            self.killed = True
+
+    tts = PiperTTS(voice_en="english.onnx", voice_fr="french.onnx")
+    synthesis = ActiveProcess()
+    playback = ActiveProcess()
+    tts._active_processes.update({synthesis, playback})
+
+    tts.abort_utterance()
+
+    assert tts._cancelled.is_set()
+    assert synthesis.killed is True
+    assert playback.killed is True

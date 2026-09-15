@@ -49,8 +49,10 @@ class GroundingValidator:
         ctx_tokens = _tokens(context_text)
 
         if not ctx_tokens:
-            # Nothing to check against — allow response through
-            return True, "no_context_available"
+            # With nothing to compare against, grounding is unknown rather than
+            # proven.  The dialogue policy may still retain useful general
+            # knowledge, but telemetry must not call it grounded.
+            return False, "no_context_available"
 
         resp_tokens = _tokens(stripped)
         if not resp_tokens:

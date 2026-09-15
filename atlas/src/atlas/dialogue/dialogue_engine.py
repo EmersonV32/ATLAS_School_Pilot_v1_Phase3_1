@@ -64,6 +64,7 @@ UNGROUNDED_FALLBACK = {
         "Non ho ancora quel dettaglio verificato nella mia guida, ma posso "
         "spiegarti ciò che è confermato su quest'opera."
     ),
+    "zh": "我的導覽資料還無法證實這個細節，但我可以告訴你這件作品已確認的資訊。",
 }
 
 LLM_ERROR_FALLBACK = {
@@ -71,6 +72,7 @@ LLM_ERROR_FALLBACK = {
     "fr": "Je suis désolé, je ne peux pas répondre en ce moment.",
     "es": "Lo siento, no puedo generar una respuesta en este momento.",
     "it": "Mi dispiace, non posso generare una risposta in questo momento.",
+    "zh": "抱歉，我現在無法產生回應。",
 }
 
 
@@ -129,11 +131,13 @@ class DialogueEngine:
         self._injection = PromptInjectionFilter()
         self._conversation_turns: list[tuple[str, str]] = []
         self._personalization = SessionPersonalization()
+        self._state_lock = threading.RLock()
 
     def reset_conversation(self) -> None:
         """Clear privacy-bounded in-memory context at a session boundary."""
-        self._conversation_turns.clear()
-        self._personalization.reset()
+        with self._state_lock:
+            self._conversation_turns.clear()
+            self._personalization.reset()
 
     def configure_personalization(
         self,
@@ -143,21 +147,26 @@ class DialogueEngine:
         expertise: str | None = None,
     ) -> None:
         """Start a session with only coarse, allow-listed visitor choices."""
-        self._personalization.configure(
-            interests=interests,
-            accessibility=accessibility,
-            expertise=expertise,
-        )
+        with self._state_lock:
+            self._personalization.configure(
+                interests=interests,
+                accessibility=accessibility,
+                expertise=expertise,
+            )
 
     def _remember(self, question: str, answer: str) -> None:
-        self._conversation_turns.append((question[:500], answer[:1000]))
-        self._conversation_turns = self._conversation_turns[-3:]
+        with self._state_lock:
+            self._conversation_turns.append((question[:500], answer[:1000]))
+            self._conversation_turns = self._conversation_turns[-3:]
 
     def remember_local_response(self, question: str, answer: str) -> None:
         """Keep a deterministic local answer in the same three-turn context."""
-        self._personalization.observe(question)
-        self._remember(question, answer)
-        self._personalization.complete_turn(preference_question_requested=False)
+        with self._state_lock:
+            self._personalization.observe(question)
+            self._remember(question, answer)
+            self._personalization.complete_turn(
+                preference_question_requested=False
+            )
 
     def respond(
         self,
@@ -167,6 +176,7 @@ class DialogueEngine:
         language: str = "en",
         profile: str | None = None,
         artwork_id: str | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> DialogueResult:
         # 0. Prompt-injection guard — refuse before any LLM call.
         if self._injection.is_injection(question):
@@ -182,11 +192,15 @@ class DialogueEngine:
             )
 
         # 1. Learn only allow-listed preferences locally, then build one prompt.
-        self._personalization.observe(question)
-        interests, explanation_styles = self._personalization.prompt_lines()
-        ask_preference_question = (
-            self._personalization.should_ask_preference_question()
-        )
+        if cancel_event is not None and cancel_event.is_set():
+            return self._cancelled_result(language)
+        with self._state_lock:
+            self._personalization.observe(question)
+            interests, explanation_styles = self._personalization.prompt_lines()
+            ask_preference_question = (
+                self._personalization.should_ask_preference_question()
+            )
+            conversation_turns = list(self._conversation_turns)
         ctx = DialogueContext(
             question=question,
             artwork_chunks=artwork_chunks,
@@ -194,7 +208,7 @@ class DialogueEngine:
             visitor_language=language,
             profile=profile,
             artwork_id=artwork_id,
-            conversation_turns=list(self._conversation_turns),
+            conversation_turns=conversation_turns,
             visitor_interests=interests,
             explanation_preferences=explanation_styles,
             ask_preference_question=ask_preference_question,
@@ -219,6 +233,9 @@ class DialogueEngine:
                 confidence="low",
             )
 
+        if cancel_event is not None and cancel_event.is_set():
+            return self._cancelled_result(language)
+
         # 2b. Parse the structured JSON contract when present. Plain text
         # (e.g. from MockLLMClient) is used as the spoken answer directly.
         spoken = raw_response
@@ -226,6 +243,18 @@ class DialogueEngine:
         confidence = "medium"
         unsupported_claims: list = []
         structured = _parse_structured(raw_response)
+        if self._expect_json and structured is None:
+            logger.error("LLM violated the structured response contract")
+            return DialogueResult(
+                response=LLM_ERROR_FALLBACK.get(language, LLM_ERROR_FALLBACK["en"]),
+                language=language,
+                grounded=False,
+                grounding_reason="invalid_llm_response",
+                filtered=False,
+                error="invalid_llm_response",
+                fallback_used=True,
+                confidence="low",
+            )
         if structured is not None:
             spoken = structured["spoken_answer"].strip()
             confidence = str(structured.get("confidence", "medium"))
@@ -248,8 +277,15 @@ class DialogueEngine:
         if unsupported_claims:
             is_grounded = False
             grounding_reason = "unsupported_claims"
+            spoken = UNGROUNDED_FALLBACK.get(language, UNGROUNDED_FALLBACK["en"])
+            confidence = "low"
         fallback_used = bool(structured and structured.get("fallback_used"))
-        if not is_grounded:
+        if unsupported_claims:
+            logger.warning(
+                "LLM reported unsupported claims; replacing the spoken answer"
+            )
+            fallback_used = True
+        elif not is_grounded:
             logger.warning(
                 "Grounding check did not match retrieved context (%s); "
                 "retaining Gemini answer.",
@@ -272,10 +308,12 @@ class DialogueEngine:
             confidence=confidence,
             fallback_used=fallback_used,
         )
-        self._remember(question, result.response)
-        self._personalization.complete_turn(
-            preference_question_requested=ask_preference_question
-        )
+        if cancel_event is None or not cancel_event.is_set():
+            with self._state_lock:
+                self._remember(question, result.response)
+                self._personalization.complete_turn(
+                    preference_question_requested=ask_preference_question
+                )
         return result
 
     def respond_stream(
@@ -287,6 +325,7 @@ class DialogueEngine:
         language: str = "en",
         profile: str | None = None,
         artwork_id: str | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> DialogueResult:
         """Generate and validate in one thread while TTS consumes sentences.
 
@@ -307,11 +346,15 @@ class DialogueEngine:
             on_sentence(result.response)
             return result
 
-        self._personalization.observe(question)
-        interests, explanation_styles = self._personalization.prompt_lines()
-        ask_preference_question = (
-            self._personalization.should_ask_preference_question()
-        )
+        if cancel_event is not None and cancel_event.is_set():
+            return self._cancelled_result(language)
+        with self._state_lock:
+            self._personalization.observe(question)
+            interests, explanation_styles = self._personalization.prompt_lines()
+            ask_preference_question = (
+                self._personalization.should_ask_preference_question()
+            )
+            conversation_turns = list(self._conversation_turns)
         ctx = DialogueContext(
             question=question,
             artwork_chunks=artwork_chunks,
@@ -319,7 +362,7 @@ class DialogueEngine:
             visitor_language=language,
             profile=profile,
             artwork_id=artwork_id,
-            conversation_turns=list(self._conversation_turns),
+            conversation_turns=conversation_turns,
             visitor_interests=interests,
             explanation_preferences=explanation_styles,
             ask_preference_question=ask_preference_question,
@@ -343,6 +386,8 @@ class DialogueEngine:
             error: str | None = None
             try:
                 for text_chunk in generate_chunks():
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise InterruptedError("interaction_cancelled")
                     for sentence in assembler.feed(text_chunk):
                         ok, reason = self._validator.validate(
                             sentence,
@@ -352,8 +397,8 @@ class DialogueEngine:
                             grounded = False
                             grounding_reason = reason
                             logger.warning(
-                            "Streaming sentence does not overlap retrieved context "
-                            "(%s); retaining Gemini sentence.",
+                                "Streaming sentence does not overlap retrieved "
+                                "context (%s); retaining Gemini sentence.",
                                 reason,
                             )
                         sentence, was_filtered = self._safety.filter(
@@ -384,7 +429,7 @@ class DialogueEngine:
                     filtered = filtered or was_filtered
                     accepted.append(remainder)
                     events.put(("sentence", remainder))
-            except StopIteration:
+            except (StopIteration, InterruptedError):
                 pass
             except Exception as exc:
                 logger.error("Streaming LLM generation failed: %s", exc)
@@ -409,10 +454,12 @@ class DialogueEngine:
                 confidence="medium" if grounded else "low",
                 fallback_used=fallback_used,
             )
-            self._remember(question, result.response)
-            self._personalization.complete_turn(
-                preference_question_requested=ask_preference_question
-            )
+            if cancel_event is None or not cancel_event.is_set():
+                with self._state_lock:
+                    self._remember(question, result.response)
+                    self._personalization.complete_turn(
+                        preference_question_requested=ask_preference_question
+                    )
             events.put(("done", result))
 
         thread = threading.Thread(
@@ -422,9 +469,27 @@ class DialogueEngine:
         )
         thread.start()
         while True:
-            event_type, payload = events.get()
+            if cancel_event is not None and cancel_event.is_set():
+                return self._cancelled_result(language)
+            try:
+                event_type, payload = events.get(timeout=0.1)
+            except queue.Empty:
+                continue
             if event_type == "sentence":
                 on_sentence(str(payload))
                 continue
             thread.join(timeout=0.2)
             return payload
+
+    @staticmethod
+    def _cancelled_result(language: str) -> DialogueResult:
+        return DialogueResult(
+            response="",
+            language=language,
+            grounded=False,
+            grounding_reason="interaction_cancelled",
+            filtered=False,
+            error="interaction_cancelled",
+            fallback_used=True,
+            confidence="low",
+        )

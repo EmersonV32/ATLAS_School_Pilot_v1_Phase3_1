@@ -69,3 +69,28 @@ def test_ungrounded_stream_uses_general_knowledge_without_refusal():
     assert not result.fallback_used
     assert len(spoken) == 1
     assert "Quantum processors" in spoken[0]
+
+
+def test_streaming_response_stops_before_another_sentence_after_cancel():
+    cancel = threading.Event()
+
+    class StreamingLLM:
+        def generate_stream(self, _messages):
+            yield "Leonardo da Vinci painted the Mona Lisa. "
+            yield "The painting is displayed at the Louvre Museum."
+
+    spoken: list[str] = []
+
+    def speak(sentence: str) -> None:
+        spoken.append(sentence)
+        cancel.set()
+
+    result = DialogueEngine(StreamingLLM()).respond_stream(
+        question="Who painted it and where is it?",
+        artwork_chunks=CONTEXT,
+        on_sentence=speak,
+        cancel_event=cancel,
+    )
+
+    assert result.error == "interaction_cancelled"
+    assert spoken == ["Leonardo da Vinci painted the Mona Lisa."]

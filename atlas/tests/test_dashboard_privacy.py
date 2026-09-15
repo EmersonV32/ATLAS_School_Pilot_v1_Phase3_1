@@ -20,6 +20,7 @@ FORBIDDEN_LOG_KEYS = {
     "api_key", "gemini_api_key", "token", "secret", "password",
     "prompt", "system_prompt",
 }
+ADMIN_HEADERS = {"X-Atlas-Admin-Token": "privacy-test-token"}
 
 
 @pytest.fixture()
@@ -71,10 +72,18 @@ class TestPrivacyDefaults:
 class TestLogHygiene:
     def test_logs_have_no_forbidden_keys_or_transcripts(self, env):
         client, tmp_path = env
-        client.post("/session/start")
-        client.post("/session/manual-artwork", json={"artwork_id": "mona_lisa"})
-        client.post("/ask", json={"question": "Who painted this secret thing?"})
-        client.post("/session/stop")
+        client.post("/session/start", headers=ADMIN_HEADERS)
+        client.post(
+            "/session/manual-artwork",
+            json={"artwork_id": "mona_lisa"},
+            headers=ADMIN_HEADERS,
+        )
+        client.post(
+            "/ask",
+            json={"question": "Who painted this secret thing?"},
+            headers=ADMIN_HEADERS,
+        )
+        client.post("/session/stop", headers=ADMIN_HEADERS)
 
         records = []
         for log_file in (tmp_path / "logs").glob("*.jsonl"):
@@ -90,8 +99,12 @@ class TestLogHygiene:
 
     def test_logs_recent_endpoint_is_safe(self, env):
         client, _ = env
-        client.post("/ask", json={"question": "Who painted the Mona Lisa?"})
-        logs = client.get("/logs/recent").json()
+        client.post(
+            "/ask",
+            json={"question": "Who painted the Mona Lisa?"},
+            headers=ADMIN_HEADERS,
+        )
+        logs = client.get("/logs/recent", headers=ADMIN_HEADERS).json()
         for record in logs:
             keys = {k.lower() for k in record}
             assert not (keys & FORBIDDEN_LOG_KEYS)
@@ -122,6 +135,13 @@ class TestProtectedEndpoints:
         assert ingest.status_code == 401
         assert client.post("/eval/rag").status_code == 401
         assert client.post("/hardware/clear-emergency-stop").status_code == 401
+        assert client.post("/hardware/emergency-stop").status_code == 401
+        assert client.get("/status").status_code == 401
+        assert client.get("/camera/frame.jpg").status_code == 401
+        assert client.post("/session/start").status_code == 401
+        assert client.post("/session/stop").status_code == 401
+        assert client.post("/ask", json={"question": "hello"}).status_code == 401
+        assert client.get("/logs/recent").status_code == 401
         assert client.get("/admin/config").status_code == 401
         simulate = client.post("/demo/simulate", json={"scenario": "reset"})
         assert simulate.status_code == 401

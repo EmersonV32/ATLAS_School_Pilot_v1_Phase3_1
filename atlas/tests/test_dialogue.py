@@ -326,12 +326,12 @@ class TestGroundingValidator:
         assert ok is True
         assert reason.startswith("ok:")
 
-    def test_no_context_passes_through(self):
+    def test_no_context_is_not_reported_as_grounded(self):
         from atlas.dialogue.grounding_validator import GroundingValidator
 
         v = GroundingValidator()
         ok, reason = v.validate("This painting is remarkable.", [])
-        assert ok is True
+        assert ok is False
         assert reason == "no_context_available"
 
 

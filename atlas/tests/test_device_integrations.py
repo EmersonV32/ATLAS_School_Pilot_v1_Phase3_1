@@ -8,6 +8,7 @@ import struct
 import sys
 import threading
 import time
+from pathlib import Path
 from types import SimpleNamespace
 
 from atlas.app.dependency_container import Container
@@ -623,6 +624,84 @@ def test_device_runtime_keeps_running_while_camera_recovers():
     assert statuses["Camera"].startswith("recovering:")
     assert "Camera" not in runtime._required_components()
     assert runtime._required_components() == ("YOLO", "STT", "TTS", "RAG")
+
+
+def test_unexpected_preload_exception_becomes_recoverable_status():
+    container = SimpleNamespace(
+        settings=SimpleNamespace(
+            hardware=SimpleNamespace(),
+            llm=SimpleNamespace(provider="mock", cloud_llm_enabled=False),
+        )
+    )
+    runtime = DeviceRuntime(container)
+
+    def fail_preload():
+        raise RuntimeError("broken local model")
+
+    runtime.preload = fail_preload
+    statuses = runtime._safe_preload()
+
+    assert set(statuses) == {"YOLO", "STT", "TTS", "RAG"}
+    assert all(
+        value.startswith("unavailable: RuntimeError")
+        for value in statuses.values()
+    )
+
+
+def test_offline_whisper_endpointing_stops_after_speech_silence():
+    frame = b"\x00\x00" * 512
+
+    class FakeVAD:
+        def __init__(self):
+            self.values = iter((False, False, True, True, False, False))
+
+        def reset(self):
+            return None
+
+        def is_speech(self, _pcm):
+            return next(self.values)
+
+    class FakeStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self, samples):
+            assert samples == 512
+            return frame, False
+
+    sounddevice = SimpleNamespace(
+        RawInputStream=lambda **_kwargs: FakeStream()
+    )
+    stt = WhisperSTT(
+        min_speech_ms=64,
+        min_silence_ms=64,
+        pre_roll_ms=64,
+    )
+    stt._vad = FakeVAD()
+
+    captured = stt._record_until_silence(sounddevice, duration_s=1.0)
+
+    assert captured == frame * 6
+
+
+def test_visitor_deploy_rebuilds_and_rolls_back_rag_indexes():
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "deploy"
+        / "DEPLOY_ATLAS_VISITOR_IMPROVEMENTS.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert "  data/chroma\n" in script
+    assert "  data/sqlite\n" in script
+    ingest = "python -m atlas.rag.ingest --pack data/content_packs/demo_pack"
+    assert ingest in script
+    assert "--mode device --reset" in script
+    assert script.index("restore_device_config\nif !") < script.index(ingest)
+    assert "curl -fsS http://127.0.0.1:8765/ready" in script
 
 
 class RecordingEV3(EV3Hardware):

@@ -141,7 +141,7 @@ class TestDialogueRefusals:
         assert result.confidence == "high"
         assert result.grounded is True
 
-    def test_unsupported_claims_are_observability_not_a_refusal(self):
+    def test_unsupported_claims_use_a_safe_grounded_fallback(self):
         class ClaimyLLM:
             def generate(self, messages, max_tokens=300):
                 return (
@@ -155,8 +155,22 @@ class TestDialogueRefusals:
         engine = DialogueEngine(llm_client=ClaimyLLM(), expect_json=True)
         result = engine.respond(question="What is it worth?", artwork_chunks=_CHUNKS)
         assert result.grounded is False
-        assert result.fallback_used is False
-        assert "one billion dollars" in result.response
+        assert result.fallback_used is True
+        assert "one billion dollars" not in result.response
+        assert "don't have that detail verified" in result.response
+
+    def test_malformed_structured_response_is_never_spoken_raw(self):
+        class BrokenJsonLLM:
+            def generate(self, messages, max_tokens=300):
+                return '{"spoken_answer": "unfinished"'
+
+        result = DialogueEngine(
+            llm_client=BrokenJsonLLM(), expect_json=True
+        ).respond(question="Who painted it?", artwork_chunks=_CHUNKS)
+
+        assert result.error == "invalid_llm_response"
+        assert result.fallback_used is True
+        assert "spoken_answer" not in result.response
 
     def test_llm_error_returns_fallback(self):
         class BrokenLLM:
