@@ -132,10 +132,12 @@ class DialogueEngine:
         self._conversation_turns: list[tuple[str, str]] = []
         self._personalization = SessionPersonalization()
         self._state_lock = threading.RLock()
+        self._conversation_generation = 0
 
     def reset_conversation(self) -> None:
         """Clear privacy-bounded in-memory context at a session boundary."""
         with self._state_lock:
+            self._conversation_generation += 1
             self._conversation_turns.clear()
             self._personalization.reset()
 
@@ -177,6 +179,7 @@ class DialogueEngine:
         profile: str | None = None,
         artwork_id: str | None = None,
         cancel_event: threading.Event | None = None,
+        _expected_generation: int | None = None,
     ) -> DialogueResult:
         # 0. Prompt-injection guard — refuse before any LLM call.
         if self._injection.is_injection(question):
@@ -195,6 +198,12 @@ class DialogueEngine:
         if cancel_event is not None and cancel_event.is_set():
             return self._cancelled_result(language)
         with self._state_lock:
+            conversation_generation = self._conversation_generation
+            if (
+                _expected_generation is not None
+                and _expected_generation != conversation_generation
+            ):
+                return self._cancelled_result(language)
             self._personalization.observe(question)
             interests, explanation_styles = self._personalization.prompt_lines()
             ask_preference_question = (
@@ -310,10 +319,11 @@ class DialogueEngine:
         )
         if cancel_event is None or not cancel_event.is_set():
             with self._state_lock:
-                self._remember(question, result.response)
-                self._personalization.complete_turn(
-                    preference_question_requested=ask_preference_question
-                )
+                if conversation_generation == self._conversation_generation:
+                    self._remember(question, result.response)
+                    self._personalization.complete_turn(
+                        preference_question_requested=ask_preference_question
+                    )
         return result
 
     def respond_stream(
@@ -348,7 +358,19 @@ class DialogueEngine:
 
         if cancel_event is not None and cancel_event.is_set():
             return self._cancelled_result(language)
+        if self._expect_json:
+            return self._respond_structured_stream(
+                question=question,
+                artwork_chunks=artwork_chunks,
+                on_sentence=on_sentence,
+                visitor_age=visitor_age,
+                language=language,
+                profile=profile,
+                artwork_id=artwork_id,
+                cancel_event=cancel_event,
+            )
         with self._state_lock:
+            conversation_generation = self._conversation_generation
             self._personalization.observe(question)
             interests, explanation_styles = self._personalization.prompt_lines()
             ask_preference_question = (
@@ -384,51 +406,53 @@ class DialogueEngine:
             filtered = False
             fallback_used = False
             error: str | None = None
+
+            def accept_sentence(sentence: str) -> bool:
+                nonlocal grounded, grounding_reason, filtered, fallback_used
+                ok, reason = self._validator.validate(sentence, artwork_chunks)
+                if not ok:
+                    grounded = False
+                    grounding_reason = reason
+                    if artwork_chunks:
+                        logger.warning(
+                            "Streaming sentence failed the retrieved-context "
+                            "gate (%s); using the safe fallback.",
+                            reason,
+                        )
+                        fallback = UNGROUNDED_FALLBACK.get(
+                            language, UNGROUNDED_FALLBACK["en"]
+                        )
+                        fallback, was_filtered = self._safety.filter(
+                            fallback,
+                            language,
+                        )
+                        filtered = filtered or was_filtered
+                        fallback_used = True
+                        accepted.append(fallback)
+                        events.put(("sentence", fallback))
+                        return False
+                    logger.warning(
+                        "Streaming response has no retrieved context (%s); "
+                        "retaining general-knowledge answer.",
+                        reason,
+                    )
+                sentence, was_filtered = self._safety.filter(sentence, language)
+                filtered = filtered or was_filtered
+                accepted.append(sentence)
+                events.put(("sentence", sentence))
+                return not was_filtered
+
             try:
                 for text_chunk in generate_chunks():
                     if cancel_event is not None and cancel_event.is_set():
                         raise InterruptedError("interaction_cancelled")
                     for sentence in assembler.feed(text_chunk):
-                        ok, reason = self._validator.validate(
-                            sentence,
-                            artwork_chunks,
-                        )
-                        if not ok:
-                            grounded = False
-                            grounding_reason = reason
-                            logger.warning(
-                                "Streaming sentence does not overlap retrieved "
-                                "context (%s); retaining Gemini sentence.",
-                                reason,
-                            )
-                        sentence, was_filtered = self._safety.filter(
-                            sentence,
-                            language,
-                        )
-                        filtered = filtered or was_filtered
-                        accepted.append(sentence)
-                        events.put(("sentence", sentence))
-                        if was_filtered:
+                        if not accept_sentence(sentence):
                             raise StopIteration
 
                 remainder = assembler.flush()
-                if remainder:
-                    ok, reason = self._validator.validate(remainder, artwork_chunks)
-                    if not ok:
-                        grounded = False
-                        grounding_reason = reason
-                        logger.warning(
-                            "Streaming remainder does not overlap retrieved context "
-                            "(%s); retaining Gemini answer.",
-                            reason,
-                        )
-                    remainder, was_filtered = self._safety.filter(
-                        remainder,
-                        language,
-                    )
-                    filtered = filtered or was_filtered
-                    accepted.append(remainder)
-                    events.put(("sentence", remainder))
+                if remainder and not accept_sentence(remainder):
+                    raise StopIteration
             except (StopIteration, InterruptedError):
                 pass
             except Exception as exc:
@@ -456,15 +480,75 @@ class DialogueEngine:
             )
             if cancel_event is None or not cancel_event.is_set():
                 with self._state_lock:
-                    self._remember(question, result.response)
-                    self._personalization.complete_turn(
-                        preference_question_requested=ask_preference_question
-                    )
+                    if conversation_generation == self._conversation_generation:
+                        self._remember(question, result.response)
+                        self._personalization.complete_turn(
+                            preference_question_requested=ask_preference_question
+                        )
             events.put(("done", result))
 
         thread = threading.Thread(
             target=producer,
             name="atlas-llm-stream",
+            daemon=True,
+        )
+        thread.start()
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                return self._cancelled_result(language)
+            try:
+                event_type, payload = events.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if event_type == "sentence":
+                on_sentence(str(payload))
+                continue
+            thread.join(timeout=0.2)
+            return payload
+
+    def _respond_structured_stream(
+        self,
+        *,
+        question: str,
+        artwork_chunks: list,
+        on_sentence: Callable[[str], object],
+        visitor_age: int | None,
+        language: str,
+        profile: str | None,
+        artwork_id: str | None,
+        cancel_event: threading.Event | None,
+    ) -> DialogueResult:
+        """Keep cancellation responsive while validating JSON before speech."""
+        events: queue.Queue[tuple[str, object]] = queue.Queue()
+        with self._state_lock:
+            expected_generation = self._conversation_generation
+
+        def producer() -> None:
+            result = self.respond(
+                question=question,
+                artwork_chunks=artwork_chunks,
+                visitor_age=visitor_age,
+                language=language,
+                profile=profile,
+                artwork_id=artwork_id,
+                cancel_event=cancel_event,
+                _expected_generation=expected_generation,
+            )
+            if result.error != "interaction_cancelled" and result.response.strip():
+                assembler = SentenceAssembler()
+                sentences = assembler.feed(result.response)
+                remainder = assembler.flush()
+                if remainder:
+                    sentences.append(remainder)
+                for sentence in sentences:
+                    if cancel_event is not None and cancel_event.is_set():
+                        break
+                    events.put(("sentence", sentence))
+            events.put(("done", result))
+
+        thread = threading.Thread(
+            target=producer,
+            name="atlas-llm-structured-stream",
             daemon=True,
         )
         thread.start()

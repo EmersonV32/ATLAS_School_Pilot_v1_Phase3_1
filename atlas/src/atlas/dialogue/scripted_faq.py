@@ -45,6 +45,93 @@ _MATCH_PRIORITY = (
     "identify",
 )
 
+# The deterministic route is intentionally conservative.  Words outside a
+# known FAQ phrase must be limited to polite wrappers or a simple artwork
+# reference; qualifiers such as "during restoration" belong in RAG/Gemini.
+_SIMPLE_CONTEXT_WORDS = {
+    "en": {
+        "a",
+        "about",
+        "art",
+        "artwork",
+        "atlas",
+        "can",
+        "could",
+        "created",
+        "do",
+        "made",
+        "me",
+        "of",
+        "painted",
+        "painting",
+        "picture",
+        "please",
+        "tell",
+        "that",
+        "the",
+        "this",
+        "it",
+        "was",
+        "work",
+        "would",
+        "you",
+    },
+    "fr": {
+        "atlas",
+        "cette",
+        "ce",
+        "est",
+        "l",
+        "la",
+        "le",
+        "me",
+        "oeuvre",
+        "peinture",
+        "peux",
+        "pouvez",
+        "s",
+        "il",
+        "plait",
+        "te",
+        "vous",
+    },
+    "es": {
+        "atlas",
+        "esta",
+        "este",
+        "favor",
+        "la",
+        "me",
+        "obra",
+        "pintura",
+        "por",
+        "puedes",
+        "puede",
+        "decir",
+    },
+    "it": {
+        "atlas",
+        "opera",
+        "per",
+        "favore",
+        "mi",
+        "puoi",
+        "puo",
+        "questa",
+        "questo",
+        "dire",
+        "il",
+        "la",
+    },
+}
+_ARTWORK_REFERENCE = {
+    "en": "it",
+    "fr": "cette oeuvre",
+    "es": "esta obra",
+    "it": "questa opera",
+    "zh": "这件作品",
+}
+
 # Static map derived from the catalogue's own text. It keeps the Jetson free of
 # a runtime conversion dependency while accepting either Chinese writing form
 # and returning the visitor dashboard's validated Traditional Chinese.
@@ -789,6 +876,36 @@ def _phrase_index(language: str) -> tuple[tuple[str, str, tuple[str, ...]], ...]
     )
 
 
+@lru_cache(maxsize=1)
+def _normalized_artwork_aliases() -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            {
+                _normalize(alias)
+                for record in _ARTWORKS.values()
+                for alias in record["aliases"]
+            },
+            key=len,
+            reverse=True,
+        )
+    )
+
+
+def _canonicalize_artwork_reference(normalized: str, language: str) -> str:
+    """Replace a named catalogue artwork with a simple deictic reference."""
+    replacement = _ARTWORK_REFERENCE[language]
+    for alias in _normalized_artwork_aliases():
+        if alias and alias in normalized:
+            normalized = normalized.replace(alias, f" {replacement} ", 1)
+            break
+    return " ".join(normalized.split())
+
+
+def _simple_residual(words: list[str], start: int, length: int, language: str) -> bool:
+    residual = words[:start] + words[start + length :]
+    return all(word in _SIMPLE_CONTEXT_WORDS.get(language, set()) for word in residual)
+
+
 def match_scripted_intent(question: str, language: str) -> str | None:
     """Match a common question, including close paraphrases, without a model."""
     lang = normalize_language_code(language)
@@ -797,45 +914,66 @@ def match_scripted_intent(question: str, language: str) -> str | None:
     normalized = _normalize(question)
     if not normalized:
         return None
+    normalized = _canonicalize_artwork_reference(normalized, lang)
     phrase_index = _phrase_index(lang)
-    for intent in _MATCH_PRIORITY:
-        if any(
-            phrase in normalized
-            for indexed_intent, phrase, _phrase_words in phrase_index
-            if indexed_intent == intent
-        ):
-            return intent
+    if lang == "zh":
+        for intent in _MATCH_PRIORITY:
+            for indexed_intent, phrase, _phrase_words in phrase_index:
+                if indexed_intent != intent:
+                    continue
+                residual = normalized.replace(phrase, "", 1).replace(
+                    _ARTWORK_REFERENCE[lang], "", 1
+                )
+                for wrapper in ("请问", "这个", "它", "是", "的", "吗", "呢", "atlas"):
+                    residual = residual.replace(wrapper, "")
+                if phrase in normalized and not residual.strip():
+                    return intent
+        return None
     if len(normalized) < 8:
         return None
     words = normalized.split()
     word_set = set(words)
-    for intent, normalized_phrase, phrase_words in phrase_index:
-        if not word_set.intersection(phrase_words):
-            continue
-        phrase_word_count = len(phrase_words)
-        for start in range(max(0, len(words) - phrase_word_count + 1)):
-            window_words = words[start : start + phrase_word_count]
-            window = " ".join(window_words)
-            window_ratio = SequenceMatcher(
-                None,
-                window,
-                normalized_phrase,
-            ).ratio()
-            token_ratios = (
-                SequenceMatcher(None, actual, expected).ratio()
-                for actual, expected in zip(window_words, phrase_words, strict=True)
-            )
-            if window_ratio >= 0.84 and all(ratio >= 0.70 for ratio in token_ratios):
-                return intent
+    for priority_intent in _MATCH_PRIORITY:
+        for intent, normalized_phrase, phrase_words in phrase_index:
+            if intent != priority_intent or not word_set.intersection(phrase_words):
+                continue
+            phrase_word_count = len(phrase_words)
+            for start in range(max(0, len(words) - phrase_word_count + 1)):
+                if not _simple_residual(words, start, phrase_word_count, lang):
+                    continue
+                window_words = words[start : start + phrase_word_count]
+                window = " ".join(window_words)
+                window_ratio = SequenceMatcher(
+                    None,
+                    window,
+                    normalized_phrase,
+                ).ratio()
+                token_ratios = (
+                    SequenceMatcher(None, actual, expected).ratio()
+                    for actual, expected in zip(
+                        window_words, phrase_words, strict=True
+                    )
+                )
+                if window_ratio >= 0.84 and all(
+                    ratio >= 0.70 for ratio in token_ratios
+                ):
+                    return intent
     return None
 
 
-def _named_artwork(question: str) -> str | None:
+def named_artwork_id(question: str) -> str | None:
+    """Return a catalogue artwork explicitly named in visitor text."""
     normalized = _normalize(question)
+    matches: list[tuple[int, str]] = []
     for artwork_id, record in _ARTWORKS.items():
-        if any(_normalize(alias) in normalized for alias in record["aliases"]):
-            return artwork_id
-    return None
+        positions = [
+            normalized.find(alias)
+            for value in record["aliases"]
+            if (alias := _normalize(value)) in normalized
+        ]
+        if positions:
+            matches.append((min(positions), artwork_id))
+    return min(matches)[1] if matches else None
 
 
 def _basic_answer(intent: str, record: dict, facts: dict[str, str], lang: str) -> str:
@@ -893,7 +1031,7 @@ def resolve_scripted_faq(
     intent = match_scripted_intent(question, lang)
     if intent is None:
         return None
-    selected_artwork = _named_artwork(question) or artwork_id
+    selected_artwork = named_artwork_id(question) or artwork_id
     if selected_artwork not in _ARTWORKS:
         return ScriptedFaqAnswer(
             response=_CLARIFY_ARTWORK[lang],

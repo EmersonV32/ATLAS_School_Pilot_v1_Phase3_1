@@ -4,6 +4,44 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-09-14 - Code-review reliability fixes (branch only)
+
+**Changed:**
+
+- Restricted the local scripted FAQ matcher to simple questions and known
+  artwork references, so restoration, negation, quotation, self-correction,
+  theft, series-position, and other qualified questions continue to RAG/Gemini.
+- Added a conversation-generation guard so a canceled background LLM worker
+  cannot write an old answer into a newly reset visitor session.
+- Forwarded the selected educational profile into voice retrieval and made an
+  explicitly named artwork override stale camera context for both voice and
+  typed questions.
+- Required cloud streaming to complete the same structured response validation
+  used by non-streaming dialogue before any sentence is spoken. Unsupported
+  claims use the localized safe fallback and unknown chunk IDs are discarded.
+- Combined cached startup status with initialized STT/TTS readiness, added
+  non-blocking cloud-TTS recovery for later answers, closed Piper's
+  emergency-stop check-to-process race, and preserved a captured voice question
+  until a concurrent admin interaction releases the shared lock.
+- Expanded the Jetson acceptance gate through J18 for the new routing,
+  cancellation, recovery, concurrency, and profile/artwork behaviors.
+
+**Validation:** The complete laptop-safe suite passed `2929 tests` with two
+existing dependency deprecation warnings. An independent collection pass also
+counted `2929` test node IDs. The focused reliability selection passed `2700`
+tests. Ruff passed on every changed Python file; Python compilation, `uv pip
+check`, the no-secrets scan, and recovery-bundle verification passed.
+
+**Deployment result:** Prepared only on
+`codex/visitor-reliability-hardening`. It is not merged into `main` and was not
+deployed to the Jetson.
+
+**Remaining limitation:** Structured cloud responses now favor validation over
+token-by-token first speech, so first-audio latency must be measured on the
+Jetson rather than assumed unchanged. Live Gemini, Deepgram, Cartesia, Piper,
+Shokz, camera, and concurrent admin/visitor behavior remain `NOT TESTED` on the
+target; J1-J18 still block the normal merge decision.
+
 ## 2026-09-14 - Visitor runtime reliability hardening (branch only)
 
 **Changed:**

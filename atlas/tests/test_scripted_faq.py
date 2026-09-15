@@ -104,6 +104,23 @@ def test_unrelated_questions_do_not_trigger_scripted_artwork_answers(question):
     assert match_scripted_intent(question, "en") is None
 
 
+@pytest.mark.parametrize(
+    "question",
+    (
+        "Who painted over the crack during restoration?",
+        "What year was the protective glass installed?",
+        "Where is it in the Thirty-six Views series?",
+        "How was it made famous by the theft?",
+        "Who painted it—wait, I mean who restored it?",
+        "Who... painted—well, which parts were printed?",
+        "What year was it not painted?",
+        "You said 'what materials'; what actually changed colour?",
+    ),
+)
+def test_nuanced_questions_do_not_take_the_scripted_shortcut(question):
+    assert match_scripted_intent(question, "en") is None
+
+
 def test_traditional_chinese_is_recognized_and_returned():
     result = resolve_scripted_faq(
         "這件作品是誰畫的？",

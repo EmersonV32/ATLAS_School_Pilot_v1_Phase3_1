@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -77,3 +78,17 @@ def test_piper_abort_terminates_every_active_process():
     assert tts._cancelled.is_set()
     assert synthesis.killed is True
     assert playback.killed is True
+
+
+def test_piper_speak_cannot_clear_an_emergency_stop():
+    cancel = threading.Event()
+    tts = PiperTTS(voice_en="english.onnx", voice_fr="french.onnx")
+    tts.bind_cancel_event(cancel)
+    tts.abort_utterance()
+    cancel.set()
+    tts.reset_cancellation()
+    tts._command = ["piper"]
+
+    assert tts.speak("This must remain silent.") is False
+    assert tts._cancelled.is_set()
+    assert cancel.is_set()

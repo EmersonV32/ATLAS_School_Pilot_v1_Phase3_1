@@ -182,7 +182,13 @@ class FallbackSTT(BaseSTT):
 
 
 class FallbackTTS(BaseTTS):
-    def __init__(self, primary: BaseTTS, fallback: BaseTTS) -> None:
+    def __init__(
+        self,
+        primary: BaseTTS,
+        fallback: BaseTTS,
+        *,
+        primary_retry_interval_s: float = 15.0,
+    ) -> None:
         self.primary = primary
         self.fallback = fallback
         self.primary_ready = False
@@ -195,6 +201,68 @@ class FallbackTTS(BaseTTS):
         self._locked_adapter: BaseTTS | None = None
         self._buffered_adapter: BaseTTS | None = None
         self._utterance_had_audio = False
+        self._primary_retry_interval_s = max(0.0, primary_retry_interval_s)
+        self._primary_failed_at = 0.0
+        self._primary_retry_thread: threading.Thread | None = None
+        self._primary_state_lock = threading.Lock()
+        self._closed = threading.Event()
+
+    def _mark_primary_failed(self) -> None:
+        with self._primary_state_lock:
+            self.primary_ready = False
+            self._primary_failed_at = time.monotonic()
+
+    def _primary_retry_due(self) -> bool:
+        with self._primary_state_lock:
+            return (
+                not self.primary_ready
+                and time.monotonic() - self._primary_failed_at
+                >= self._primary_retry_interval_s
+            )
+
+    def _start_primary_retry(self) -> None:
+        """Reconnect cloud TTS without delaying the current local answer."""
+        with self._primary_state_lock:
+            if (
+                self._primary_retry_thread is not None
+                and self._primary_retry_thread.is_alive()
+            ):
+                return
+            self._primary_failed_at = time.monotonic()
+
+            def retry() -> None:
+                try:
+                    self.primary.warm_up()
+                    if self._closed.is_set():
+                        self.primary.close()
+                        return
+                    with self._primary_state_lock:
+                        self.primary_ready = True
+                    logger.info(
+                        "[TTS] Primary recovered in background: %s",
+                        type(self.primary).__name__,
+                    )
+                except Exception as exc:
+                    self._mark_primary_failed()
+                    logger.warning(
+                        "[TTS] Background primary recovery failed: %s",
+                        exc,
+                    )
+
+            thread = threading.Thread(
+                target=retry,
+                name="atlas-tts-primary-retry",
+                daemon=True,
+            )
+            self._primary_retry_thread = thread
+        thread.start()
+
+    def _recover_primary_if_due(self) -> bool:
+        """Start recovery if due and return readiness at call entry."""
+        primary_was_ready = self.primary_ready
+        if not primary_was_ready and self._primary_retry_due():
+            self._start_primary_retry()
+        return primary_was_ready
 
     def warm_up(self) -> None:
         primary_error: Exception | None = None
@@ -205,6 +273,7 @@ class FallbackTTS(BaseTTS):
             logger.info("[TTS] Primary ready: %s", type(self.primary).__name__)
         except Exception as exc:
             primary_error = exc
+            self._mark_primary_failed()
             logger.warning("Cloud TTS unavailable; using local fallback: %s", exc)
         try:
             self.fallback.warm_up()
@@ -220,7 +289,8 @@ class FallbackTTS(BaseTTS):
             )
 
     def cue(self) -> bool:
-        provider = self.primary if self.primary_ready else self.fallback
+        primary_was_ready = self._recover_primary_if_due()
+        provider = self.primary if primary_was_ready else self.fallback
         return provider.cue()
 
     def speak_private_local(self, text: str, language: str = "en") -> bool:
@@ -275,7 +345,8 @@ class FallbackTTS(BaseTTS):
         self._locked_adapter = None
         self._buffered_adapter = None
         self._utterance_had_audio = False
-        if self.primary_ready:
+        primary_was_ready = self._recover_primary_if_due()
+        if primary_was_ready:
             try:
                 started = bool(self.primary.begin_utterance(language))
             except Exception as exc:
@@ -285,7 +356,7 @@ class FallbackTTS(BaseTTS):
                     exc,
                 )
                 started = False
-                self.primary_ready = False
+                self._mark_primary_failed()
             if started:
                 self._streaming_primary = True
                 self._locked_adapter = self.primary
@@ -324,6 +395,8 @@ class FallbackTTS(BaseTTS):
         self._stream_segments.append(text)
         try:
             accepted = bool(self.primary.speak_segment(text, language))
+            if not accepted:
+                self._mark_primary_failed()
             logger.info(
                 "[TTS] Continuous segment %d %s "
                 "[provider=%s language=%s chars=%d]",
@@ -340,7 +413,7 @@ class FallbackTTS(BaseTTS):
                 type(self.primary).__name__,
                 exc,
             )
-            self.primary_ready = False
+            self._mark_primary_failed()
             return False
 
     def end_utterance(self) -> bool:
@@ -360,6 +433,8 @@ class FallbackTTS(BaseTTS):
                     exc,
                 )
                 result = False
+            if adapter is self.primary and not result:
+                self._mark_primary_failed()
             self.last_provider = type(adapter).__name__
             self._last_adapter = adapter
             self._utterance_had_audio = result
@@ -386,7 +461,7 @@ class FallbackTTS(BaseTTS):
                 exc,
             )
             result = False
-            self.primary_ready = False
+            self._mark_primary_failed()
         if result:
             self.last_provider = type(self.primary).__name__
             self._last_adapter = self.primary
@@ -394,7 +469,7 @@ class FallbackTTS(BaseTTS):
             self._locked_adapter = None
             self._utterance_had_audio = False
             return True
-        self.primary_ready = False
+        self._mark_primary_failed()
         # A continuous provider may have already handed audio to the output
         # process before it reports a late stream error. Replaying the queued
         # sentences with Piper here creates the audible mid-answer voice swap
@@ -426,7 +501,16 @@ class FallbackTTS(BaseTTS):
         except Exception as exc:
             logger.warning("[TTS] Could not abort fallback utterance: %s", exc)
 
+    def bind_cancel_event(self, cancel_event: threading.Event) -> None:
+        self.primary.bind_cancel_event(cancel_event)
+        self.fallback.bind_cancel_event(cancel_event)
+
+    def reset_cancellation(self) -> None:
+        self.primary.reset_cancellation()
+        self.fallback.reset_cancellation()
+
     def speak(self, text: str, language: str = "en") -> bool:
+        primary_was_ready = self._recover_primary_if_due()
         if self._locked_adapter is not None and not self._streaming_primary:
             adapter = self._locked_adapter
             try:
@@ -447,6 +531,8 @@ class FallbackTTS(BaseTTS):
                     self.last_provider,
                 )
                 return True
+            if adapter is self.primary:
+                self._mark_primary_failed()
             if self._utterance_had_audio or getattr(adapter, "playback_started", False):
                 logger.error(
                     "[TTS] Locked provider failed after speech began; fallback "
@@ -461,7 +547,7 @@ class FallbackTTS(BaseTTS):
                 )
                 return self.speak(text, language)
             return False
-        if self.primary_ready:
+        if primary_was_ready:
             try:
                 if self.primary.speak(text, language):
                     self.last_provider = type(self.primary).__name__
@@ -487,7 +573,7 @@ class FallbackTTS(BaseTTS):
                 type(self.primary).__name__,
                 type(self.fallback).__name__,
             )
-            self.primary_ready = False
+            self._mark_primary_failed()
         try:
             result = self.fallback.speak(text, language)
             self.last_provider = type(self.fallback).__name__
@@ -508,6 +594,7 @@ class FallbackTTS(BaseTTS):
             raise
 
     def close(self) -> None:
+        self._closed.set()
         self.abort_utterance()
         self.primary.close()
         self.fallback.close()

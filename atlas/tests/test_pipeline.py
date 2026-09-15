@@ -391,6 +391,63 @@ def test_make_retriever_adapter():
     assert result[0]["chunk_id"] == "c1"
 
 
+def test_make_retriever_forwards_the_selected_educational_level():
+    from atlas.models.enums import EducationalLevel
+    from atlas.pipeline.session_runner import make_retriever
+
+    class FakeRetriever:
+        query = None
+
+        def retrieve(self, query, filters=None):
+            self.query = query
+            return type("Pack", (), {"chunks": []})()
+
+    retriever = FakeRetriever()
+    make_retriever(retriever)("great_wave", "Tell me more", "en", "expert")
+
+    assert retriever.query.educational_level is EducationalLevel.EXPERT
+
+
+def test_named_artwork_overrides_camera_context_for_voice_retrieval():
+    calls = []
+
+    def retriever(artwork_id, question, language, profile):
+        calls.append((artwork_id, question, language, profile))
+        return [{"text": "Hokusai published the Great Wave in a print series."}]
+
+    class RecordingEngine:
+        kwargs = None
+
+        def respond(self, **kwargs):
+            self.kwargs = kwargs
+            return DialogueResult(
+                response="It belongs to Hokusai's Thirty-six Views series.",
+                language=kwargs["language"],
+                grounded=True,
+                grounding_reason="test",
+                filtered=False,
+            )
+
+    engine = RecordingEngine()
+    runner = _make_runner(retriever=retriever, dialogue_engine=engine)
+    runner.set_preferred_profile("expert")
+    question = "How does the Great Wave fit within Hokusai's series?"
+    result = runner.respond_to_transcript(
+        TranscriptResult(question, "en"),
+        detection=ArtworkDetection(
+            artwork_id="mona_lisa",
+            label="Mona Lisa",
+            confidence=1.0,
+            source="test",
+        ),
+    )
+
+    assert result.success
+    assert calls == [("great_wave_off_kanagawa", question, "en", "expert")]
+    assert engine.kwargs["artwork_id"] == "great_wave_off_kanagawa"
+    assert engine.kwargs["profile"] == "expert"
+
+
 def test_make_retriever_does_not_guess_an_artwork_for_a_deictic_question():
     """A collection search must not make 'it' refer to an arbitrary artwork."""
     from atlas.pipeline.session_runner import make_retriever

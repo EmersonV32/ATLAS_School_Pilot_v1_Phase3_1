@@ -651,3 +651,33 @@ def test_tts_falls_back_before_any_cloud_audio_started(caplog):
     assert tts.last_provider == "_FakeTTS"
     assert "fallback" in tts.provider_status()
     assert "produced no audio; switching" in caplog.text
+
+
+def test_tts_primary_recovers_in_background_for_a_later_answer():
+    class TransientPrimary(_FakeTTS):
+        def __init__(self):
+            super().__init__(False)
+            self.warm_up_calls = 0
+
+        def warm_up(self):
+            self.warm_up_calls += 1
+
+        def speak(self, text, language="en"):
+            self.spoken.append(text)
+            return len(self.spoken) > 1
+
+    primary = TransientPrimary()
+    fallback = _FakeTTS(True)
+    tts = FallbackTTS(primary, fallback, primary_retry_interval_s=0)
+    tts.warm_up()
+
+    assert tts.speak("first answer") is True
+    assert tts.primary_ready is False
+    assert tts.speak("current fallback answer") is True
+    tts._primary_retry_thread.join(timeout=1.0)
+    assert tts.primary_ready is True
+    assert tts.speak("later cloud answer") is True
+
+    assert primary.spoken == ["first answer", "later cloud answer"]
+    assert fallback.spoken == ["first answer", "current fallback answer"]
+    assert primary.warm_up_calls == 2

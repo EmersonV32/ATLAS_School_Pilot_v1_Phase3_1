@@ -1,6 +1,7 @@
 """Abstract TTS interface."""
 from __future__ import annotations
 
+import threading
 from abc import ABC, abstractmethod
 
 
@@ -63,6 +64,14 @@ class BaseTTS(ABC):
 
     def abort_utterance(self) -> None:
         """Cancel an active multi-segment synthesis context."""
+        return None
+
+    def bind_cancel_event(self, cancel_event: threading.Event) -> None:
+        """Bind the session cancellation signal when an adapter supports it."""
+        return None
+
+    def reset_cancellation(self) -> None:
+        """Permit a new serialized interaction after an earlier abort."""
         return None
 
     @abstractmethod

@@ -42,12 +42,12 @@ recorded as `PASS`, `FAIL`, or `NOT TESTED` on the actual Jetson.
 | J1 | Normal startup | `/health` is reachable during startup; `/ready` returns `503` until required providers are ready and then returns `200`. | NOT TESTED |
 | J2 | Provider recovery | With one required provider temporarily unavailable, the dashboard remains usable and shows the failed component; restoring it makes preload recover without a process restart. | NOT TESTED |
 | J3 | Camera loss | Removing only the safe-to-unplug visitor camera pauses new visual context but wake, global questions, scripted FAQ, stop, and session controls continue; reconnect restores frames. Never hot-unplug a CSI ribbon. | NOT TESTED |
-| J4 | Concurrent requests | While one question is active, a second `/ask` request returns `409`; memory, audio, and logs contain only the accepted interaction. | NOT TESTED |
-| J5 | Session stop | Stop during Gemini generation, Cartesia playback, and Piper playback produces no late speech and no late memory entry. | NOT TESTED |
-| J6 | Emergency stop | Emergency-stop during an answer immediately stops audio and hardware motion; clear-stop works only after the active interaction releases. | NOT TESTED |
-| J7 | STT fallback | Interrupting Deepgram makes the current question use local Whisper without asking the visitor to repeat it; cloud recovery happens in the background. | NOT TESTED |
+| J4 | Concurrent requests | While one question is active, a second `/ask` request returns `409`; a captured voice question is preserved and answered when the active interaction finishes instead of being dropped. | NOT TESTED |
+| J5 | Session stop | Stop during Gemini generation, Cartesia playback, and Piper playback produces no late speech and no late memory entry; starting a new session cannot receive an answer from the canceled worker. | NOT TESTED |
+| J6 | Emergency stop | Emergency-stop during an answer immediately stops audio and hardware motion, including a stop issued immediately before Piper starts a process; clear-stop works only after the active interaction releases. | NOT TESTED |
+| J7 | Speech fallback and recovery | Interrupting Deepgram makes the current question use local Whisper without asking the visitor to repeat it. Interrupting Cartesia uses Piper before cloud audio starts. Both cloud providers recover in the background for a later turn. | NOT TESTED |
 | J8 | Local endpointing | After the visitor finishes speaking, Whisper/Silero ends the recording on configured silence instead of always consuming the full listen window; noisy-room false starts are checked. | NOT TESTED |
-| J9 | LLM failure behavior | Timeout, empty/malformed output, and self-reported unsupported claims produce the localized safe response and are never spoken as raw JSON or unverified claims. Test all configured visitor languages. | NOT TESTED |
+| J9 | LLM failure behavior | Timeout, empty/malformed output, and self-reported unsupported claims produce the localized safe response and are never spoken as raw JSON or unverified claims. Streamed cloud output must satisfy the same structured contract before speech. Test all configured visitor languages. | NOT TESTED |
 | J10 | RAG integrity | The deployment rebuilds SQLite and Chroma from `demo_pack`; the expected artwork set is present, source IDs resolve, and the RAG evaluation completes. | NOT TESTED |
 | J11 | Admin authorization | Protected status, camera, session, question, log, and emergency routes reject a missing/wrong token and work with the configured token from the LAN admin device. | NOT TESTED |
 | J12 | Dashboard load | Visitor/admin pages stay responsive with both previews active; there are no overlapping poll storms, browser console errors, or sustained CPU spikes caused by JPEG encoding. | NOT TESTED |
@@ -55,6 +55,8 @@ recorded as `PASS`, `FAIL`, or `NOT TESTED` on the actual Jetson.
 | J14 | Soak and thermal | Run a continuous 30-minute representative visit with questions, artwork changes, camera preview, TTS, and EV3 events; record crashes, throttling, memory growth, temperature, and recovery failures. | NOT TESTED |
 | J15 | Vision release | Test every artwork with the production TensorRT engine at real viewing distances, angles, glare, occlusion, and movement; record misses and class confusions. | NOT TESTED |
 | J16 | Physical integration | Verify XIAO camera/network, headset input/output and button, judge speaker route, EV3 actions/e-stop, and visitor restart/recovery end to end. | NOT TESTED |
+| J17 | FAQ routing boundary | Ask the common FAQ set plus restoration, negation, quoted-phrase, series-position, theft, and self-correction variants. Only simple FAQ questions use the local script; nuanced variants reach RAG/Gemini. | NOT TESTED |
+| J18 | Explicit artwork and profile | With the camera on one artwork, name a different artwork in a nuanced question. Retrieval and the prompt use the named artwork and the active child/teen/adult/expert profile. | NOT TESTED |
 
 ## Fast service checks
 
@@ -88,6 +90,6 @@ until every Jetson case above passes.
 
 ## Release decision
 
-Merge only when J1-J16 have recorded evidence or the owner explicitly accepts a
+Merge only when J1-J18 have recorded evidence or the owner explicitly accepts a
 named exception. A failed cancellation, emergency-stop, RAG-integrity, privacy,
 or admin-authorization case blocks the release.

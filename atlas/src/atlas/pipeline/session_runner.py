@@ -26,7 +26,7 @@ from typing import Any
 from atlas.audio.stt import BaseSTT, TranscriptResult
 from atlas.audio.tts import BaseTTS
 from atlas.dialogue.dialogue_engine import DialogueEngine, DialogueResult
-from atlas.dialogue.scripted_faq import resolve_scripted_faq
+from atlas.dialogue.scripted_faq import named_artwork_id, resolve_scripted_faq
 from atlas.hardware.base import BaseHardware
 from atlas.models.languages import normalize_language_code
 from atlas.vision.detector import ArtworkDetection, BaseDetector
@@ -48,7 +48,7 @@ def _format_optional_ms(value) -> str:
     return f"{float(value):.0f}"
 
 
-RetrieverFn = Callable[[str | None, str], list[dict]]
+RetrieverFn = Callable[..., list[dict]]
 
 _CAPTURE_CONFIRMATIONS = {
     "en": "I captured this as {title}. What would you like to know?",
@@ -244,23 +244,30 @@ def make_retriever(phase2_retriever) -> RetrieverFn:
 
     The real retriever takes a RetrievalQuery (Pydantic) and returns a
     RetrievalResult with .chunks (each a RetrievedChunk with .text/.chunk_id).
-    Only `text` is required on the query; language is mapped from the
-    transcript, everything else uses sensible defaults.
+    Text, language, and the selected educational profile are mapped from the
+    active visitor session.
 
     Usage in dependency_container.py:
         from atlas.pipeline.session_runner import make_retriever
         retriever_fn = make_retriever(container.retriever)
     """
-    from atlas.models.enums import Language
+    from atlas.models.enums import EducationalLevel, Language
     from atlas.rag.retriever import RetrievalQuery
 
     def _lang(code: str) -> Language:
         return Language(normalize_language_code(code))
 
+    def _level(profile: str) -> EducationalLevel:
+        try:
+            return EducationalLevel(str(profile))
+        except ValueError:
+            return EducationalLevel.ADULT_BEGINNER
+
     def _retrieve(
         artwork_id: str | None,
         query: str,
         language: str = "en",
+        profile: str = "adult_beginner",
     ) -> list[dict]:
         # Never let a collection-wide search turn "Who created it?" into an
         # answer about an arbitrary high-ranking artwork. The dialogue prompt
@@ -273,6 +280,7 @@ def make_retriever(phase2_retriever) -> RetrieverFn:
                 text=query,
                 artwork_id=artwork_id,
                 language=_lang(language),
+                educational_level=_level(profile),
             )
             result = phase2_retriever.retrieve(rq)
             return [
@@ -325,6 +333,17 @@ class SessionRunner:
         self._preferred_language = "en"
         self._preferred_profile = "adult_beginner"
         self._preferred_accessibility: tuple[str, ...] = ()
+        bind_cancel_event = getattr(self._tts, "bind_cancel_event", None)
+        if callable(bind_cancel_event):
+            bind_cancel_event(self._cancel_event)
+
+    def _reset_tts_cancellation(self) -> None:
+        """Open a new audio operation only while the session is not canceled."""
+        if self._cancel_event.is_set():
+            return
+        reset_cancellation = getattr(self._tts, "reset_cancellation", None)
+        if callable(reset_cancellation):
+            reset_cancellation()
 
     def set_preferred_language(self, language: str) -> None:
         normalized = normalize_language_code(language)
@@ -427,6 +446,7 @@ class SessionRunner:
 
     def cue_listening(self) -> None:
         """Play one cue when a continuous listening session becomes active."""
+        self._reset_tts_cancellation()
         try:
             if not self._tts.cue():
                 logger.warning("Listening cue unavailable; listening anyway")
@@ -511,6 +531,7 @@ class SessionRunner:
         """Run one full cycle. frame can be a camera frame or None (mock)."""
 
         cycle_started = time.perf_counter()
+        self._reset_tts_cancellation()
 
         # Step 1: detect artwork
         detection = detection_override or self._detector.detect(frame)
@@ -591,16 +612,25 @@ class SessionRunner:
 
         # Step 3: retrieve context (Phase 2 bridge)
         retrieval_started = time.perf_counter()
+        query_artwork_id = named_artwork_id(transcript.text) or detection.artwork_id
         try:
             chunks = self._retriever(
-                detection.artwork_id, transcript.text, transcript.language
+                query_artwork_id,
+                transcript.text,
+                transcript.language,
+                self._preferred_profile,
             )
         except TypeError:
-            chunks = self._retriever(detection.artwork_id, transcript.text)
+            try:
+                chunks = self._retriever(
+                    query_artwork_id, transcript.text, transcript.language
+                )
+            except TypeError:
+                chunks = self._retriever(query_artwork_id, transcript.text)
         if not chunks:
             logger.warning(
                 "Retriever returned no chunks for artwork_id=%s",
-                detection.artwork_id,
+                query_artwork_id,
             )
         logger.info(
             "[RAG] Retrieved %d chunks [ids=%s]",
@@ -691,7 +721,7 @@ class SessionRunner:
                     language=transcript.language,
                     visitor_age=_age_hint_to_number(transcript.age_hint),
                     profile=self._preferred_profile,
-                    artwork_id=detection.artwork_id,
+                    artwork_id=query_artwork_id,
                 )
             except Exception:
                 if continuous_tts:
@@ -704,7 +734,7 @@ class SessionRunner:
                 language=transcript.language,
                 visitor_age=_age_hint_to_number(transcript.age_hint),
                 profile=self._preferred_profile,
-                artwork_id=detection.artwork_id,
+                artwork_id=query_artwork_id,
             )
 
         if continuous_tts:
@@ -818,7 +848,7 @@ class SessionRunner:
         """Answer an utterance captured independently from the vision loop."""
         if not self._interaction_lock.acquire(blocking=False):
             logger.warning(
-                "[Cycle] Dropped voice question: another interaction is active"
+                "[Cycle] Voice question deferred: another interaction is active"
             )
             return SessionResult(
                 detection=detection,
@@ -853,6 +883,7 @@ class SessionRunner:
                 dialogue=None,
                 error="interaction_cancelled",
             )
+        self._reset_tts_cancellation()
 
         switch_target = requested_language(transcript.text)
         if switch_target is not None:
@@ -886,7 +917,15 @@ class SessionRunner:
         if is_capture_command(transcript.text):
             return self.capture_context(frame, transcript.language)
 
-        artwork_id = detection.artwork_id if detection is not None else None
+        detected_artwork_id = detection.artwork_id if detection is not None else None
+        artwork_id = named_artwork_id(transcript.text) or detected_artwork_id
+        if detected_artwork_id and artwork_id != detected_artwork_id:
+            logger.info(
+                "[Vision] Explicit artwork reference overrides camera context "
+                "[camera=%s question=%s]",
+                detected_artwork_id,
+                artwork_id,
+            )
         if detection is not None:
             logger.info(
                 "[Vision] Context %s [artwork_id=%s confidence=%.0f%%]",
@@ -952,9 +991,19 @@ class SessionRunner:
 
         retrieval_started = time.perf_counter()
         try:
-            chunks = self._retriever(artwork_id, transcript.text, transcript.language)
+            chunks = self._retriever(
+                artwork_id,
+                transcript.text,
+                transcript.language,
+                self._preferred_profile,
+            )
         except TypeError:
-            chunks = self._retriever(artwork_id, transcript.text)
+            try:
+                chunks = self._retriever(
+                    artwork_id, transcript.text, transcript.language
+                )
+            except TypeError:
+                chunks = self._retriever(artwork_id, transcript.text)
         if not chunks:
             logger.warning(
                 "Retriever returned no chunks for artwork_id=%s",

@@ -116,6 +116,17 @@ class ContinuousQuestionListener:
         except queue.Empty:
             return None
 
+    def retry(self, transcript: TranscriptResult) -> bool:
+        """Preserve one captured question while another interaction finishes."""
+        if not self._active.is_set() or self._stop.is_set():
+            return False
+        try:
+            self._questions.put_nowait(transcript)
+        except queue.Full:
+            logger.error("[Listening] Could not preserve the busy question")
+            return False
+        return True
+
     def request_prompt(self, prompt: Callable[[], None]) -> None:
         """Run a proactive prompt between STT windows, never over the microphone."""
         self.clear_prompts()
@@ -629,6 +640,7 @@ class DeviceRuntime:
                 question = listener.pop()
                 if question is not None:
                     listener.clear_prompts()
+                    question_finished = True
                     try:
                         if (
                             self._dashboard_service is not None
@@ -654,6 +666,15 @@ class DeviceRuntime:
                                 )
                             ),
                         )
+                        if result.error == "interaction_busy" and listener.retry(
+                            question
+                        ):
+                            question_finished = False
+                            logger.info(
+                                "[Listening] Preserved question until the active "
+                                "interaction finishes"
+                            )
+                            continue
                         if (
                             result.event == "language_changed"
                             and result.transcript is not None
@@ -675,7 +696,8 @@ class DeviceRuntime:
                         else:
                             print(f"[Cycle] Stopped: {result.error}")
                     finally:
-                        listener.response_finished()
+                        if question_finished:
+                            listener.response_finished()
                     vision_hold.reset()
                     continue
 

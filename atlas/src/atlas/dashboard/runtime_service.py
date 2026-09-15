@@ -27,7 +27,7 @@ from atlas.dashboard.visitor_activation import (
     local_greeting,
     wake_phrase_matches,
 )
-from atlas.dialogue.scripted_faq import resolve_scripted_faq
+from atlas.dialogue.scripted_faq import named_artwork_id, resolve_scripted_faq
 from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.languages import OUTPUT_LANGUAGE_NAMES, normalize_language_code
 from atlas.models.retrieval import RetrievalQuery
@@ -159,6 +159,28 @@ def _to_level(value: str | None) -> EducationalLevel:
         return EducationalLevel.ADULT_BEGINNER
 
 
+def _live_provider_ready(provider: object | None) -> bool | None:
+    """Read an initialized provider's readiness without constructing it."""
+    if provider is None:
+        return None
+    flags = [
+        value
+        for name in ("primary_ready", "fallback_ready")
+        if isinstance((value := getattr(provider, name, None)), bool)
+    ]
+    if flags:
+        return any(flags)
+    for name in ("is_ready", "ready"):
+        marker = getattr(provider, name, None)
+        try:
+            value = marker() if callable(marker) else marker
+        except Exception:
+            return False
+        if isinstance(value, bool):
+            return value
+    return None
+
+
 class RuntimeService:
     def __init__(
         self,
@@ -217,6 +239,10 @@ class RuntimeService:
             raise InteractionBusyError("the previous interaction is still stopping")
         try:
             self.container.interaction_cancel_event.clear()
+            tts = getattr(self.container, "_tts", None)
+            reset_cancellation = getattr(tts, "reset_cancellation", None)
+            if callable(reset_cancellation):
+                reset_cancellation()
             self.container.dialogue_engine.reset_conversation()
             configure = getattr(
                 self.container.dialogue_engine,
@@ -715,7 +741,7 @@ class RuntimeService:
         if settings.logging.log_transcripts:
             logger.info("[Typed question] %s", question)
         artwork = self.artwork_status()
-        artwork_id = artwork.get("artwork_id")
+        artwork_id = named_artwork_id(question) or artwork.get("artwork_id")
 
         with Timer() as scripted_timer:
             scripted = resolve_scripted_faq(
@@ -1069,6 +1095,12 @@ class RuntimeService:
         with self._startup_lock:
             startup = dict(self._startup_statuses)
         if startup:
+            for status_name, component_name in (("STT", "_stt"), ("TTS", "_tts")):
+                live_ready = _live_provider_ready(getattr(c, component_name, None))
+                if live_ready is not None:
+                    startup[status_name] = (
+                        "ready" if live_ready else "unavailable (live provider)"
+                    )
             mapping = {
                 "vector_store": "RAG",
                 "fts_store": "RAG",

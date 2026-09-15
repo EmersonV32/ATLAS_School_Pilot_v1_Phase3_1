@@ -52,6 +52,13 @@ class PiperTTS(BaseTTS):
         self._process_lock = threading.Lock()
         self._active_processes: set[subprocess.Popen] = set()
         self._cancelled = threading.Event()
+        self._external_cancel_event: threading.Event | None = None
+
+    def _is_cancelled(self) -> bool:
+        return self._cancelled.is_set() or bool(
+            self._external_cancel_event is not None
+            and self._external_cancel_event.is_set()
+        )
 
     def _run_process(
         self,
@@ -61,15 +68,22 @@ class PiperTTS(BaseTTS):
         timeout_s: float = 30.0,
     ) -> subprocess.CompletedProcess:
         """Run a cancellable Piper or playback subprocess."""
-        if self._cancelled.is_set():
-            return subprocess.CompletedProcess(command, -1, b"", b"cancelled")
-        process = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE if input_data is not None else subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
         with self._process_lock:
+            if self._is_cancelled():
+                return subprocess.CompletedProcess(command, -1, b"", b"cancelled")
+            # Register the process before releasing the lock.  An emergency stop
+            # can then either prevent the spawn or see and terminate it; there is
+            # no check-to-spawn gap where audio can escape cancellation.
+            process = subprocess.Popen(
+                command,
+                stdin=(
+                    subprocess.PIPE
+                    if input_data is not None
+                    else subprocess.DEVNULL
+                ),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
             self._active_processes.add(process)
         try:
             stdout, stderr = process.communicate(input=input_data, timeout=timeout_s)
@@ -174,7 +188,6 @@ class PiperTTS(BaseTTS):
 
     def cue(self) -> bool:
         """Play an immediate two-note cue so the visitor knows to speak."""
-        self._cancelled.clear()
         fd, output_path = tempfile.mkstemp(prefix="atlas-cue-", suffix=".wav")
         os.close(fd)
         try:
@@ -204,7 +217,6 @@ class PiperTTS(BaseTTS):
             Path(output_path).unlink(missing_ok=True)
 
     def speak(self, text: str, language: str = "en") -> bool:
-        self._cancelled.clear()
         voice = self._voice_for(language)
         try:
             if self._command is None:
@@ -245,6 +257,17 @@ class PiperTTS(BaseTTS):
         for process in processes:
             if process.poll() is None:
                 process.kill()
+
+    def bind_cancel_event(self, cancel_event: threading.Event) -> None:
+        self._external_cancel_event = cancel_event
+
+    def reset_cancellation(self) -> None:
+        # The shared event remains authoritative if stop races this reset.
+        if (
+            self._external_cancel_event is None
+            or not self._external_cancel_event.is_set()
+        ):
+            self._cancelled.clear()
 
     def close(self) -> None:
         self.abort_utterance()

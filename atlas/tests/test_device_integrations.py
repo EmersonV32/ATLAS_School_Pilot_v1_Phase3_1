@@ -177,6 +177,15 @@ def test_continuous_listener_pauses_until_response_finishes():
         listener.stop()
 
 
+def test_continuous_listener_preserves_a_question_while_interaction_is_busy():
+    listener = ContinuousQuestionListener(SimpleNamespace())
+    listener.activate()
+    question = TranscriptResult("Do not drop this question", "en")
+
+    assert listener.retry(question) is True
+    assert listener.pop() is question
+
+
 def test_continuous_listener_runs_proactive_prompt_between_listens():
     prompt_ran = threading.Event()
 

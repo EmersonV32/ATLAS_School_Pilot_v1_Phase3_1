@@ -90,6 +90,35 @@ class TestHealthAndStatus:
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
 
+    def test_ready_rejects_cached_audio_success_after_live_failure(self, client):
+        service = client.app.state.service
+        service.set_startup_statuses(
+            {
+                "YOLO": "ready",
+                "STT": "ready",
+                "TTS": "ready",
+                "RAG": "ready",
+                "Gemini": "mock (cloud disabled)",
+            }
+        )
+        service.container._stt = type(
+            "UnavailableSTT",
+            (),
+            {"primary_ready": False, "fallback_ready": False},
+        )()
+        service.container._tts = type(
+            "UnavailableTTS",
+            (),
+            {"primary_ready": False, "fallback_ready": False},
+        )()
+
+        response = client.get("/ready")
+
+        assert response.status_code == 503
+        assert response.json()["status"] == "degraded"
+        assert response.json()["startup"]["STT"].startswith("unavailable")
+        assert response.json()["startup"]["TTS"].startswith("unavailable")
+
     def test_status_shape(self, client):
         res = client.get("/status", headers=_admin(client))
         assert res.status_code == 200
