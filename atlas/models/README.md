@@ -1,5 +1,7 @@
 # ATLAS model recovery
 
+The newer, **not deployed** v6 candidate is in [`releases/2026-09-28-yolo26n-atlas-v6/`](releases/2026-09-28-yolo26n-atlas-v6/). Its checkpoint, metrics and data-preparation evidence are committed for review, but `atlas_yolo.pt` and this recovery manifest remain unchanged pending physical-camera and Jetson validation.
+
 `atlas_yolo.pt` is the authoritative portable artwork checkpoint committed for
 fresh-OS recovery. The current file is the 2026-09-07 YOLO26 Nano seven-class
 camera-domain fine-tune derived from the team-authored `futureinnovators-v4`

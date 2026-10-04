@@ -1,5 +1,7 @@
 # Current state
 
+Model handoff update, 2026-10-04: a trained v6 YOLO26 Nano **candidate** and its non-media evidence are now in [`../atlas/models/releases/2026-09-28-yolo26n-atlas-v6/`](../atlas/models/releases/2026-09-28-yolo26n-atlas-v6/). It has not replaced the active checkpoint or been tested on the physical Jetson/XIAO camera. See [`2026-10-04_NEW_CHAT.md`](2026-10-04_NEW_CHAT.md). The runtime/device observations below are dated and should not be read as an October physical-health check.
+
 Status date: 2026-08-29
 
 ## Active implementation

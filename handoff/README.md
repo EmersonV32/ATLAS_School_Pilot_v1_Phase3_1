@@ -6,6 +6,8 @@ museum operator, or replacement Jetson. It describes the active source in
 
 ## Read first
 
+For a new chat after the v6 model training, read [`2026-10-04_NEW_CHAT.md`](2026-10-04_NEW_CHAT.md) first. It links the candidate checkpoint and states what has **not** been tested on the physical device.
+
 1. [`START_HERE.md`](START_HERE.md) - authority, first commands, and the safest
    continuation path.
 2. [`CURRENT_STATE.md`](CURRENT_STATE.md) - what is implemented, what has been

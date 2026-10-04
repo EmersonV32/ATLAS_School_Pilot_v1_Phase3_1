@@ -1,0 +1,167 @@
+{
+  "checkpoint_sha256": "af11b2de376a5c54a1ee11e9765f91ecbf54a1f308a2a82f9106b00a78409731",
+  "model": "YOLO26 Nano",
+  "environment": {
+    "python": "3.12.3",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "ultralytics": "8.4.163",
+    "torch": "2.12.0+cu126",
+    "torch_cuda": "12.6",
+    "device": "0",
+    "gpu": "NVIDIA GeForce RTX 3070 Laptop GPU",
+    "checkpoint_base": "official pretrained yolo26n.pt"
+  },
+  "dataset": {
+    "passed": true,
+    "splits": {
+      "train": {
+        "images": 989,
+        "boxes": 2341,
+        "negative_images": 79,
+        "class_boxes": {
+          "girl_with_a_pearl_earring": 475,
+          "great_wave_off_kanagawa": 430,
+          "liberty_leading_the_people": 453,
+          "mona_lisa": 178,
+          "tutankhamun_mask": 167,
+          "starry_night": 173,
+          "sunflowers": 465
+        }
+      },
+      "valid": {
+        "images": 324,
+        "boxes": 514,
+        "negative_images": 34,
+        "class_boxes": {
+          "girl_with_a_pearl_earring": 91,
+          "great_wave_off_kanagawa": 96,
+          "liberty_leading_the_people": 103,
+          "mona_lisa": 72,
+          "tutankhamun_mask": 37,
+          "starry_night": 36,
+          "sunflowers": 79
+        }
+      },
+      "test": {
+        "images": 233,
+        "boxes": 343,
+        "negative_images": 22,
+        "class_boxes": {
+          "girl_with_a_pearl_earring": 40,
+          "great_wave_off_kanagawa": 70,
+          "liberty_leading_the_people": 54,
+          "mona_lisa": 40,
+          "tutankhamun_mask": 52,
+          "starry_night": 49,
+          "sunflowers": 38
+        }
+      }
+    },
+    "classes": [
+      "girl_with_a_pearl_earring",
+      "great_wave_off_kanagawa",
+      "liberty_leading_the_people",
+      "mona_lisa",
+      "tutankhamun_mask",
+      "starry_night",
+      "sunflowers"
+    ],
+    "source_archive_sha256": "47d1021c3f77f06a3d252617cc1bf8241b964d5dc29e2b2f9f9cdfb377266a88",
+    "limitations": [
+      "Capture numbers and one-minute timestamp blocks are grouping proxies, not verified session IDs.",
+      "Rooms, printed reproductions and arrangements still recur across splits.",
+      "No independent physical XIAO-camera holdout was supplied.",
+      "High-overlap same-class boxes (IoU >=0.90) retain the first original box; all removals are listed."
+    ]
+  },
+  "training_note": "One training run. Best checkpoint selected on validation only; test evaluated afterward.",
+  "deployment_note": "Build TensorRT on the Jetson after checking this .pt on real XIAO-camera frames.",
+  "test_640": {
+    "map50": 0.9702093131859023,
+    "map50_95": 0.797664823523034,
+    "precision": 0.8982618463092852,
+    "recall": 0.9617360976505568,
+    "per_class": {
+      "girl_with_a_pearl_earring": {
+        "ap50": 0.9495939412484701,
+        "ap50_95": 0.8539907323711311
+      },
+      "great_wave_off_kanagawa": {
+        "ap50": 0.995,
+        "ap50_95": 0.8929397009744425
+      },
+      "liberty_leading_the_people": {
+        "ap50": 0.995,
+        "ap50_95": 0.8528882394494577
+      },
+      "mona_lisa": {
+        "ap50": 0.9061260868352549,
+        "ap50_95": 0.613824120799834
+      },
+      "tutankhamun_mask": {
+        "ap50": 0.9929155147479231,
+        "ap50_95": 0.8397904234205675
+      },
+      "starry_night": {
+        "ap50": 0.9627141167353934,
+        "ap50_95": 0.6636096657663108
+      },
+      "sunflowers": {
+        "ap50": 0.9901155327342748,
+        "ap50_95": 0.8666108818794955
+      }
+    },
+    "server_speed_ms_per_image": {
+      "preprocess": 0.4832296137324641,
+      "inference": 6.3736154506334115,
+      "loss": 0.002029613738686202,
+      "postprocess": 2.0172652360482495
+    },
+    "precision_recall_note": "Framework max-F1 operating point; do not assume these are ATLAS live thresholds.",
+    "speed_note": "Measured on the coach computer, not the Jetson or full camera pipeline."
+  },
+  "test_416": {
+    "map50": 0.9648864746964189,
+    "map50_95": 0.7887041173999993,
+    "precision": 0.9191499888887981,
+    "recall": 0.9483583968560899,
+    "per_class": {
+      "girl_with_a_pearl_earring": {
+        "ap50": 0.945394422466209,
+        "ap50_95": 0.8188204376476463
+      },
+      "great_wave_off_kanagawa": {
+        "ap50": 0.995,
+        "ap50_95": 0.888861911434498
+      },
+      "liberty_leading_the_people": {
+        "ap50": 0.995,
+        "ap50_95": 0.8721674603174604
+      },
+      "mona_lisa": {
+        "ap50": 0.8957595823984402,
+        "ap50_95": 0.5732359756911342
+      },
+      "tutankhamun_mask": {
+        "ap50": 0.995,
+        "ap50_95": 0.8673660096410334
+      },
+      "starry_night": {
+        "ap50": 0.9388569034023345,
+        "ap50_95": 0.6767052762626378
+      },
+      "sunflowers": {
+        "ap50": 0.9891944146079484,
+        "ap50_95": 0.8237717508055853
+      }
+    },
+    "server_speed_ms_per_image": {
+      "preprocess": 0.5653965665314977,
+      "inference": 7.816554506442608,
+      "loss": 0.002369098714271774,
+      "postprocess": 2.132160515004388
+    },
+    "precision_recall_note": "Framework max-F1 operating point; do not assume these are ATLAS live thresholds.",
+    "speed_note": "Measured on the coach computer, not the Jetson or full camera pipeline."
+  }
+}
