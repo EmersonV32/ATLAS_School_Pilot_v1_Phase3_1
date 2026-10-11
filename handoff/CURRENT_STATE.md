@@ -19,7 +19,11 @@ dates; repository cleanup is not a hardware deployment or a fresh health check.
 October 11 source also adds early duplicate-start checks before device adapter
 loading. These reduce ordinary competing launches, not a race-free singleton
 guarantee, and have not been deployed to the offline Jetson. Final clean-checkout
-software gate: 3,080 passed, one expected skip; maintained lint and recovery pass.
+Windows suite and Linux recovery gate each passed 3,081 tests with one expected
+skip and the existing non-failing deprecation warning. Maintained lint,
+dependency, secret, recovery and navigation checks pass. The portable
+deployment-package fix covers both present and missing `TEMP` and verifies
+staging cleanup. See the cleanup record for exact CI evidence.
 
 The runtime includes artwork capture, bounded conversational context, museum
 retrieval and general Gemini fallback, configurable local/cloud speech,

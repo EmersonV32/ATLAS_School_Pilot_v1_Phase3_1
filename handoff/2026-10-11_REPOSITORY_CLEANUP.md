@@ -52,10 +52,16 @@ embedded camera controls, CAD, website assets and competition PDFs remain.
 
 ## Branch decisions
 
-Nine superseded remote branch names are retired after their maintained work is
-in `main`. Four branches with unique history/features/research are retained
-under descriptive names, without merging experimental behavior. The complete
-original SHA ledger and actual publication outcome are in [BRANCHES.md](BRANCHES.md).
+Branch cleanup is complete locally and on GitHub. Nine superseded remote branch
+names were retired after their maintained work was preserved in `main`; four
+branches with unique history/features/research were retained under descriptive
+names, without merging experimental behavior. Independent live-head verification
+found exactly `main` plus those four branches, matching the local inventory.
+The cleanup was first published on `main` at
+`0000a756b852e0ec7e6ea83bf0604bc37c6d8cb9`; the subsequent validated portable
+packaging fix is `10917f7ac47a2d9bcb8c86902e588c90e9bd95f9`. Later ledger-only
+commits may advance `main`. The complete original SHA ledger,
+retained full SHAs and publication outcome are in [BRANCHES.md](BRANCHES.md).
 
 ## Recovery safeguards
 
@@ -107,7 +113,8 @@ outer-page overflow or persistent visitor storage appeared. Screenshots were
 visually reviewed and the synthetic server stopped. Optional name/age entry,
 Safari/iPad and all physical devices remain outside this browser claim.
 
-Final clean-checkout full suite: **3,080 passed, one expected skip**, with the
+Before the packaging repair, clean-checkout full suite: **3,080 passed, one
+expected skip**, with the
 same existing non-failing deprecation warning. The separately reviewed early
 startup safeguard passed 97 focused startup/device/handoff regressions,
 including the final IPv6-only parity correction. Fresh-checkout Ruff,
@@ -115,6 +122,24 @@ secret/recovery/navigation checks and shell LF normalization passed without
 ignored local source/state. The existing laptop Python environment supplied
 dependencies; this was not a fresh Jetson installation or new dependency stack.
 The maintained checkout now has 516 tracked files.
+
+GitHub [Pages run 38179573310](https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1/actions/runs/38179573310)
+passed for the published cleanup. The separate
+[Linux recovery run 38179573145](https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1/actions/runs/38179573145)
+failed because the packager assumed Windows-only `TEMP`. The repair uses the
+platform temporary-folder API without changing upload behavior or relaxing
+exact-target cleanup validation. Two offline packaging regressions cover
+`TEMP` present and absent and assert no staging leftovers.
+[Repaired Linux recovery run 38180281330](https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1/actions/runs/38180281330)
+passed all gates: 3,081 tests passed, one expected skip, one existing warning.
+The packaging-only change did not trigger Pages; website/workflow files remain
+identical to the successful deployment.
+
+Final clean-checkout Windows suite after the portability repair: **3,081 passed,
+one expected skip**, with the same existing non-failing deprecation warning
+(227.50 seconds). Ruff, compileall, dependency consistency, secret scan,
+recovery manifests, navigation and whitespace checks passed again. Both
+Windows and Linux ran the missing-`TEMP` packaging regression successfully.
 
 No laptop check proves live camera, speech, school-network or Jetson thermal
 acceptance. The owner explicitly confirmed that the Jetson, camera and headset

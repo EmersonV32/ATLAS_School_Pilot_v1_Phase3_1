@@ -4,10 +4,18 @@ Audit date: 2026-10-11.
 
 ## Publication status
 
-**Planned / in progress.** The decisions below describe the intended cleanup,
-not proof that remote branches have already been renamed or deleted. The final
-publication result must be recorded here after tests, the `main` update, and
-remote-ref verification succeed.
+**Branch cleanup and publication completed.** Independent local-ref and live
+GitHub-head verification found exactly the five retained branches below, with
+matching preserved tips. The validated implementation checkpoint on `main` is
+`10917f7ac47a2d9bcb8c86902e588c90e9bd95f9`; later ledger-only commits may
+advance `main`. The original names and SHAs remain
+recorded for recovery; the original-tip tables are the audit ledger, not the
+current branch inventory.
+
+Pages publication and the repaired Linux recovery workflow passed. The first
+Linux run exposed a Windows-only `TEMP` assumption; the portable fix and
+missing-`TEMP` regression now pass. This is not physical acceptance. See the
+final publication record for both the failed and successful runs.
 
 `main` is the maintained ATLAS branch. Its application source is `atlas/`;
 `handoff/` contains operating and continuity documentation. A historical or
@@ -15,7 +23,7 @@ experimental branch is not an alternative production deployment source.
 
 ## Retained work with readable names
 
-| Intended branch | Purpose | Release boundary |
+| Current branch | Purpose | Release boundary |
 |---|---|---|
 | `main` | Maintained application, current models, recovery tools, and manuals. | Publish only after the full validation gate. Physical deployment remains a separate owner-approved action. |
 | `codex/history/jetson-runtime-sync-2026-08-09` | Historical Jetson integration checkpoint, preserved from `690bceb`. Much of its runtime work has since been reconciled into the maintained application. | Reference only; its nested runtime layout and startup assumptions are obsolete. |
@@ -55,9 +63,9 @@ state remain outside Git and must follow `SECRETS_AND_PRIVATE_STATE.md`.
 
 The counts are commits unique to each original tip relative to the audited
 `main` at `f6609ebece67b57733425e9594585158d0b0d39e`. The symbolic
-`origin/HEAD` alias is not a separate branch. **Retire** means remove the old
-branch name only after verified backup and successful publication; its reachable
-history is not erased.
+`origin/HEAD` alias is not a separate branch. **Retire** records removal of the
+old branch name after verified backup and publication; its reachable history
+is not erased. All recorded branch-name decisions below have been executed.
 
 | Original remote branch | Original HEAD SHA | Unique | Decision |
 |---|---|---:|---|
@@ -90,8 +98,8 @@ history is not erased.
 | `codex/visitor-sync-stability` | `128b55be0873a2e770af4893eb3a52deedeec3fd` | 0 | Retire; all five commits ahead of its old remote are already in `main`. |
 
 The cleanup branch `codex/repository-cleanup-2026-10-11` was created during this
-operation and is not one of those eight originals. Retire it only after its
-validated contents are on `main`.
+operation and is not one of those eight originals. It was retired after its
+validated contents were published on `main`.
 
 ## Audit evidence and limits
 
@@ -110,7 +118,45 @@ validated contents are on `main`.
 
 ## Final publication record
 
-Pending the root operator's verification: record the published `main` SHA,
-retained branch names/SHAs, retired local/remote names, backup location, and any
-failed or deferred operation here. Do not mark the operation complete from
-planned names alone.
+Verified on 2026-10-11 against local branch heads, remote-tracking refs and live
+GitHub heads. Both local and remote branch inventories contain exactly the five
+names below. SHAs identify the validated implementation or preserved feature
+tip, not subsequent ledger-only commits:
+
+| Branch | Validated implementation / preserved tip SHA |
+|---|---|
+| `main` | `10917f7ac47a2d9bcb8c86902e588c90e9bd95f9` |
+| `codex/history/jetson-runtime-sync-2026-08-09` | `690bceb742db526a974712745eb1cdacff05d5ac` |
+| `codex/feature/admin-approval-copilot` | `b3c56be7512aef50848946d596d3ebba7c5b581f` |
+| `codex/research/visitor-prompt-v2-safeguards` | `4f52461cc3d20f020d3d618371dd01b489194665` |
+| `codex/feature/visitor-reliability-hardening` | `e51d6525800b38b4b3883c2bfd0da3c1e77765f3` |
+
+Nine original remote branch names were retired; four were replaced by the
+descriptive names above without changing their preserved tips. Every original
+local name other than `main`, plus the temporary cleanup branch, is absent.
+The historical Jetson checkpoint formerly called `codex/rag-reliability` locally
+is preserved under its accurate history name. The v6 integration and tested
+cleanup are now in `main`; experimental work remains unmerged.
+
+The snapshot tag still resolves to the pre-cleanup commit above. Both verified
+bundles remain outside the repository in:
+
+```text
+C:\Users\zhupo\OneDrive - College Sainte-Anne\Documents\ChatGPT\ATLAS\repository-backups\2026-10-11-before-cleanup\
+  all-branches-before-cleanup.bundle
+  all-branches-and-local-integration.bundle
+```
+
+[Pages run 38179573310](https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1/actions/runs/38179573310)
+passed. [Initial Linux recovery run 38179573145](https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1/actions/runs/38179573145)
+failed on the packager's Windows-only `TEMP` assumption. The repair uses the
+platform temporary-folder API and tests both present and missing `TEMP`, with
+exact staging-cleanup checks. [Repaired Linux recovery run 38180281330](https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1/actions/runs/38180281330)
+passed: 3,081 passed, one expected skip and the existing deprecation warning.
+The final clean-checkout Windows suite also passed 3,081 tests with one expected
+skip and the same warning.
+Pages did not rerun for the packaging-only change; website/workflow files match
+the successfully deployed revision. Laptop validation does not replace physical
+acceptance.
+No hardware deployment or acceptance test was performed: the Jetson, camera
+and headset were offline.
