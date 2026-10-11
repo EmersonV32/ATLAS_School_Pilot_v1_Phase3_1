@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import pickle
 import shutil
 import subprocess
@@ -102,16 +103,27 @@ def test_metadata_inspection_never_executes_pickle(tmp_path):
     assert not marker.exists()
 
 
-def test_prepare_only_bundle_selects_model_without_uploading(tmp_path):
+@pytest.mark.parametrize("temp_environment", ["normal", "temp-unset"])
+def test_prepare_only_bundle_selects_model_without_uploading(
+    tmp_path, temp_environment
+):
     script = ROOT / "scripts/deploy/DEPLOY_ATLAS_VISITOR_IMPROVEMENTS.ps1"
     if not script.is_file() or not (ROOT.parent / ".git").exists():
-        pytest.skip("The Windows uploader is tested from a full Git checkout")
+        pytest.skip("The deployment packager is tested from a full Git checkout")
     shell = shutil.which("pwsh") or shutil.which("powershell")
     if not shell:
-        pytest.skip("PowerShell is needed to verify the Windows uploader")
+        pytest.skip("PowerShell is needed to verify the deployment packager")
     archive = tmp_path / "prepared.tar.gz"
     candidate = tmp_path / "selected.pt"
     candidate.write_bytes(b"synthetic selected checkpoint")
+    environment = os.environ.copy()
+    temporary_root = tmp_path / "controlled-temporary-directory"
+    temporary_root.mkdir()
+    environment["TEMP"] = str(temporary_root)
+    environment["TMP"] = str(temporary_root)
+    environment["TMPDIR"] = str(temporary_root)
+    if temp_environment == "temp-unset":
+        environment.pop("TEMP", None)
     result = subprocess.run(
         [
             shell,
@@ -127,12 +139,14 @@ def test_prepare_only_bundle_selects_model_without_uploading(tmp_path):
             str(tmp_path / "does-not-exist"),
         ],
         cwd=ROOT,
+        env=environment,
         text=True,
         capture_output=True,
         timeout=45,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "not uploaded or deployed" in result.stdout
+    assert list(temporary_root.iterdir()) == []
     with tarfile.open(archive) as bundle:
         contents = {
             member.name.removeprefix("./"): member for member in bundle.getmembers()

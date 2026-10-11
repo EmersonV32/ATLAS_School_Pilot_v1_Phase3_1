@@ -19,8 +19,11 @@ foreach ($remotePath in @($RemoteRoot, $RemotePython)) {
 if ($StagedRuntimeRoot -and $StagedRuntimeRoot -notmatch '^/tmp/atlas_v6_preflight_[A-Za-z0-9_-]+$') { throw 'Staged runtime must be an explicit Jetson /tmp/atlas_v6_preflight_* directory.' }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $timestamp = (Get-Date -Format "yyyyMMdd_HHmmss") + "_" + [Guid]::NewGuid().ToString("N").Substring(0, 8)
-$stageRoot = Join-Path $env:TEMP "atlas_visitor_patch_$timestamp"
-$archive = Join-Path $env:TEMP "atlas_visitor_patch_$timestamp.tar.gz"
+# .NET resolves the platform's temporary directory, including Linux TMPDIR.
+# Retain this exact normalized base for both staging and cleanup validation.
+$taskTempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+$stageRoot = Join-Path $taskTempRoot "atlas_visitor_patch_$timestamp"
+$archive = Join-Path $taskTempRoot "atlas_visitor_patch_$timestamp.tar.gz"
 $remoteArchive = "/tmp/atlas_visitor_patch_$timestamp.tar.gz"
 
 $checkpointSource = if ([IO.Path]::IsPathRooted($YoloCheckpoint)) { $YoloCheckpoint } else { Join-Path $repoRoot $YoloCheckpoint }
@@ -129,7 +132,6 @@ try {
 }
 finally {
     # Resolve/validate exact temporary targets before recursive cleanup on Windows.
-    $taskTempRoot = [IO.Path]::GetFullPath($env:TEMP).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
     foreach ($taskTemporaryPath in @($stageRoot, $archive)) {
         $taskResolvedPath = [IO.Path]::GetFullPath($taskTemporaryPath)
         if (-not $taskResolvedPath.StartsWith($taskTempRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe cleanup target: $taskResolvedPath" }
