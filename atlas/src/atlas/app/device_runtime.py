@@ -434,6 +434,10 @@ class DeviceRuntime:
                         # permissive SO_REUSEADDR semantics for active listeners.
                         if sys.platform != "win32":
                             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                        # asyncio binds IPv6 sockets as IPv6-only, allowing a
+                        # separate IPv4 listener on the same numeric port.
+                        if family == socket.AF_INET6:
+                            probe.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
                         probe.bind(address)
                     usable_address = True
                 except OSError as exc:

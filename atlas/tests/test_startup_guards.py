@@ -44,7 +44,7 @@ def test_probe_respects_resolved_family_and_nondefault_port(
     family,
     address,
 ):
-    resolved, opened, bound, closed = [], [], [], []
+    resolved, opened, options, bound, closed = [], [], [], [], []
 
     def lookup(*args):
         resolved.append(args)
@@ -61,8 +61,8 @@ def test_probe_respects_resolved_family_and_nondefault_port(
         def __exit__(self, *_args):
             closed.append(True)
 
-        def setsockopt(self, *_args):
-            pass
+        def setsockopt(self, *args):
+            options.append(args)
 
         def bind(self, value):
             bound.append(value)
@@ -74,6 +74,8 @@ def test_probe_respects_resolved_family_and_nondefault_port(
     assert opened == [(family, socket.SOCK_STREAM, 0)]
     assert bound == [address]
     assert closed == [True]
+    ipv6_only = (socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+    assert (ipv6_only in options) == (family == socket.AF_INET6)
 
 
 @pytest.mark.parametrize(
@@ -171,6 +173,30 @@ def test_available_loopback_probe_releases_port_for_actual_server():
     runtime(port=port)._check_dashboard_port_available()
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.bind(("127.0.0.1", port))
+
+
+def test_ipv6_only_wildcard_probe_allows_ipv4_listener_on_same_port():
+    if not socket.has_ipv6:
+        pytest.skip("IPv6 is unavailable on this platform")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as ipv4_listener:
+        ipv4_listener.bind(("127.0.0.1", 0))
+        ipv4_listener.listen(1)
+        port = ipv4_listener.getsockname()[1]
+        try:
+            # Establish that the actual IPv6-only server bind is supported.
+            with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as ipv6_server:
+                ipv6_server.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+                ipv6_server.bind(("::", port))
+        except OSError as exc:
+            if exc.errno in {
+                errno.EADDRNOTAVAIL,
+                errno.EAFNOSUPPORT,
+                errno.EPROTONOSUPPORT,
+                errno.ENOPROTOOPT,
+            }:
+                pytest.skip("IPv6 binding is unavailable on this platform")
+            raise
+        runtime(host="::", port=port)._check_dashboard_port_available()
 
 
 @pytest.mark.parametrize(
