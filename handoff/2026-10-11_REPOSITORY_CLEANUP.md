@@ -107,12 +107,18 @@ outer-page overflow or persistent visitor storage appeared. Screenshots were
 visually reviewed and the synthetic server stopped. Optional name/age entry,
 Safari/iPad and all physical devices remain outside this browser claim.
 
-Fresh-clone secret/recovery/navigation checks passed without ignored local
-files. The separately reviewed early duplicate-start safeguard passed 96
-focused startup/device/handoff regressions; final full-suite validation of that
-addition is pending. No laptop check proves live camera, speech, school-network
-or Jetson thermal acceptance. The owner explicitly confirmed that the Jetson,
-camera and headset are offline.
+Final clean-checkout full suite: **3,080 passed, one expected skip**, with the
+same existing non-failing deprecation warning. The separately reviewed early
+startup safeguard passed 97 focused startup/device/handoff regressions,
+including the final IPv6-only parity correction. Fresh-checkout Ruff,
+secret/recovery/navigation checks and shell LF normalization passed without
+ignored local source/state. The existing laptop Python environment supplied
+dependencies; this was not a fresh Jetson installation or new dependency stack.
+The maintained checkout now has 516 tracked files.
+
+No laptop check proves live camera, speech, school-network or Jetson thermal
+acceptance. The owner explicitly confirmed that the Jetson, camera and headset
+are offline.
 
 The launcher now refuses an active user `atlas.service` before activating the
 environment. Device-loop startup probes its configured dashboard address before

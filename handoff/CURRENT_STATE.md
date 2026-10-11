@@ -16,6 +16,11 @@ dates; repository cleanup is not a hardware deployment or a fresh health check.
 - [Cleanup record](2026-10-11_REPOSITORY_CLEANUP.md): removed duplicates,
   validation results and recovery. No private data or device state is in Git.
 
+October 11 source also adds early duplicate-start checks before device adapter
+loading. These reduce ordinary competing launches, not a race-free singleton
+guarantee, and have not been deployed to the offline Jetson. Final clean-checkout
+software gate: 3,080 passed, one expected skip; maintained lint and recovery pass.
+
 The runtime includes artwork capture, bounded conversational context, museum
 retrieval and general Gemini fallback, configurable local/cloud speech,
 multilingual visitor setup, staff controls, headset-button handling and
