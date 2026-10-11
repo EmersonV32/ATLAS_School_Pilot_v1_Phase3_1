@@ -49,6 +49,7 @@ REPOSITORY_REQUIRED = (
 PRIVATE_OR_GENERATED = (
     ".env",
     "firmware/xiao_camera/wifi_secrets.h",
+    "firmware/xiao_camera/wifi_school_secrets.h",
     "models/atlas_yolo.engine",
     "models/atlas_yolo.onnx",
     "models/silero_vad.onnx",

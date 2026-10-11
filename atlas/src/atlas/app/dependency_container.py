@@ -208,25 +208,23 @@ class Container:
     def vision_detector(self):
         if self._vision_detector is None:
             if self.settings.mode == RunMode.DEVICE:
-                from pathlib import Path
-
+                from atlas.vision.model_artifacts import select_yolo_model
                 from atlas.vision.yolo_detector import YoloDetector
 
                 hw = self.settings.hardware
-                use_engine = hw.yolo_backend == "tensorrt" or (
-                    hw.yolo_backend == "auto"
-                    and Path(hw.yolo_tensorrt_path).is_file()
+                model_path, fallback_path = select_yolo_model(
+                    hw.yolo_model_path,
+                    hw.yolo_tensorrt_path,
+                    hw.yolo_backend,
+                    hw.yolo_imgsz,
                 )
-                model_path = (
-                    hw.yolo_tensorrt_path if use_engine else hw.yolo_model_path
-                )
-                fallback_path = hw.yolo_model_path if use_engine else None
                 self._vision_detector = YoloDetector(
                     model_path=model_path,
                     conf_threshold=hw.vision_conf_threshold,
                     mask_conf_threshold=hw.vision_mask_conf_threshold,
                     center_weight=hw.vision_center_weight,
                     image_size=hw.yolo_imgsz,
+                    device=hw.yolo_device,
                     rotation_degrees=hw.vision_rotation_degrees,
                     fallback_model_path=fallback_path,
                 )

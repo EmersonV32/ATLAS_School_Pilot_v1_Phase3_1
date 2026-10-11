@@ -6,6 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from atlas.vision.model_artifacts import write_engine_manifest
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -33,7 +35,9 @@ def main() -> None:
         workspace=args.workspace,
         simplify=False,
     )
+    manifest = write_engine_manifest(model_path, output, args.imgsz)
     print(f"TensorRT engine ready: {output}")
+    print(f"Checkpoint binding: {manifest}")
 
 
 if __name__ == "__main__":

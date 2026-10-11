@@ -22,6 +22,7 @@ Usage example (dev mode):
     )
     print(result.response)
 """
+
 from __future__ import annotations
 
 import json
@@ -129,11 +130,56 @@ class DialogueEngine:
         self._injection = PromptInjectionFilter()
         self._conversation_turns: list[tuple[str, str]] = []
         self._personalization = SessionPersonalization()
+        self._state_lock = threading.RLock()
+        self._conversation_generation = 0
+
+    @property
+    def conversation_generation(self) -> int:
+        with self._state_lock:
+            return self._conversation_generation
+
+    def _cancelled(self, language: str) -> DialogueResult:
+        return DialogueResult(
+            response="",
+            language=language,
+            grounded=False,
+            grounding_reason="session_cancelled",
+            filtered=False,
+            error="session_cancelled",
+        )
+
+    def _context(self, *, expected_generation: int | None, **kwargs):
+        """Snapshot one session without holding a lock during cloud calls."""
+        with self._state_lock:
+            generation = self._conversation_generation
+            if expected_generation is not None and generation != expected_generation:
+                return generation, None
+            self._personalization.observe(kwargs["question"])
+            interests, styles = self._personalization.prompt_lines()
+            return generation, DialogueContext(
+                **kwargs,
+                conversation_turns=list(self._conversation_turns),
+                visitor_interests=interests,
+                explanation_preferences=styles,
+                ask_preference_question=self._personalization.should_ask_preference_question(),
+            )
+
+    def _commit_turn(
+        self, generation: int, question: str, result: DialogueResult, ask: bool
+    ):
+        with self._state_lock:
+            if generation != self._conversation_generation:
+                return self._cancelled(result.language)
+            self._remember(question, result.response)
+            self._personalization.complete_turn(preference_question_requested=ask)
+            return result
 
     def reset_conversation(self) -> None:
         """Clear privacy-bounded in-memory context at a session boundary."""
-        self._conversation_turns.clear()
-        self._personalization.reset()
+        with self._state_lock:
+            self._conversation_generation += 1
+            self._conversation_turns.clear()
+            self._personalization.reset()
 
     def configure_personalization(
         self,
@@ -143,21 +189,31 @@ class DialogueEngine:
         expertise: str | None = None,
     ) -> None:
         """Start a session with only coarse, allow-listed visitor choices."""
-        self._personalization.configure(
-            interests=interests,
-            accessibility=accessibility,
-            expertise=expertise,
-        )
+        with self._state_lock:
+            self._personalization.configure(
+                interests=interests,
+                accessibility=accessibility,
+                expertise=expertise,
+            )
 
     def _remember(self, question: str, answer: str) -> None:
         self._conversation_turns.append((question[:500], answer[:1000]))
         self._conversation_turns = self._conversation_turns[-3:]
 
-    def remember_local_response(self, question: str, answer: str) -> None:
+    def remember_local_response(
+        self, question: str, answer: str, *, expected_generation: int | None = None
+    ) -> bool:
         """Keep a deterministic local answer in the same three-turn context."""
-        self._personalization.observe(question)
-        self._remember(question, answer)
-        self._personalization.complete_turn(preference_question_requested=False)
+        with self._state_lock:
+            if (
+                expected_generation is not None
+                and expected_generation != self._conversation_generation
+            ):
+                return False
+            self._personalization.observe(question)
+            self._remember(question, answer)
+            self._personalization.complete_turn(preference_question_requested=False)
+            return True
 
     def respond(
         self,
@@ -167,7 +223,19 @@ class DialogueEngine:
         language: str = "en",
         profile: str | None = None,
         artwork_id: str | None = None,
+        expected_generation: int | None = None,
     ) -> DialogueResult:
+        generation, ctx = self._context(
+            expected_generation=expected_generation,
+            question=question,
+            artwork_chunks=artwork_chunks,
+            visitor_age=visitor_age,
+            visitor_language=language,
+            profile=profile,
+            artwork_id=artwork_id,
+        )
+        if ctx is None:
+            return self._cancelled(language)
         # 0. Prompt-injection guard — refuse before any LLM call.
         if self._injection.is_injection(question):
             logger.warning("Prompt injection detected — refusing safely.")
@@ -182,23 +250,6 @@ class DialogueEngine:
             )
 
         # 1. Learn only allow-listed preferences locally, then build one prompt.
-        self._personalization.observe(question)
-        interests, explanation_styles = self._personalization.prompt_lines()
-        ask_preference_question = (
-            self._personalization.should_ask_preference_question()
-        )
-        ctx = DialogueContext(
-            question=question,
-            artwork_chunks=artwork_chunks,
-            visitor_age=visitor_age,
-            visitor_language=language,
-            profile=profile,
-            artwork_id=artwork_id,
-            conversation_turns=list(self._conversation_turns),
-            visitor_interests=interests,
-            explanation_preferences=explanation_styles,
-            ask_preference_question=ask_preference_question,
-        )
         messages = self._prompt_builder.build(ctx, json_output=self._expect_json)
 
         # 2. Call LLM
@@ -206,6 +257,8 @@ class DialogueEngine:
         try:
             raw_response = self._llm.generate(messages)
         except Exception as exc:  # pylint: disable=broad-except
+            if generation != self.conversation_generation:
+                return self._cancelled(language)
             logger.error("LLM generation failed: %s", exc)
             fallback = LLM_ERROR_FALLBACK.get(language, LLM_ERROR_FALLBACK["en"])
             return DialogueResult(
@@ -272,11 +325,9 @@ class DialogueEngine:
             confidence=confidence,
             fallback_used=fallback_used,
         )
-        self._remember(question, result.response)
-        self._personalization.complete_turn(
-            preference_question_requested=ask_preference_question
+        return self._commit_turn(
+            generation, question, result, ctx.ask_preference_question
         )
-        return result
 
     def respond_stream(
         self,
@@ -287,6 +338,7 @@ class DialogueEngine:
         language: str = "en",
         profile: str | None = None,
         artwork_id: str | None = None,
+        expected_generation: int | None = None,
     ) -> DialogueResult:
         """Generate and validate in one thread while TTS consumes sentences.
 
@@ -294,6 +346,17 @@ class DialogueEngine:
         the previous sentence, hiding most TTS time without speaking an
         unvalidated sentence.
         """
+        generation, ctx = self._context(
+            expected_generation=expected_generation,
+            question=question,
+            artwork_chunks=artwork_chunks,
+            visitor_age=visitor_age,
+            visitor_language=language,
+            profile=profile,
+            artwork_id=artwork_id,
+        )
+        if ctx is None:
+            return self._cancelled(language)
         if self._injection.is_injection(question):
             result = DialogueResult(
                 response=self._injection.safe_response(language),
@@ -304,26 +367,11 @@ class DialogueEngine:
                 fallback_used=True,
                 confidence="high",
             )
+            if generation != self.conversation_generation:
+                return self._cancelled(language)
             on_sentence(result.response)
             return result
 
-        self._personalization.observe(question)
-        interests, explanation_styles = self._personalization.prompt_lines()
-        ask_preference_question = (
-            self._personalization.should_ask_preference_question()
-        )
-        ctx = DialogueContext(
-            question=question,
-            artwork_chunks=artwork_chunks,
-            visitor_age=visitor_age,
-            visitor_language=language,
-            profile=profile,
-            artwork_id=artwork_id,
-            conversation_turns=list(self._conversation_turns),
-            visitor_interests=interests,
-            explanation_preferences=explanation_styles,
-            ask_preference_question=ask_preference_question,
-        )
         messages = self._prompt_builder.build(ctx, streaming_output=True)
         events: queue.Queue[tuple[str, object]] = queue.Queue()
 
@@ -343,6 +391,9 @@ class DialogueEngine:
             error: str | None = None
             try:
                 for text_chunk in generate_chunks():
+                    if generation != self.conversation_generation:
+                        events.put(("done", self._cancelled(language)))
+                        return
                     for sentence in assembler.feed(text_chunk):
                         ok, reason = self._validator.validate(
                             sentence,
@@ -352,8 +403,8 @@ class DialogueEngine:
                             grounded = False
                             grounding_reason = reason
                             logger.warning(
-                            "Streaming sentence does not overlap retrieved context "
-                            "(%s); retaining Gemini sentence.",
+                                "Streaming sentence does not overlap retrieved context "
+                                "(%s); retaining Gemini sentence.",
                                 reason,
                             )
                         sentence, was_filtered = self._safety.filter(
@@ -409,11 +460,14 @@ class DialogueEngine:
                 confidence="medium" if grounded else "low",
                 fallback_used=fallback_used,
             )
-            self._remember(question, result.response)
-            self._personalization.complete_turn(
-                preference_question_requested=ask_preference_question
+            events.put(
+                (
+                    "done",
+                    self._commit_turn(
+                        generation, question, result, ctx.ask_preference_question
+                    ),
+                )
             )
-            events.put(("done", result))
 
         thread = threading.Thread(
             target=producer,
@@ -422,7 +476,14 @@ class DialogueEngine:
         )
         thread.start()
         while True:
-            event_type, payload = events.get()
+            if generation != self.conversation_generation:
+                return self._cancelled(language)
+            try:
+                event_type, payload = events.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if generation != self.conversation_generation:
+                return self._cancelled(language)
             if event_type == "sentence":
                 on_sentence(str(payload))
                 continue

@@ -1,0 +1,15 @@
+# Optional, isolated Windows/Linux CPU smoke checks; NOT a Jetson installation.
+# Install CPU torch/torchvision first from https://download.pytorch.org/whl/cpu
+# using torch==2.8.0 torchvision==0.23.0 (official matched version pair).
+# These match the recorded Jetson library versions, not its hardware stack.
+torch==2.8.0
+torchvision==0.23.0
+ultralytics==8.4.115
+numpy==1.26.4
+opencv-python==4.10.0.84
+pydantic>=2.0,<3
+PyYAML>=6.0
+python-dotenv>=1.0
+fastapi>=0.110
+uvicorn>=0.29
+pytest>=8.0

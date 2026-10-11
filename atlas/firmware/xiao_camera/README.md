@@ -33,3 +33,30 @@ the camera into a wearable case.
 
 `app_httpd.cpp`, `camera_index.h`, and `camera_pins.h` are based on Espressif's
 Arduino ESP32 `CameraWebServer` example.
+
+## Optional school enterprise profile (prepared 2026-10-05)
+
+School support assumes **WPA2-Enterprise PEAP/MSCHAPv2**, not a browser portal,
+shared-password PSK, EAP-TLS, or a proven Bourget configuration. No school
+authentication has been tested. See `../../docs/SCHOOL_WIFI_SETUP.md`.
+
+`scripts/configure_school_wifi.py --target camera` is run locally by the
+operator to create the ignored `wifi_school_secrets.h`. It never reads or
+replaces the existing hotspot header. Without this optional header, the
+previous hotspot behavior remains. At boot, a configured school profile is
+tried only if its 2.4 GHz WPA2-Enterprise SSID is visible. If it fails, EAP is
+disabled and the original hotspot is used. After a prolonged connection loss,
+the existing reboot/reconnection path repeats this selection.
+
+Verified-server mode needs the IT-supplied public CA and exact server name,
+and an accurate device clock for certificate validity checks. Do not disable
+certificate time checks as a connectivity workaround. Unverified-server mode
+is OFF by default and requires both an explicit command option and a typed
+local risk acknowledgement. It can expose the account to a fake school AP.
+
+`scripts/verify_school_firmware.ps1` compiles hotspot-only, unverified-school,
+and verified-school variants with synthetic values and compile-time policy
+regressions. It never reads private headers or uploads firmware. Actual school
+authentication, fallback behavior on hardware, peer connectivity, and sustained
+streaming still require physical tests. The separately diagnosed stream-watchdog
+timing issue is not changed by this school-network addition.

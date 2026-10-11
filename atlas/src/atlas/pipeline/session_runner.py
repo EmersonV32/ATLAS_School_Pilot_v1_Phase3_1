@@ -68,8 +68,7 @@ _CAPTURE_CONFIRMATIONS = {
     "vi": "Tôi nhận diện tác phẩm này là {title}. Bạn muốn biết điều gì?",
     "it": "Ho identificato quest'opera come {title}. Cosa vorrebbe sapere?",
     "ta": (
-        "இந்தக் கலைப்படைப்பை {title} என அடையாளம் கண்டேன். "
-        "நீங்கள் என்ன தெரிந்துகொள்ள விரும்புகிறீர்கள்?"
+        "இந்தக் கலைப்படைப்பை {title} என அடையாளம் கண்டேன். நீங்கள் என்ன தெரிந்துகொள்ள விரும்புகிறீர்கள்?"
     ),
     "th": "ฉันระบุผลงานนี้ว่าเป็น {title} คุณอยากรู้อะไรเพิ่มเติม?",
     "pl": "Rozpoznałem to dzieło jako {title}. Co chcesz wiedzieć?",
@@ -85,8 +84,7 @@ _CAPTURE_FAILURES = {
     "bn": "আমি শিল্পকর্মটি শনাক্ত করতে পারিনি। এটিকে মাঝখানে রেখে আবার চেষ্টা করুন।",
     "pt": "Não consegui identificar a obra. Centralize-a e tente novamente.",
     "ru": (
-        "Не удалось распознать произведение. "
-        "Поместите его в центр и попробуйте снова."
+        "Не удалось распознать произведение. Поместите его в центр и попробуйте снова."
     ),
     "id": "Saya tidak dapat mengenali karya itu. Posisikan di tengah lalu coba lagi.",
     "de": (
@@ -174,19 +172,75 @@ _LANGUAGE_NAMES = {
 }
 
 _LANGUAGE_SWITCH_WORDS = {
-    "switch", "change", "speak", "talk", "continue", "answer", "respond",
-    "return", "back", "go", "parle", "parles", "parler", "parlez",
-    "passe", "passez", "passer", "changez", "changer", "continues",
-    "continuez", "continuer", "reponds", "repondez", "repondre", "retour",
-    "reviens", "habla", "hablar", "hable", "cambia", "cambiar", "cambie",
-    "continua", "continuar", "responde", "responder", "parla", "parlare",
-    "cambiare", "continuare", "rispondi", "rispondere",
+    "switch",
+    "change",
+    "speak",
+    "talk",
+    "continue",
+    "answer",
+    "respond",
+    "return",
+    "back",
+    "go",
+    "parle",
+    "parles",
+    "parler",
+    "parlez",
+    "passe",
+    "passez",
+    "passer",
+    "changez",
+    "changer",
+    "continues",
+    "continuez",
+    "continuer",
+    "reponds",
+    "repondez",
+    "repondre",
+    "retour",
+    "reviens",
+    "habla",
+    "hablar",
+    "hable",
+    "cambia",
+    "cambiar",
+    "cambie",
+    "continua",
+    "continuar",
+    "responde",
+    "responder",
+    "parla",
+    "parlare",
+    "cambiare",
+    "continuare",
+    "rispondi",
+    "rispondere",
 }
 
 _LANGUAGE_QUESTION_WORDS = {
-    "who", "what", "when", "where", "why", "which", "qui", "que",
-    "quand", "ou", "pourquoi", "quel", "quelle", "quien", "cuando",
-    "donde", "por", "cual", "chi", "cosa", "quando", "dove", "perche",
+    "who",
+    "what",
+    "when",
+    "where",
+    "why",
+    "which",
+    "qui",
+    "que",
+    "quand",
+    "ou",
+    "pourquoi",
+    "quel",
+    "quelle",
+    "quien",
+    "cuando",
+    "donde",
+    "por",
+    "cual",
+    "chi",
+    "cosa",
+    "quando",
+    "dove",
+    "perche",
     "quale",
 }
 
@@ -457,9 +511,7 @@ class SessionRunner:
         selected_language = normalize_language_code(
             language or self._preferred_language
         )
-        message = _ARTWORK_INVITATIONS[selected_language].format(
-            title=detection.label
-        )
+        message = _ARTWORK_INVITATIONS[selected_language].format(title=detection.label)
         self._hw.focus_artwork(detection.artwork_id)
         self._hw.set_status_led("amber")
         logger.info(
@@ -498,6 +550,30 @@ class SessionRunner:
             )
         return self.run_once(frame=frame, detection_override=detection)
 
+    @staticmethod
+    def _generation_options(generation) -> dict:
+        # Custom/mock engines predating cancellation retain their old interface.
+        return (
+            {"expected_generation": generation} if isinstance(generation, int) else {}
+        )
+
+    def _generation_changed(self, generation) -> bool:
+        return (
+            isinstance(generation, int)
+            and generation != self._engine.conversation_generation
+        )
+
+    def _cancelled_result(self, detection, transcript) -> SessionResult:
+        self._tts.abort_utterance()
+        self._hw.reset_exhibit()
+        self._hw.set_status_led("off")
+        return SessionResult(
+            detection=detection,
+            transcript=transcript,
+            dialogue=None,
+            error="session_cancelled",
+        )
+
     def run_once(
         self,
         frame: Any = None,
@@ -506,6 +582,7 @@ class SessionRunner:
         """Run one full cycle. frame can be a camera frame or None (mock)."""
 
         cycle_started = time.perf_counter()
+        generation = getattr(self._engine, "conversation_generation", None)
 
         # Step 1: detect artwork
         detection = detection_override or self._detector.detect(frame)
@@ -608,6 +685,8 @@ class SessionRunner:
         )
 
         # Step 4: generate dialogue response (Phase 3)
+        if self._generation_changed(generation):
+            return self._cancelled_result(detection, transcript)
         tts_results: list[bool] = []
         llm_started = time.perf_counter()
         sentence_number = 0
@@ -615,6 +694,8 @@ class SessionRunner:
 
         def speak_sentence(sentence: str) -> None:
             nonlocal sentence_number
+            if self._generation_changed(generation):
+                return
             sentence_number += 1
             if self._log_llm_responses:
                 logger.info("[LLM sentence %d] %s", sentence_number, sentence)
@@ -687,6 +768,7 @@ class SessionRunner:
                     visitor_age=_age_hint_to_number(transcript.age_hint),
                     profile=self._preferred_profile,
                     artwork_id=detection.artwork_id,
+                    **self._generation_options(generation),
                 )
             except Exception:
                 if continuous_tts:
@@ -700,8 +782,14 @@ class SessionRunner:
                 visitor_age=_age_hint_to_number(transcript.age_hint),
                 profile=self._preferred_profile,
                 artwork_id=detection.artwork_id,
+                **self._generation_options(generation),
             )
 
+        if (
+            self._generation_changed(generation)
+            or dialogue_result.error == "session_cancelled"
+        ):
+            return self._cancelled_result(detection, transcript)
         if continuous_tts:
             tts_started = time.perf_counter()
             try:
@@ -718,9 +806,7 @@ class SessionRunner:
                 (time.perf_counter() - tts_started) * 1000.0,
                 sentence_number,
                 getattr(self._tts, "last_provider", type(self._tts).__name__),
-                _format_optional_ms(
-                    getattr(self._tts, "last_first_audio_ms", None)
-                ),
+                _format_optional_ms(getattr(self._tts, "last_first_audio_ms", None)),
                 _format_optional_ms(getattr(self._tts, "last_total_ms", None)),
                 continuous_ok,
             )
@@ -809,9 +895,17 @@ class SessionRunner:
         *,
         frame: Any = None,
         detection: ArtworkDetection | None = None,
+        expected_generation: int | None = None,
     ) -> SessionResult:
         """Answer an utterance captured independently from the vision loop."""
         cycle_started = time.perf_counter()
+        generation = (
+            expected_generation
+            if expected_generation is not None
+            else getattr(self._engine, "conversation_generation", None)
+        )
+        if self._generation_changed(generation):
+            return self._cancelled_result(detection, transcript)
         self._last_language = transcript.language
 
         switch_target = requested_language(transcript.text)
@@ -869,7 +963,13 @@ class SessionRunner:
         if scripted is not None:
             remember = getattr(self._engine, "remember_local_response", None)
             if callable(remember):
-                remember(transcript.text, scripted.response)
+                remember(
+                    transcript.text,
+                    scripted.response,
+                    **self._generation_options(generation),
+                )
+            if self._generation_changed(generation):
+                return self._cancelled_result(detection, transcript)
             dialogue_result = DialogueResult(
                 response=scripted.response,
                 language=normalize_language_code(transcript.language),
@@ -930,6 +1030,8 @@ class SessionRunner:
             (time.perf_counter() - retrieval_started) * 1000.0,
         )
 
+        if self._generation_changed(generation):
+            return self._cancelled_result(detection, transcript)
         tts_results: list[bool] = []
         llm_started = time.perf_counter()
         sentence_number = 0
@@ -937,6 +1039,8 @@ class SessionRunner:
 
         def speak_sentence(sentence: str) -> None:
             nonlocal sentence_number
+            if self._generation_changed(generation):
+                return
             sentence_number += 1
             if self._log_llm_responses:
                 logger.info("[LLM sentence %d] %s", sentence_number, sentence)
@@ -1009,6 +1113,7 @@ class SessionRunner:
                     visitor_age=_age_hint_to_number(transcript.age_hint),
                     profile=self._preferred_profile,
                     artwork_id=artwork_id,
+                    **self._generation_options(generation),
                 )
             except Exception:
                 if continuous_tts:
@@ -1022,8 +1127,14 @@ class SessionRunner:
                 visitor_age=_age_hint_to_number(transcript.age_hint),
                 profile=self._preferred_profile,
                 artwork_id=artwork_id,
+                **self._generation_options(generation),
             )
 
+        if (
+            self._generation_changed(generation)
+            or dialogue_result.error == "session_cancelled"
+        ):
+            return self._cancelled_result(detection, transcript)
         if continuous_tts:
             tts_started = time.perf_counter()
             try:
@@ -1040,9 +1151,7 @@ class SessionRunner:
                 (time.perf_counter() - tts_started) * 1000.0,
                 sentence_number,
                 getattr(self._tts, "last_provider", type(self._tts).__name__),
-                _format_optional_ms(
-                    getattr(self._tts, "last_first_audio_ms", None)
-                ),
+                _format_optional_ms(getattr(self._tts, "last_first_audio_ms", None)),
                 _format_optional_ms(getattr(self._tts, "last_total_ms", None)),
                 continuous_ok,
             )

@@ -117,6 +117,7 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
         "ATLAS_JUDGE_SPEAKER_NAME": "judge_speaker_name",
         "ATLAS_EV3_ADDRESS": "ev3_bt_address",
         "ATLAS_YOLO_BACKEND": "yolo_backend",
+        "ATLAS_YOLO_DEVICE": "yolo_device",
     }
     for env_name, field_name in hardware_overrides.items():
         value = os.getenv(env_name)

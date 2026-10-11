@@ -23,7 +23,7 @@ rag = [
     "sentence-transformers>=2.7",
     "rank-bm25>=0.2.2",
 ]
-vision = ["ultralytics>=8.2"]
+vision = ["ultralytics>=8.4.115"]
 audio = [
     "faster-whisper>=1.0",
     "piper-tts>=1.2",
@@ -48,7 +48,7 @@ all = [
     "chromadb>=0.5",
     "sentence-transformers>=2.7",
     "rank-bm25>=0.2.2",
-    "ultralytics>=8.2",
+    "ultralytics>=8.4.115",
     "faster-whisper>=1.0",
     "piper-tts>=1.2",
     "onnxruntime>=1.16",

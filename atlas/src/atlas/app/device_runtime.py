@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 DEMO_VISION_HOLD_SECONDS = 5.0
 
+
 class VisionHold:
     """Accumulate a centered gaze while tolerating brief detector flicker."""
 
@@ -84,6 +85,8 @@ class ContinuousQuestionListener:
         self._response_finished.set()
         self._stop = threading.Event()
         self._questions: queue.Queue[TranscriptResult] = queue.Queue(maxsize=1)
+        self._lifecycle_lock = threading.RLock()
+        self._generation = 0
         self._prompts: queue.Queue[Callable[[], None]] = queue.Queue(maxsize=1)
         self._thread = threading.Thread(
             target=self._run,
@@ -95,9 +98,18 @@ class ContinuousQuestionListener:
         self._thread.start()
 
     def activate(self) -> None:
-        self._active.set()
+        with self._lifecycle_lock:
+            if not self._active.is_set():
+                self._generation += 1
+            self._active.set()
 
     def deactivate(self) -> None:
+        with self._lifecycle_lock:
+            self._generation += 1
+            self._active.clear()
+            self._discard_questions()
+
+    def _discard_questions(self) -> None:
         self._active.clear()
         while True:
             try:
@@ -157,6 +169,8 @@ class ContinuousQuestionListener:
                     logger.exception("[Demo] Proactive prompt failed: %s", exc)
                 continue
             try:
+                with self._lifecycle_lock:
+                    generation = self._generation
                 transcript = self._runner.listen_once(play_cue=False)
             except Exception as exc:
                 logger.exception("[Listening] Continuous STT failure: %s", exc)
@@ -164,14 +178,17 @@ class ContinuousQuestionListener:
                 continue
             if transcript is None or not transcript.text.strip():
                 continue
-            if not self._active.is_set():
-                continue
-            self._response_finished.clear()
-            try:
-                self._questions.put(transcript, timeout=0.5)
-            except queue.Full:
-                logger.warning("[Listening] Dropped question because one is pending")
-                self._response_finished.set()
+            with self._lifecycle_lock:
+                if not self._active.is_set() or generation != self._generation:
+                    continue
+                self._response_finished.clear()
+                try:
+                    self._questions.put_nowait(transcript)
+                except queue.Full:
+                    logger.warning(
+                        "[Listening] Dropped question because one is pending"
+                    )
+                    self._response_finished.set()
 
 
 class DeviceRuntime:
@@ -184,6 +201,19 @@ class DeviceRuntime:
         self._dashboard_server = None
         self._dashboard_thread: threading.Thread | None = None
         self._dashboard_service = None
+        self._question_listener: ContinuousQuestionListener | None = None
+
+    def _session_changed(self) -> None:
+        """Invalidate microphone/capture work immediately, even during an outage."""
+        if self._question_listener is not None:
+            self._question_listener.deactivate()
+        self._capture_requested.clear()
+        while True:
+            try:
+                self._button_actions.get_nowait()
+            except queue.Empty:
+                break
+        self.container.tts.abort_utterance()
 
     def request_manual_capture(self) -> None:
         """Adapter point for terminal input now and the Shokz button later."""
@@ -257,6 +287,7 @@ class DeviceRuntime:
         app = create_app(
             self.container,
             capture_request=self.request_manual_capture,
+            session_changed=self._session_changed,
         )
         self._dashboard_service = app.state.service
         config = uvicorn.Config(
@@ -322,11 +353,7 @@ class DeviceRuntime:
             "TTS": lambda: self.container.tts.warm_up(),
         }
         llm = getattr(self.container.settings, "llm", None)
-        if (
-            llm is not None
-            and llm.provider == "gemini"
-            and llm.cloud_llm_enabled
-        ):
+        if llm is not None and llm.provider == "gemini" and llm.cloud_llm_enabled:
             jobs["Gemini"] = lambda: self.container.llm_client.warm_up()
         else:
             statuses["Gemini"] = "mock (cloud disabled)"
@@ -366,11 +393,7 @@ class DeviceRuntime:
         """Return components that must be ready before the voice experience starts."""
         required = ("YOLO", "STT", "TTS", "RAG")
         llm = getattr(self.container.settings, "llm", None)
-        if (
-            llm is not None
-            and llm.provider == "gemini"
-            and llm.cloud_llm_enabled
-        ):
+        if llm is not None and llm.provider == "gemini" and llm.cloud_llm_enabled:
             required += ("Gemini",)
         return required
 
@@ -411,8 +434,7 @@ class DeviceRuntime:
             input("\nATLAS is fully loaded. Press Enter to begin listening... ")
         self._start_terminal_capture_listener()
         print(
-            "\n[Ready] Start a dashboard session and speak at any time. "
-            "Ctrl+C stops."
+            "\n[Ready] Start a dashboard session and speak at any time. Ctrl+C stops."
         )
         if self.settings.manual_capture_keyboard_enabled:
             print(
@@ -423,6 +445,7 @@ class DeviceRuntime:
         runner = self.container.session_runner
         camera = self.container.camera_source
         listener = ContinuousQuestionListener(runner)
+        self._question_listener = listener
         listener.start()
         vision_hold = VisionHold(
             self.settings.vision_hold_seconds,
@@ -440,7 +463,7 @@ class DeviceRuntime:
             while max_interactions <= 0 or completed < max_interactions:
                 frame, last_frame_number = camera.wait_for_new_frame(
                     after_number=last_frame_number,
-                    timeout_s=2.0,
+                    timeout_s=0.25,
                 )
                 if frame is None:
                     now = time.monotonic()
@@ -453,9 +476,16 @@ class DeviceRuntime:
                             camera_status.get("last_error") or "none",
                         )
                         last_missing_frame_log_at = now
-                    continue
+                    # Voice and session lifecycle must not depend on camera Wi-Fi.
+                    active_detection = None
+                    latched_id = None
+                    vision_hold.reset()
 
-                detection = tracker.update(frame)
+                detection = (
+                    tracker.update(frame)
+                    if frame is not None
+                    else tracker.manual_override
+                )
                 dashboard_session_id = (
                     self._dashboard_service.session_id
                     if self._dashboard_service is not None
@@ -527,6 +557,11 @@ class DeviceRuntime:
 
                 if self._capture_requested.is_set():
                     self._capture_requested.clear()
+                    if frame is None:
+                        logger.warning(
+                            "[Capture] Camera unavailable; capture cancelled"
+                        )
+                        continue
                     print("[Capture] Identifying the centered artwork...")
                     result = runner.capture_context(
                         frame,
@@ -562,6 +597,7 @@ class DeviceRuntime:
                     vision_hold.reset()
                     continue
 
+                generation = self.container.dialogue_engine.conversation_generation
                 question = listener.pop()
                 if question is not None:
                     listener.clear_prompts()
@@ -580,6 +616,7 @@ class DeviceRuntime:
                             continue
                         result = runner.respond_to_transcript(
                             question,
+                            expected_generation=generation,
                             frame=frame,
                             detection=(
                                 active_detection
@@ -594,6 +631,10 @@ class DeviceRuntime:
                             result.event == "language_changed"
                             and result.transcript is not None
                             and self._dashboard_service is not None
+                            and self._dashboard_service.session_id
+                            == dashboard_session_id
+                            and generation
+                            == self.container.dialogue_engine.conversation_generation
                         ):
                             self._dashboard_service.set_profile(
                                 language=result.transcript.language

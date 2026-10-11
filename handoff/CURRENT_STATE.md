@@ -1,6 +1,47 @@
 # Current state
 
-Model handoff update, 2026-10-04: a trained v6 YOLO26 Nano **candidate** and its non-media evidence are now in [`../atlas/models/releases/2026-09-28-yolo26n-atlas-v6/`](../atlas/models/releases/2026-09-28-yolo26n-atlas-v6/). It has not replaced the active checkpoint or been tested on the physical Jetson/XIAO camera. See [`2026-10-04_NEW_CHAT.md`](2026-10-04_NEW_CHAT.md). The runtime/device observations below are dated and should not be read as an October physical-health check.
+School Wi-Fi preparation, 2026-10-05 (local source only): optional camera
+PEAP/MSCHAPv2 support and an operator-run credential helper are prepared for
+`CBourget` under the user's explicitly unverified authentication assumption.
+The camera selects visible school Wi-Fi before the unchanged hotspot, with a
+30-second school authentication window. The Jetson helper stages an inactive
+profile with priority 100 and one automatic activation attempt; the documented
+local-console step enables it and sets the existing hotspot to priority 50.
+Neither device preempts a working hotspot. Both authenticate independently and
+can end up on different networks; fallback does not establish peer reachability.
+No real credentials were read/written, no camera flashed, and no Jetson profile
+installed/enabled during this preparation. All three synthetic firmware variants
+compile on core 3.3.11; final helper gate 30 passed and full suite 3,033 passed /
+1 skipped. Changed Python lint, secret/recovery, dependency and diff checks pass;
+broader runtime/test lint retains 31 existing findings in untouched files.
+Physical authentication/fallback remain untested. The
+separately diagnosed camera stream-watchdog race remains unpatched. See
+[`../atlas/docs/SCHOOL_WIFI_SETUP.md`](../atlas/docs/SCHOOL_WIFI_SETUP.md).
+
+Jetson deployment update, 2026-10-04 at 18:38 EDT: at the user's explicit request,
+v6 and the five runtime fixes are now deployed. The service is active in device
+mode with a newly built/verified FP16 engine at 416, healthy retrieval/speech
+readiness, and fresh camera/headset readiness signals. Native suite: 3,002 passed,
+2 expected skips. Original device config/unit hashes are unchanged, and a durable
+pre-v6 rollback backup is preserved. See
+[`../atlas/docs/2026-10-04_JETSON_V6_DEPLOYMENT.md`](../atlas/docs/2026-10-04_JETSON_V6_DEPLOYMENT.md)
+for exact artifacts, the corrected Linux test-harness failure/confirmed rollback,
+and remaining live-camera/voice/thermal acceptance checks. No Git commit/push or
+NVIDIA/package/firmware changes occurred.
+
+The local-only integration description below records the earlier stage.
+
+Local integration update, 2026-10-04: at the user's explicit request, v6 now
+occupies `../atlas/models/atlas_yolo.pt`, with its matching recovery manifest.
+The exact previous model is preserved in `models/releases/2026-09-07-camera-domain-rollback/`.
+Real CPU loader/detector/tracker checks passed at 416 with the recorded Jetson
+library versions (Ultralytics 8.4.115, PyTorch 2.8.0 CPU); this is **not** a
+Jetson/XIAO/TensorRT test. Engine selection now requires matching checkpoint,
+engine and input-size provenance. Five runtime fixes are also present locally.
+No commit, push or physical deployment was performed. See
+[`../atlas/docs/2026-10-04_V6_LOCAL_INTEGRATION.md`](../atlas/docs/2026-10-04_V6_LOCAL_INTEGRATION.md)
+and [`2026-10-04_NEW_CHAT.md`](2026-10-04_NEW_CHAT.md). The device observations
+below remain dated, not an October physical-health check.
 
 Status date: 2026-08-29
 

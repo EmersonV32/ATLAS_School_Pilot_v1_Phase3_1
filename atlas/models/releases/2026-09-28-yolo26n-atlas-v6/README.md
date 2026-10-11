@@ -1,10 +1,23 @@
-# ATLAS v6 YOLO26 Nano candidate — not deployed
+# ATLAS v6 YOLO26 Nano — deployed prototype
 
-This is the trained model returned by the coach on 2026-09-28, plus the evidence needed for a new developer/chat to continue. It is a **candidate**, not the active `../../atlas_yolo.pt` checkpoint. Do not replace the active checkpoint or deploy to the Jetson until fresh XIAO-camera footage and target-device tests pass.
+Later October 4 update: the user explicitly approved Jetson deployment. V6 is
+now running with a new on-device FP16 engine at 416; native regression and public
+reference PT/TRT checks passed. See
+`../../../docs/2026-10-04_JETSON_V6_DEPLOYMENT.md`. Fresh seven-class camera,
+spoken end-to-end and sustained thermal acceptance remain unverified.
+The local-only paragraph below records the prior integration stage.
+
+This is the trained model returned by the coach on 2026-09-28, plus the evidence needed for a new developer/chat to continue. On October 4 the user explicitly requested local integration: the same bytes now occupy `../../atlas_yolo.pt`, and the previous checkpoint is preserved for rollback. It remains a **physical-release candidate**, not a Jetson deployment. Fresh XIAO-camera footage and target-device tests must pass before live promotion.
+
+The real loader and ATLAS detector/tracker passed CPU smoke inference at 416
+with Ultralytics 8.4.115 and PyTorch 2.8.0+cpu. Both public Mona Lisa/Great Wave
+references were correctly recognized, and a blank frame had no detection.
+This verifies a functional path, not independent accuracy or CUDA/TensorRT
+compatibility. See `../../../docs/2026-10-04_V6_LOCAL_INTEGRATION.md`.
 
 ## Verified artifact
 
-- `best.pt`: SHA-256 `af11b2de376a5c54a1ee11e9765f91ecbf54a1f308a2a82f9106b00a78409731`; this matches `atlas_evaluation.json`. The PyTorch checkpoint was inspected as a ZIP but not deserialized on the preparation computer.
+- `best.pt`: SHA-256 `af11b2de376a5c54a1ee11e9765f91ecbf54a1f308a2a82f9106b00a78409731`; this matches `atlas_evaluation.json`. At initial preparation it was only ZIP-inspected; the October 4 local integration additionally loaded it and ran real CPU inference.
 - PyTorch checkpoints can contain executable pickle data. Treat this externally trained file as untrusted until provenance is accepted; load/test it first in an isolated environment, not on the live Jetson.
 - Architecture: YOLO26 Nano initialized from official `yolo26n.pt`.
 - Trainer report: Ultralytics 8.4.163, Python 3.12.3, CUDA PyTorch 2.12.0+cu126, NVIDIA GeForce RTX 3070 Laptop GPU.

@@ -13,9 +13,11 @@ Wraps any BaseDetector and adds:
 The tracker never raises on detector errors — a broken camera degrades to
 "no artwork", never to a crash.
 """
+
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import replace
 from typing import Any
@@ -46,11 +48,26 @@ class ArtworkTracker:
         self._last_stable: ArtworkDetection | None = None
         self._manual: ArtworkDetection | None = None
         self._latest_visual: ArtworkDetection | None = None
+        self._state_lock = threading.RLock()
+        self._generation = 0
 
     # -- manual override -------------------------------------------------
+    def reset(self) -> None:
+        """Discard all visual context at a visitor-session boundary."""
+        with self._state_lock:
+            self._generation += 1
+            self._reset_state()
+
+    def _reset_state(self) -> None:
+        self._manual = None
+        self._streak_id = None
+        self._streak_count = 0
+        self._last_stable = None
+        self._latest_visual = None
+
     def set_manual_override(self, artwork_id: str, label: str | None = None) -> None:
         """Pin an artwork regardless of vision. Used by the dashboard."""
-        self._manual = ArtworkDetection(
+        selected = ArtworkDetection(
             artwork_id=artwork_id,
             label=label or artwork_id.replace("_", " ").title(),
             confidence=1.0,
@@ -58,19 +75,26 @@ class ArtworkTracker:
             source="manual_override",
             stable=True,
         )
+        with self._state_lock:
+            self._generation += 1
+            self._manual = selected
         logger.info("Manual artwork override set: %s", artwork_id)
 
     def clear_manual_override(self) -> None:
-        self._manual = None
+        with self._state_lock:
+            self._generation += 1
+            self._manual = None
         logger.info("Manual artwork override cleared.")
 
     @property
     def manual_override(self) -> ArtworkDetection | None:
-        return self._manual
+        with self._state_lock:
+            return self._manual
 
     @property
     def last_stable(self) -> ArtworkDetection | None:
-        return self._last_stable
+        with self._state_lock:
+            return self._last_stable
 
     # -- per-frame update -------------------------------------------------
     def update(self, frame: Any = None) -> ArtworkDetection | None:
@@ -79,15 +103,26 @@ class ArtworkTracker:
         Returns a detection whose `source` explains where it came from,
         or None when there is genuinely no artwork context available.
         """
-        if self._manual is not None:
-            self._latest_visual = self._manual
-            return self._manual
+        with self._state_lock:
+            generation = self._generation
+            if self._manual is not None:
+                self._latest_visual = self._manual
+                return self._manual
 
         detection: ArtworkDetection | None = None
         try:
             detection = self._detector.detect(frame)
         except Exception as exc:
             logger.warning("Detector error (treated as no detection): %s", exc)
+
+        with self._state_lock:
+            if generation != self._generation:
+                return None
+            return self._track_detection(detection)
+
+    def _track_detection(
+        self, detection: ArtworkDetection | None
+    ) -> ArtworkDetection | None:
 
         if detection is not None and self._valid_ids is not None:
             if detection.artwork_id not in self._valid_ids:

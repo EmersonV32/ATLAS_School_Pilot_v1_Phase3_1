@@ -95,6 +95,16 @@ class YoloDetector(BaseDetector):
         """Model currently serving detections, useful for preflight/telemetry."""
         return self._active_model_path
 
+    @property
+    def class_names(self) -> list[str]:
+        """Numeric class order of the loaded model, for release preflight."""
+        if self._model is None:
+            return []
+        names = self._model.names
+        if isinstance(names, dict):
+            return [str(names[index]) for index in sorted(names, key=int)]
+        return [str(name) for name in names]
+
     @staticmethod
     def _make_jetpack_tensorrt_visible(model_path: str) -> None:
         if Path(model_path).suffix.lower() != ".engine":

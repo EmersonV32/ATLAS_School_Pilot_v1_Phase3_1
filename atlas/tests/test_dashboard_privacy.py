@@ -1,4 +1,5 @@
 """Privacy tests: defaults, log hygiene, and protected endpoints."""
+
 from __future__ import annotations
 
 import json
@@ -15,10 +16,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PACKS_DIR = REPO_ROOT / "data" / "content_packs"
 
 FORBIDDEN_LOG_KEYS = {
-    "audio", "raw_audio", "image", "raw_image", "video", "frame",
-    "face", "face_data", "name", "student_name",
-    "api_key", "gemini_api_key", "token", "secret", "password",
-    "prompt", "system_prompt",
+    "audio",
+    "raw_audio",
+    "image",
+    "raw_image",
+    "video",
+    "frame",
+    "face",
+    "face_data",
+    "name",
+    "student_name",
+    "api_key",
+    "gemini_api_key",
+    "token",
+    "secret",
+    "password",
+    "prompt",
+    "system_prompt",
 }
 
 
@@ -71,10 +85,22 @@ class TestPrivacyDefaults:
 class TestLogHygiene:
     def test_logs_have_no_forbidden_keys_or_transcripts(self, env):
         client, tmp_path = env
-        client.post("/session/start")
-        client.post("/session/manual-artwork", json={"artwork_id": "mona_lisa"})
-        client.post("/ask", json={"question": "Who painted this secret thing?"})
-        client.post("/session/stop")
+        client.post(
+            "/session/start", headers={"X-Atlas-Admin-Token": "privacy-test-token"}
+        )
+        client.post(
+            "/session/manual-artwork",
+            headers={"X-Atlas-Admin-Token": "privacy-test-token"},
+            json={"artwork_id": "mona_lisa"},
+        )
+        client.post(
+            "/ask",
+            headers={"X-Atlas-Admin-Token": "privacy-test-token"},
+            json={"question": "Who painted this secret thing?"},
+        )
+        client.post(
+            "/session/stop", headers={"X-Atlas-Admin-Token": "privacy-test-token"}
+        )
 
         records = []
         for log_file in (tmp_path / "logs").glob("*.jsonl"):
@@ -90,8 +116,14 @@ class TestLogHygiene:
 
     def test_logs_recent_endpoint_is_safe(self, env):
         client, _ = env
-        client.post("/ask", json={"question": "Who painted the Mona Lisa?"})
-        logs = client.get("/logs/recent").json()
+        client.post(
+            "/ask",
+            headers={"X-Atlas-Admin-Token": "privacy-test-token"},
+            json={"question": "Who painted the Mona Lisa?"},
+        )
+        logs = client.get(
+            "/logs/recent", headers={"X-Atlas-Admin-Token": "privacy-test-token"}
+        ).json()
         for record in logs:
             keys = {k.lower() for k in record}
             assert not (keys & FORBIDDEN_LOG_KEYS)
@@ -129,7 +161,5 @@ class TestProtectedEndpoints:
     def test_admin_endpoints_disabled_without_env(self, env, monkeypatch):
         client, _ = env
         monkeypatch.delenv("ATLAS_ADMIN_TOKEN", raising=False)
-        res = client.post(
-            "/eval/rag", headers={"X-Atlas-Admin-Token": "anything"}
-        )
+        res = client.post("/eval/rag", headers={"X-Atlas-Admin-Token": "anything"})
         assert res.status_code == 503

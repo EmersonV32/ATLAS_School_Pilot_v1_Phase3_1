@@ -5,6 +5,7 @@
 
 #include "board_config.h"
 #include "camera_profile.h"
+#include "school_wifi.h"
 #include "wifi_secrets.h"
 
 namespace {
@@ -27,6 +28,12 @@ bool connectWifi() {
   WiFi.setSleep(false);
   WiFi.setAutoReconnect(true);
   WiFi.setHostname(kHostname);
+  if (connectSchoolWifi(setStatusLed, kWifiConnectTimeoutMs)) {
+    Serial.print("[WiFi] IP: ");
+    Serial.println(WiFi.localIP());
+    return true;
+  }
+  disableSchoolWifi();
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.print("[WiFi] Connecting");

@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP = {".env", "wifi_secrets.h"}
+SKIP = {".env", "wifi_secrets.h", "wifi_school_secrets.h"}
 PATTERNS = {
     "Google API key": re.compile(rb"AIza[0-9A-Za-z_-]{20,}"),
     "OpenAI-style secret": re.compile(rb"sk-[0-9A-Za-z_-]{20,}"),

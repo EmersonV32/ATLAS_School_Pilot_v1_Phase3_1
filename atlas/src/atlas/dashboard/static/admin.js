@@ -36,7 +36,7 @@ function setAdminLocked(locked, message = "") {
   if (locked) window.setTimeout(() => $("inp-token").focus(), 0);
 }
 
-async function api(path, options = {}, protectedRoute = false) {
+async function api(path, options = {}, protectedRoute = true) {
   if (protectedRoute && authRequired && !token()) throw new Error("Admin token required");
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (protectedRoute && authRequired) headers["X-Atlas-Admin-Token"] = token();
@@ -667,11 +667,13 @@ function showCameraImage(image, source) {
 }
 
 async function refreshCamera() {
+  if (!adminUnlocked) return;
   if (cameraRequestInFlight) return;
   cameraRequestInFlight = true;
   try {
     const response = await fetch(`/camera/frame.jpg?t=${Date.now()}`, {
       cache: "no-store",
+      headers: authRequired ? { "X-Atlas-Admin-Token": token() } : {},
     });
     if (!response.ok) throw new Error(`camera returned ${response.status}`);
     const nextUrl = URL.createObjectURL(await response.blob());
@@ -882,7 +884,7 @@ $("btn-capture").addEventListener("click", () => api("/session/capture", { metho
 
 $("btn-ingest").addEventListener("click", () => api("/content/ingest", { method: "POST", body: JSON.stringify({ pack_id: $("content-pack").value, reset: true }) }, true).then((result) => renderObject("content-result", result)).catch((error) => notice(error.message, true)));
 $("btn-eval").addEventListener("click", () => api("/eval/rag", { method: "POST" }, true).then((result) => renderObject("content-result", result)).catch((error) => notice(error.message, true)));
-$("btn-estop").addEventListener("click", () => api("/hardware/emergency-stop", { method: "POST" }).then(() => Promise.all([refreshStatus(), refreshHealth()])));
+$("btn-estop").addEventListener("click", () => api("/hardware/emergency-stop", { method: "POST" }, false).then(() => Promise.all([refreshStatus(), refreshHealth()])));
 $("btn-clear-estop").addEventListener("click", () => api("/hardware/clear-emergency-stop", { method: "POST" }, true).then(() => Promise.all([refreshStatus(), refreshHealth()])).catch((error) => notice(error.message, true)));
 $("btn-refresh-logs").addEventListener("click", () => refreshLogs(true));
 $("log-search").addEventListener("input", renderLogSnapshot);
@@ -954,7 +956,7 @@ $("btn-visitor-simulate").addEventListener("click", async () => {
 async function initialize() {
   setAdminView(window.sessionStorage.getItem("atlasAdminView") || "main", { persist: false });
   setVisitorMonitorCollapsed(window.sessionStorage.getItem("atlasVisitorMonitorCollapsed") === "true", { persist: false });
-  const access = await api("/admin/access");
+  const access = await api("/admin/access", {}, false);
   authRequired = Boolean(access.auth_required);
   if (authRequired) {
     const remembered = window.sessionStorage.getItem("atlasAdminToken");

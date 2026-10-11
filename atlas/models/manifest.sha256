@@ -1,3 +1,3 @@
-5680d3a5fff21d482e579c47f0b19e030b6acbdefdfe5da188de9cc961a66bec  atlas_yolo.pt
+af11b2de376a5c54a1ee11e9765f91ecbf54a1f308a2a82f9106b00a78409731  atlas_yolo.pt
 # Target-specific ONNX and TensorRT hashes are recorded after Jetson export.
 # 1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3  silero_vad.onnx

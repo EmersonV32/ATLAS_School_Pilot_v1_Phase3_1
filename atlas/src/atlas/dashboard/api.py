@@ -58,9 +58,12 @@ def create_app(
     container: Container | None = None,
     capture_request: Callable[[], None] | None = None,
     visitor_service: VisitorService | None = None,
+    session_changed: Callable[[], None] | None = None,
 ) -> FastAPI:
     container = container or build_container()
-    service = RuntimeService(container, capture_request=capture_request)
+    service = RuntimeService(
+        container, capture_request=capture_request, session_changed=session_changed
+    )
     dashboard_settings = container.settings.dashboard
     loopback_hosts = {"127.0.0.1", "localhost", "::1"}
     if not dashboard_settings.admin_auth_required:
@@ -205,11 +208,15 @@ def create_app(
     def health() -> dict:
         return service.health()
 
-    @app.get("/status")
+    @app.get("/status", dependencies=[Depends(require_admin)])
     def status() -> dict:
         return service.status()
 
-    @app.get("/camera/frame.jpg", response_class=Response)
+    @app.get(
+        "/camera/frame.jpg",
+        response_class=Response,
+        dependencies=[Depends(require_admin)],
+    )
     def camera_frame() -> Response:
         try:
             frame = service.camera_frame_jpeg()
@@ -242,15 +249,15 @@ def create_app(
         )
 
     # -- session ------------------------------------------------------------
-    @app.post("/session/start")
+    @app.post("/session/start", dependencies=[Depends(require_admin)])
     def session_start() -> dict:
         return service.start_session()
 
-    @app.post("/session/stop")
+    @app.post("/session/stop", dependencies=[Depends(require_admin)])
     def session_stop() -> dict:
         return service.stop_session()
 
-    @app.post("/session/profile")
+    @app.post("/session/profile", dependencies=[Depends(require_admin)])
     def session_profile(req: SessionProfileRequest) -> dict:
         return service.set_profile(
             language=req.language,
@@ -259,18 +266,18 @@ def create_app(
             accessibility_mode=req.accessibility_mode,
         )
 
-    @app.post("/session/manual-artwork")
+    @app.post("/session/manual-artwork", dependencies=[Depends(require_admin)])
     def manual_artwork(req: ManualArtworkRequest) -> dict:
         try:
             return service.set_manual_artwork(req.artwork_id)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    @app.delete("/session/manual-artwork")
+    @app.delete("/session/manual-artwork", dependencies=[Depends(require_admin)])
     def clear_manual_artwork() -> dict:
         return service.clear_manual_artwork()
 
-    @app.post("/session/capture")
+    @app.post("/session/capture", dependencies=[Depends(require_admin)])
     def capture_artwork() -> dict:
         try:
             return service.capture_artwork()
@@ -280,11 +287,14 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     # -- typed-question fallback -------------------------------------------
-    @app.post("/ask", response_model=AskResponse)
+    @app.post("/ask", response_model=AskResponse, dependencies=[Depends(require_admin)])
     def ask(req: AskRequest) -> AskResponse:
-        return AskResponse(
-            **service.ask(req.question, language=req.language, profile=req.profile)
-        )
+        try:
+            return AskResponse(
+                **service.ask(req.question, language=req.language, profile=req.profile)
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     # -- content ------------------------------------------------------------
     @app.get("/content/packs")
@@ -319,7 +329,7 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # -- logs ---------------------------------------------------------------
-    @app.get("/logs/recent")
+    @app.get("/logs/recent", dependencies=[Depends(require_admin)])
     def logs_recent(limit: int = 50) -> list[dict]:
         return service.recent_logs(limit=min(max(limit, 1), 200))
 
@@ -331,7 +341,7 @@ def create_app(
     def logs_runtime_human(limit: int = 250) -> dict:
         return service.human_runtime_logs(limit=min(max(limit, 1), 1000))
 
-    @app.get("/logs/recent/human")
+    @app.get("/logs/recent/human", dependencies=[Depends(require_admin)])
     def logs_recent_human(limit: int = 50) -> list[dict]:
         return service.human_recent_logs(limit=min(max(limit, 1), 200))
 
@@ -340,9 +350,7 @@ def create_app(
     def emergency_stop() -> dict:
         return service.emergency_stop()
 
-    @app.post(
-        "/hardware/clear-emergency-stop", dependencies=[Depends(require_admin)]
-    )
+    @app.post("/hardware/clear-emergency-stop", dependencies=[Depends(require_admin)])
     def clear_emergency_stop() -> dict:
         return service.clear_emergency_stop()
 

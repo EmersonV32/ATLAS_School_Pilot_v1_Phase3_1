@@ -1,15 +1,29 @@
 # ATLAS model recovery
 
-The newer, **not deployed** v6 candidate is in [`releases/2026-09-28-yolo26n-atlas-v6/`](releases/2026-09-28-yolo26n-atlas-v6/). Its checkpoint, metrics and data-preparation evidence are committed for review, but `atlas_yolo.pt` and this recovery manifest remain unchanged pending physical-camera and Jetson validation.
+Latest state: **v6 was deployed to the Jetson on October 4 at 18:38 EDT**, after
+explicit user approval, native tests and on-device PT/TensorRT reference checks.
+The newly exported FP16 engine at 416 is bound to the active checkpoint. The
+original weights/engine/config are preserved in a durable device backup. See
+[`../docs/2026-10-04_JETSON_V6_DEPLOYMENT.md`](../docs/2026-10-04_JETSON_V6_DEPLOYMENT.md).
+Fresh seven-class camera/voice/thermal acceptance checks still remain due.
 
-`atlas_yolo.pt` is the authoritative portable artwork checkpoint committed for
-fresh-OS recovery. The current file is the 2026-09-07 YOLO26 Nano seven-class
-camera-domain fine-tune derived from the team-authored `futureinnovators-v4`
-workflow.
+The local-integration description below records the earlier preparation stage.
+
+On October 4, the user requested local integration of the mentor's **v6**
+checkpoint. `atlas_yolo.pt` and its manifest now select that exact checkpoint.
+This change is local and uncommitted, **not deployed to the Jetson**. Fresh
+XIAO-camera accuracy and target-specific TensorRT validation remain required.
+
+`atlas_yolo.pt` is the authoritative Git-tracked portable artwork path for
+fresh-OS recovery. The current file is the returned YOLO26 Nano seven-class v6
+checkpoint. Its evidence is in
+[`releases/2026-09-28-yolo26n-atlas-v6/`](releases/2026-09-28-yolo26n-atlas-v6/).
+The exact previous seven-class weights and checksum are preserved in
+[`releases/2026-09-07-camera-domain-rollback/`](releases/2026-09-07-camera-domain-rollback/).
 
 | Artifact | Role | SHA-256 | Recovery policy |
 |---|---|---|---|
-| `atlas_yolo.pt` | Portable seven-class Ultralytics checkpoint | `5680d3a5fff21d482e579c47f0b19e030b6acbdefdfe5da188de9cc961a66bec` | Committed |
+| `atlas_yolo.pt` | Portable seven-class v6 checkpoint | `af11b2de376a5c54a1ee11e9765f91ecbf54a1f308a2a82f9106b00a78409731` | Git-tracked path; local update |
 | `atlas_yolo.onnx` | Intermediate export | Target-specific, pending regeneration | Regenerate |
 | `atlas_yolo.engine` | TensorRT FP16 engine | Target-specific, pending regeneration | Regenerate on the Jetson |
 | `silero_vad.onnx` | Local voice activity detector | `1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3` | Download and verify |
@@ -29,6 +43,17 @@ Jetson. For manual recovery, run:
 python scripts/verify_yolo_checkpoint.py
 python scripts/export_tensorrt.py --model models/atlas_yolo.pt --imgsz 416
 ```
+
+The exporter generates `atlas_yolo.engine.manifest.json`, binding checkpoint
+SHA-256, engine SHA-256 and input size. `auto` and `tensorrt` selection refuse
+unbound/stale engines and use the current PT instead. A legacy engine therefore
+requires re-export; a matching engine that fails to load/predict still falls
+back to the current PT. Generated engine sidecars are excluded from Git.
+
+For a hardware-free **real** smoke check, see
+[`../docs/2026-10-04_V6_LOCAL_INTEGRATION.md`](../docs/2026-10-04_V6_LOCAL_INTEGRATION.md).
+Dev/demo mode deliberately continues to use `MockDetector`; changing weights
+does not enable cameras, speech providers, servos or EV3 on a laptop.
 
 The nationals-era repository and its original detector remain under
 `../../archive/2026-08-04-nationals-2026/`.

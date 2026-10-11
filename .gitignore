@@ -3,6 +3,7 @@
 **/.env.*
 !**/.env.example
 **/wifi_secrets.h
+**/wifi_school_secrets.h
 **/*.pem
 **/*.key
 **/*.p12
@@ -14,6 +15,8 @@
 /.tools/
 /.deck-build/
 **/.venv/
+**/.venv-yolo/
+**/*.engine.manifest.json
 **/__pycache__/
 **/*.py[cod]
 **/.pytest_cache/

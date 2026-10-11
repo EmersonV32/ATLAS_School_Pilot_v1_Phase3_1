@@ -217,7 +217,7 @@ class TestVisitorShell:
         assert "function startWelcomeSlideshow()" in source
         assert "startWelcomeSlideshow();" in source
         assert "function startReadinessPolling()" in source
-        assert 'void refreshReadiness({ silent: true });' in source
+        assert "void refreshReadiness({ silent: true });" in source
 
     def test_admin_preserves_unsaved_experience_and_supports_log_views(self):
         source = (STATIC_DIR / "admin.js").read_text(encoding="utf-8")
@@ -229,7 +229,7 @@ class TestVisitorShell:
 
     def test_guided_log_endpoints_keep_operator_text_readable(self, visitor_client):
         runtime = visitor_client.get("/logs/runtime/human?limit=5", headers=_admin())
-        events = visitor_client.get("/logs/recent/human?limit=5")
+        events = visitor_client.get("/logs/recent/human?limit=5", headers=_admin())
         assert runtime.status_code == 200
         assert runtime.json()["available"] is False
         assert events.status_code == 200
@@ -260,13 +260,14 @@ class TestVisitorShell:
         source = (STATIC_DIR / "visitor.js").read_text(encoding="utf-8")
         html_keys = set(re.findall(r'data-i18n="([^"]+)"', html))
 
-        assert "document.documentElement.dir = \"ltr\"" in source
+        assert 'document.documentElement.dir = "ltr"' in source
         assert 'classList.toggle("is-rtl-language"' in source
         assert "Interface copy remains in English" not in source
         for locale_name in ("fr", "es", "it", "ar", "zh-Hant"):
             locale = json.loads(
-                (STATIC_DIR / "visitor" / "locales" / f"{locale_name}.json")
-                .read_text(encoding="utf-8")
+                (STATIC_DIR / "visitor" / "locales" / f"{locale_name}.json").read_text(
+                    encoding="utf-8"
+                )
             )
             assert html_keys <= set(locale["strings"])
             if locale_name == "zh-Hant":
@@ -359,9 +360,7 @@ class TestVisitorContract:
     def test_identity_fields_are_rejected(self, visitor_client, forbidden_field):
         payload = _progress()
         payload[forbidden_field] = "Ada" if "name" in forbidden_field else 16
-        response = visitor_client.post(
-            "/api/visitor/onboarding/progress", json=payload
-        )
+        response = visitor_client.post("/api/visitor/onboarding/progress", json=payload)
         assert response.status_code == 422
 
     def test_start_accepts_only_a_short_human_greeting_name(self, visitor_client):
@@ -413,9 +412,7 @@ class TestVisitorContract:
         runtime = _FakeRuntime(private_speech_ready=False)
         service = VisitorService(runtime_service=runtime)
         service.progress(
-            VisitorProgressRequest(
-                **_progress(step="privacy", name_entered=True)
-            )
+            VisitorProgressRequest(**_progress(step="privacy", name_entered=True))
         )
         readiness = service.readiness()
         profile = next(item for item in readiness["items"] if item["id"] == "profile")
@@ -483,8 +480,8 @@ class TestVisitorContract:
         responses = [
             visitor_client.get("/api/visitor/bootstrap").json(),
             visitor_client.get("/api/admin/live-status", headers=_admin()).json(),
-            visitor_client.get("/status").json(),
-            visitor_client.get("/logs/recent").json(),
+            visitor_client.get("/status", headers=_admin()).json(),
+            visitor_client.get("/logs/recent", headers=_admin()).json(),
         ]
         serialized = json.dumps(responses)
         assert "Ada" not in serialized
@@ -499,13 +496,19 @@ class TestVisitorLifecycle:
     def test_admin_live_routes_require_authentication(self, visitor_client):
         assert visitor_client.get("/api/admin/live-status").status_code == 401
         assert visitor_client.post("/api/admin/session/stop").status_code == 401
-        assert visitor_client.post(
-            "/api/admin/demo/start",
-            json={"language": "en", "profile": "adult_beginner"},
-        ).status_code == 401
-        assert visitor_client.post(
-            "/api/admin/visitor/simulate", json={"scenario": "ready"}
-        ).status_code == 401
+        assert (
+            visitor_client.post(
+                "/api/admin/demo/start",
+                json={"language": "en", "profile": "adult_beginner"},
+            ).status_code
+            == 401
+        )
+        assert (
+            visitor_client.post(
+                "/api/admin/visitor/simulate", json={"scenario": "ready"}
+            ).status_code
+            == 401
+        )
 
     def test_admin_can_start_and_restart_demo_atomically(self, visitor_client):
         payload = {
@@ -767,9 +770,7 @@ class TestRuntimeBridge:
         runtime = _FakeRuntime()
         service = VisitorService(runtime_service=runtime)
         service.progress(
-            VisitorProgressRequest(
-                **_progress(step="privacy", name_entered=True)
-            )
+            VisitorProgressRequest(**_progress(step="privacy", name_entered=True))
         )
 
         result = service.start(greeting_name="Emerson")

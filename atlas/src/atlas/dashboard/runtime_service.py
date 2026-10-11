@@ -5,11 +5,13 @@ artwork override) and exposes privacy-safe operations for the API layer.
 All heavy components come from the existing dependency container — this
 module never constructs its own pipeline.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import re
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -62,9 +64,7 @@ def _human_runtime_line(line: str) -> str:
             language_code, "the selected language"
         )
         timeout_text = timeout.group(1) if timeout else "the configured window"
-        return (
-            f"ATLAS is listening in {language_name} for up to {timeout_text}."
-        )
+        return f"ATLAS is listening in {language_name} for up to {timeout_text}."
     if "[Deepgram] Listening" in cleaned:
         return "Microphone opened with Deepgram and Silero voice detection."
     if "[Silero VAD] Speech started" in cleaned:
@@ -157,9 +157,13 @@ class RuntimeService:
         self,
         container: Container,
         capture_request: Callable[[], None] | None = None,
+        session_changed: Callable[[], None] | None = None,
     ) -> None:
         self.container = container
         self._capture_request = capture_request
+        self._session_changed = session_changed
+        self._session_lock = threading.RLock()
+        self._session_generation = 0
         self.session_id: str | None = None
         self.language: str = "en"
         self.profile: str = _DEFAULT_PROFILE
@@ -199,7 +203,23 @@ class RuntimeService:
         wake_required: bool = False,
         greeting_name: str | None = None,
     ) -> dict[str, Any]:
+        with self._session_lock:
+            self._invalidate_session()
+            return self._start_session(
+                demo=demo, wake_required=wake_required, greeting_name=greeting_name
+            )
+
+    def _invalidate_session(self) -> None:
+        self._session_generation += 1
+        self.last_answer = None
+        self.container.artwork_tracker.reset()
         self.container.dialogue_engine.reset_conversation()
+        if self._session_changed is not None:
+            self._session_changed()
+
+    def _start_session(
+        self, *, demo: bool, wake_required: bool, greeting_name: str | None
+    ) -> dict[str, Any]:
         configure = getattr(
             self.container.dialogue_engine,
             "configure_personalization",
@@ -234,6 +254,11 @@ class RuntimeService:
         }
 
     def stop_session(self) -> dict[str, Any]:
+        with self._session_lock:
+            self._invalidate_session()
+            return self._stop_session()
+
+    def _stop_session(self) -> dict[str, Any]:
         if self.session_id:
             self.container.logger.log(
                 session_id=self.session_id, state="session", event="session_stop"
@@ -247,7 +272,6 @@ class RuntimeService:
         self._visitor_interests = []
         self._visitor_accessibility = []
         self._visitor_expertise = None
-        self.container.dialogue_engine.reset_conversation()
         return {"stopped_session_id": stopped, "demo_active": False}
 
     def set_profile(
@@ -296,6 +320,7 @@ class RuntimeService:
         if not wake_phrase_matches(transcript, self.language):
             return False
         name = self._greeting_name
+        generation = self._session_generation
         greeting = local_greeting(self.language, name)
         if name:
             spoken = bool(
@@ -308,8 +333,11 @@ class RuntimeService:
                 "[Activation] Private local greeting failed; wake gate remains active"
             )
             return False
-        self._wake_activated = True
-        self._greeting_name = None
+        with self._session_lock:
+            if generation != self._session_generation:
+                return False
+            self._wake_activated = True
+            self._greeting_name = None
         logger.info(
             "[Activation] Wake phrase accepted; local greeting completed "
             "[language=%s audio_played=%s]",
@@ -337,11 +365,7 @@ class RuntimeService:
             return self._headset_output_name
         if route == "speaker" and self._speaker_output_name:
             return self._speaker_output_name
-        if (
-            route == "both"
-            and self._headset_output_name
-            and self._speaker_output_name
-        ):
+        if route == "both" and self._headset_output_name and self._speaker_output_name:
             return join_output_device_names(
                 self._headset_output_name, self._speaker_output_name
             )
@@ -358,9 +382,7 @@ class RuntimeService:
 
     @staticmethod
     def _audio_device_available(output_name: str) -> bool:
-        return bool(
-            find_pulse_playback(output_name) or find_alsa_playback(output_name)
-        )
+        return bool(find_pulse_playback(output_name) or find_alsa_playback(output_name))
 
     def audio_status(self) -> dict[str, Any]:
         active_names = self._audio_output_names(self.audio_route)
@@ -386,9 +408,7 @@ class RuntimeService:
             ),
             "microphone_route": "headset",
             "provider": (
-                provider_status()
-                if callable(provider_status)
-                else type(tts).__name__
+                provider_status() if callable(provider_status) else type(tts).__name__
             ),
         }
 
@@ -406,9 +426,8 @@ class RuntimeService:
         )
         output_names = self._audio_output_names(next_route)
         output_name = self._audio_output_name(next_route)
-        if (
-            self.container.settings.mode == RunMode.DEVICE
-            and not all(self._audio_device_available(name) for name in output_names)
+        if self.container.settings.mode == RunMode.DEVICE and not all(
+            self._audio_device_available(name) for name in output_names
         ):
             unavailable = [
                 name for name in output_names if not self._audio_device_available(name)
@@ -523,9 +542,7 @@ class RuntimeService:
                 cv2.LINE_AA,
             )
 
-        ok, encoded = cv2.imencode(
-            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90]
-        )
+        ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if not ok:
             raise RuntimeError("camera frame encoding failed")
         return encoded.tobytes()
@@ -577,9 +594,7 @@ class RuntimeService:
         frame, _ = source.latest(copy=True)
         if frame is None:
             raise RuntimeError("Arducam has no current frame")
-        ok, encoded = cv2.imencode(
-            ".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90]
-        )
+        ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
         if not ok:
             raise RuntimeError("Arducam frame encoding failed")
         return encoded.tobytes()
@@ -588,9 +603,7 @@ class RuntimeService:
         """artwork_id -> title for the selected pack."""
         from atlas.rag.ingest import load_content_pack
 
-        pack_dir = (
-            Path(self.container.settings.paths.content_packs_dir) / self.pack_id
-        )
+        pack_dir = Path(self.container.settings.paths.content_packs_dir) / self.pack_id
         if not (pack_dir / "manifest.json").exists():
             return {}
         try:
@@ -605,6 +618,32 @@ class RuntimeService:
         question: str,
         language: str | None = None,
         profile: str | None = None,
+    ) -> dict[str, Any]:
+        with self._session_lock:
+            generation = self._session_generation
+            engine_generation = self.container.dialogue_engine.conversation_generation
+            session_id = self.session_id or "no_session"
+        answer = self._answer_question(
+            question, language, profile, engine_generation, session_id
+        )
+        with self._session_lock:
+            if (
+                generation != self._session_generation
+                or answer.get("error") == "session_cancelled"
+            ):
+                raise RuntimeError(
+                    "Session changed while answering; question cancelled"
+                )
+            self.last_answer = answer
+        return answer
+
+    def _answer_question(
+        self,
+        question: str,
+        language: str | None,
+        profile: str | None,
+        engine_generation: int,
+        session_id: str,
     ) -> dict[str, Any]:
         lang = _to_language(language or self.language)
         level = _to_level(profile or self.profile)
@@ -629,7 +668,9 @@ class RuntimeService:
                 None,
             )
             if callable(remember):
-                remember(question, scripted.response)
+                remember(
+                    question, scripted.response, expected_generation=engine_generation
+                )
             answer = {
                 "answer": scripted.response,
                 "language": lang.value,
@@ -643,7 +684,6 @@ class RuntimeService:
                 "total_latency_ms": scripted_timer.elapsed_ms,
                 "error": None,
             }
-            self.last_answer = answer
             logger.info(
                 "[Timing] Scripted FAQ %.2f ms [intent=%s artwork_id=%s]",
                 scripted_timer.elapsed_ms,
@@ -660,8 +700,7 @@ class RuntimeService:
                     "Lo siento, no puedo generar una respuesta en este momento."
                 ),
                 Language.IT: (
-                    "Mi dispiace, non posso generare una respuesta in questo "
-                    "momento."
+                    "Mi dispiace, non posso generare una respuesta in questo momento."
                 ),
                 Language.ZH: "抱歉，我現在無法產生回應。",
             }
@@ -689,15 +728,14 @@ class RuntimeService:
                     educational_level=level,
                 )
             )
-            chunks = [
-                {"text": c.text, "chunk_id": c.chunk_id} for c in result.chunks
-            ]
+            chunks = [{"text": c.text, "chunk_id": c.chunk_id} for c in result.chunks]
             dialogue = self.container.dialogue_engine.respond(
                 question=question,
                 artwork_chunks=chunks,
                 language=lang.value,
                 profile=level.value,
                 artwork_id=artwork_id,
+                expected_generation=engine_generation,
             )
 
         answer = {
@@ -713,7 +751,12 @@ class RuntimeService:
             "total_latency_ms": total.elapsed_ms,
             "error": dialogue.error,
         }
-        self.last_answer = answer
+        if (
+            dialogue.error == "session_cancelled"
+            or engine_generation
+            != self.container.dialogue_engine.conversation_generation
+        ):
+            raise RuntimeError("Session changed while answering; question cancelled")
         if settings.logging.log_llm_responses:
             logger.info("[LLM final] %s", dialogue.response)
         logger.info(
@@ -730,7 +773,6 @@ class RuntimeService:
             dialogue.error or "none",
         )
 
-        session_id = self.session_id or "no_session"
         log_fields: dict[str, Any] = {
             "language": lang.value,
             "artwork_id": artwork_id,
@@ -783,9 +825,7 @@ class RuntimeService:
     def ingest_pack(self, pack_id: str, reset: bool = True) -> dict[str, Any]:
         from atlas.rag.ingest import ingest_pack
 
-        pack_dir = (
-            Path(self.container.settings.paths.content_packs_dir) / pack_id
-        )
+        pack_dir = Path(self.container.settings.paths.content_packs_dir) / pack_id
         if not (pack_dir / "manifest.json").exists():
             raise ValueError(f"no manifest.json for pack: {pack_id}")
         return ingest_pack(self.container.settings, pack_dir, reset=reset)
@@ -936,9 +976,7 @@ class RuntimeService:
         c = self.container
         components: dict[str, str] = {}
         try:
-            components["vector_store"] = (
-                "ok" if c.vector_store.count() > 0 else "empty"
-            )
+            components["vector_store"] = "ok" if c.vector_store.count() > 0 else "empty"
         except Exception as exc:
             components["vector_store"] = f"error: {type(exc).__name__}"
         try:
@@ -967,9 +1005,7 @@ class RuntimeService:
             "status": "ok",
             "mode": c.settings.mode.value,
             "components": components,
-            "emergency_stopped": bool(
-                getattr(c.hardware, "emergency_stopped", False)
-            ),
+            "emergency_stopped": bool(getattr(c.hardware, "emergency_stopped", False)),
         }
 
     def status(self) -> dict[str, Any]:

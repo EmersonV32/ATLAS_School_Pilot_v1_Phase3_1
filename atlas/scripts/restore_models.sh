@@ -5,13 +5,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 MODEL_DIR="$PROJECT_DIR/models"
 SILERO_URL="${ATLAS_SILERO_URL:-https://raw.githubusercontent.com/snakers4/silero-vad/master/src/silero_vad/data/silero_vad.onnx}"
-YOLO_SHA="53f4438df7af6b19550cd0b508e8cde84b2e1cfdc66296564516222aca4dbc0d"
 SILERO_SHA="1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3"
 
-mkdir -p "$MODEL_DIR"
 cd "$MODEL_DIR"
 
-printf '%s  %s\n' "$YOLO_SHA" atlas_yolo.pt | sha256sum --check
+# The release manifest is the sole authority for the portable checkpoint.
+# Fail closed on a missing/malformed manifest, and never download over a bad PT.
+sed 's/\r$//' manifest.sha256 | grep -Eq '^[[:xdigit:]]{64} [ *]atlas_yolo.pt$'
+sed 's/\r$//' manifest.sha256 | sha256sum --check --strict
+if [[ "${1:-}" == "--verify-only" ]]; then
+    exit 0
+fi
+if [[ $# -ne 0 ]]; then
+    printf 'Usage: %s [--verify-only]\n' "$0" >&2
+    exit 2
+fi
 
 if [[ ! -f silero_vad.onnx ]] || ! printf '%s  %s\n' "$SILERO_SHA" silero_vad.onnx | sha256sum --check --status; then
     tmp="$(mktemp "$MODEL_DIR/silero_vad.onnx.XXXXXX")"

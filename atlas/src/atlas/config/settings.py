@@ -122,6 +122,8 @@ class HardwareSettings(BaseModel):
     yolo_model_path: str = "models/atlas_yolo.pt"
     yolo_tensorrt_path: str = "models/atlas_yolo.engine"
     yolo_backend: Literal["auto", "pytorch", "tensorrt"] = "auto"
+    # Preserve Jetson GPU 0; "cpu" permits hardware-free real-model checks.
+    yolo_device: str | int = 0
     yolo_imgsz: int = 416
     vision_rotation_degrees: Literal[0, 90, 180, 270] = 0
     vision_conf_threshold: float = 0.24

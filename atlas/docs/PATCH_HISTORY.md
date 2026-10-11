@@ -4,6 +4,108 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-10-05 - School-first Wi-Fi preparation (not deployed)
+
+**Changed:** Added optional XIAO PEAP/MSCHAPv2 school selection before the
+existing hotspot; absent/unconfigured school profiles skip authentication and
+failed attempts clear enterprise driver settings before hotspot fallback.
+Added an interactive local helper for an ignored camera header or root-only
+Jetson NetworkManager keyfile. No-CA mode requires explicit risk opt-in; verified
+mode requires both public CA and server name. Credential input refuses echoing
+fallback. Existing headers/profiles cannot be overwritten. Jetson staging keeps
+autoconnect off, prepares priority 100 with one automatic activation attempt,
+and documents local enabling alongside hotspot priority 50. Added synthetic
+firmware policy fixtures/build verification and helper regressions; recovery and
+secret checks exclude the private school header.
+
+**Validation:** All three real core 3.3.11 firmware variants compile/link with
+synthetic values: hotspot-only, school without CA, and school with CA/domain.
+Final helper gate: 30 passed; full suite: 3,033 passed / 1 skipped, with one
+existing Starlette/httpx deprecation warning. Changed Python files pass
+Ruff; broader `src/tests/scripts` lint reports 31 pre-existing findings in
+untouched files. Secret/recovery and diff checks pass. No dashboard code changed.
+
+**Deployment result:** Local source preparation only; no real credential entry,
+camera flash, Jetson network/profile/service change, commit, or push. Device v6
+deployment below remains the last deployed runtime, not a school Wi-Fi test.
+
+**Remaining limitation:** School EAP method is assumed, not confirmed. Actual
+authentication, hotspot fallback, peer reachability, SSH/dashboard and stable
+camera streaming require on-site checks. Unverified server mode permits fake-AP
+credential attacks; use IT-provided trust settings when possible. Independent
+fallback can put camera and Jetson on different networks. Working hotspot links
+are not preempted when school becomes visible. The separate stream-watchdog race
+is unchanged. See `SCHOOL_WIFI_SETUP.md` for explicit local steps and acceptance.
+
+## 2026-10-04 - V6 Jetson deployment (deployed prototype)
+
+**Changed:** Deployed the user-approved v6 checkpoint and five runtime fixes to
+the existing Jetson installation. Built/verified a new FP16 engine at 416 on
+that device, then promoted it with checkpoint/engine provenance and GPU warm-up
+inside the rollback transaction. Completed the test bundle's required fixtures,
+isolated deployment tests from the live `.env`, and fixed Linux harness dispatch.
+
+**Validation:** Final laptop gate 3,003 passed / 1 skipped; Jetson staging and
+live gates 3,002 passed / 2 skipped. PT/TRT public Mona Lisa/Great Wave classes
+and boxes matched; blank input had no detection. LAN dashboards/health passed;
+camera/headset readiness good; unauthenticated status HTTP 401. No package,
+firmware, calibration or existing device configuration changes were made.
+
+**Deployment result:** Active/running since 18:38:48 EDT, no automatic restarts.
+The first attempt correctly rolled back on a Linux test-harness failure; old
+model/engine/config/unit hashes and health were confirmed before correction and
+successful retry. A verified pre-v6 backup is retained outside `/tmp` at
+`/home/super-alex/atlas/backups/atlas_visitor_backup_20261004_183653_7cfa3bd5`.
+No Git commit/push/main merge was performed.
+
+**Remaining limitation:** Fresh seven-class XIAO accuracy/negative holdout,
+spoken end-to-end experience, sustained thermals and physical iPad acceptance
+are still due. See `2026-10-04_JETSON_V6_DEPLOYMENT.md` for exact scope/hashes.
+
+## 2026-10-04 - V6 local runtime integration (not deployed)
+
+**Changed:** At the user's request, activated the exact mentor v6 checkpoint at
+the canonical PT path and updated its manifest. Preserved the old seven-class
+weights and checksum as a portable rollback release. Bound engine selection to
+checkpoint/engine hashes and input size, recorded provenance after export, and
+included that sidecar in transactional rollback. Added opt-in real CPU inference
+checks, CPU device configuration (Jetson default unchanged), and a YOLO26-capable
+minimum Ultralytics version.
+
+**Validation:** Real v6 inference passed at 416 with recorded Jetson-version
+Ultralytics/PyTorch on a Windows CPU: correct Mona Lisa/Great Wave detections,
+stable tracking and no blank-frame detection. Hardware-free class mappings,
+stale/corrupt engine selection, exporter provenance and rollback tests passed.
+See `2026-10-04_V6_LOCAL_INTEGRATION.md` for exact scope and repeatable checks.
+
+**Deployment result:** Local integration only; no physical device, existing
+application venv, commit/push/main merge or protected Jetson packages changed.
+
+**Remaining limitation:** Public reference smoke tests do not establish camera
+accuracy. Fresh seven-class XIAO/negative holdout, on-device TensorRT parity,
+timing/thermals and explicit hardware approval remain required.
+
+## 2026-10-04 - Five handoff fixes and v6 validation bundle (not deployed)
+
+**Changed:** Protected legacy operator routes and authenticated camera requests;
+made recovery follow the model manifest; kept voice/session control running
+during camera outages; invalidated delayed session work and visual history;
+made deployment rollback transactional, including the installed service unit.
+Added a non-executing mentor-ZIP inspector and a prepare-only uploader mode that
+selects a candidate checkpoint with a matching manifest.
+
+**Validation:** Added regression/fault-injection tests and ran the full laptop
+gate. Browser-tested visitor onboarding by keyboard at 1024x768 and admin unlock.
+The supplied ZIP's checkpoint, embedded class order, and aggregate AP agree with
+the existing v6 candidate. See `2026-10-04_FIXES_AND_V6_UPDATE.md` for details.
+
+**Deployment result:** Local preparation only. No hardware or active recovery
+checkpoint changed; no commit/push/main merge was performed.
+
+**Remaining limitation:** v6 needs isolated real-loader inference, a fresh XIAO
+holdout, target-specific TensorRT parity/timing/thermals, and explicit hardware
+approval before promotion. Mentor mAP alone is not a release gate.
+
 ## 2026-09-07 - Leakage-resistant YOLO v5 training package
 
 **Changed:** Added a reviewed capture-range split that keeps adjacent phone
