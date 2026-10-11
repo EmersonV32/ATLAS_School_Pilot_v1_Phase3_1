@@ -15,25 +15,36 @@
 Run from `atlas/`:
 
 ```bash
-python -m pytest -q
-python -m compileall -q src scripts
+python scripts/run_deployment_pytest.py
+ruff check src tests scripts
+python -m compileall -q src scripts tests
 python -m pip check
+python scripts/check_no_secrets.py
 python scripts/verify_recovery_bundle.py
+python scripts/verify_repository_layout.py
 ```
 
 - [ ] Every command exits successfully.
 - [ ] Dashboard tests cover both visitor and admin routes.
 - [ ] Dialogue, context, TTS-provider locking, headset-button, manual-capture,
       safety, and visitor-profile tests pass.
+- [ ] Visitor flow works at 1024x768 landscape, with reduced motion and keyboard
+      navigation, without missing assets or console errors.
+
+Use the test wrapper above rather than loading a live installation's `.env`.
+It allows synthetic per-test fixtures while blocking real dotenv discovery.
+The lint scope covers maintained runtime/tests/scripts, not frozen historical
+training recipes. Git-backed gates require new files/deletions to be staged.
 
 ## Fresh-clone recovery gate
 
 From a new temporary directory:
 
 ```bash
-git clone <repository-url> atlas-recovery-test
+git clone --branch main <repository-url> atlas-recovery-test
 cd atlas-recovery-test/atlas
 python scripts/verify_recovery_bundle.py
+python scripts/verify_repository_layout.py
 ```
 
 - [ ] The verifier passes without relying on ignored files from the development

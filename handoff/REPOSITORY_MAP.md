@@ -11,14 +11,20 @@ visitor-runtime-bridge/
 |   |-- models/               Model documentation and tracked model assets
 |   |-- scripts/              Startup, deployment, diagnostics, and recovery
 |   |-- src/atlas/            Python package
-|   `-- tests/                Automated tests
+|   |-- tests/                Automated tests
+|   |-- docs/                 Dated change evidence and model/network how-tos
+|   `-- training/             Reproducible dataset and trainer workflows
 |-- handoff/                  Current operational and technical documentation
 |   |-- architecture/         System and hardware boundaries
 |   |-- jetson/               Rebuild, setup, and operations manuals
 |   |-- operations/           Demo, pilot, and teacher procedures
 |   |-- policies/             Privacy and cloud-service disclosures
-|   `-- visitor-dashboard/    Product, API, localization, and test documents
-`-- archive/                  Date-named historical material only
+|   |-- visitor-dashboard/    Product, API, localization, and test documents
+|   `-- BRANCHES.md           Branch purposes, retirement and recovery ledger
+|-- website/                  Public Pages site (not the Python dashboard)
+|-- comp_info/                Current WRO rules, logistics and evidence binder
+|-- resources/3ddesigns/      Vendor CAD reference models
+`-- archive/                  Historical reports and detector research only
 ```
 
 ## Placement rules
@@ -26,9 +32,29 @@ visitor-runtime-bridge/
 - Code that runs ATLAS belongs in `atlas/`.
 - A current procedure needed to operate or rebuild ATLAS belongs in
   `handoff/`.
-- A superseded snapshot, one-time patch, or historical report belongs in a
-  date-named directory under `archive/`.
+- Unique historical reports or training evidence belong in a date-named
+  directory under `archive/`. Duplicate runtime snapshots and obsolete patch
+  utilities do not belong in the current checkout; recover them from Git.
 - Generated output and machine-local state belong outside Git and are restored
   from installation steps or protected backup.
 - There must be no second active runtime tree. A path named
   `codex-final-handoff/atlas` is obsolete.
+
+## Find the right starting point
+
+| Task | Read first |
+| --- | --- |
+| Understand today's source and device evidence | [Current state](CURRENT_STATE.md) |
+| Continue development | [Start here](START_HERE.md), then [developer guide](DEVELOPER_GUIDE.md) |
+| Rebuild or operate the Jetson | [Jetson rebuild](jetson/REBUILD_FROM_FRESH_FLASH.md) |
+| Update detector weights | [Model guide](../atlas/models/README.md) and [training](../atlas/training/README.md) |
+| Configure school networking | [School Wi-Fi](../atlas/docs/SCHOOL_WIFI_SETUP.md) |
+| Find commands safely | [Script index](../atlas/scripts/README.md) |
+| Edit the public site | [Website guide](../website/README.md) |
+| Prepare competition evidence | [Competition binder](../comp_info/README.md) |
+| Recover removed files or branches | [Cleanup record](2026-10-11_REPOSITORY_CLEANUP.md), [branch ledger](BRANCHES.md) |
+
+`main` is the sole maintained deployment source. Its stable runtime directory
+remains `atlas/`. The existing Jetson installation is intentionally still at
+`/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`; cleaning Git does not
+rename that installation or change running services.

@@ -1,5 +1,4 @@
 """Tests for vision module."""
-import pytest
 from atlas.vision.detector import ArtworkDetection
 from atlas.vision.mock_detector import MockDetector
 

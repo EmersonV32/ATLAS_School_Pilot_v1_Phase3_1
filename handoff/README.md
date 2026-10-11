@@ -4,9 +4,19 @@ This directory is the current continuity package for another developer, LLM,
 museum operator, or replacement Jetson. It describes the active source in
 `../atlas/`; it is not a second copy of the runtime.
 
-## Read first
+## Current authority
 
-For a new chat after the v6 model training, read [`2026-10-04_NEW_CHAT.md`](2026-10-04_NEW_CHAT.md) first. It links the candidate checkpoint and states what has **not** been tested on the physical device.
+`main` is the maintained release and recovery branch. The only active runtime
+is [`../atlas/`](../atlas/). Work on a `codex/` feature branch, validate changes,
+and merge them into `main`; a branch name or dated handoff never supersedes the
+current source. Repository cleanup does not deploy to or validate the Jetson.
+
+The latest operating observations remain dated in
+[`CURRENT_STATE.md`](CURRENT_STATE.md). The October 4 model handoff,
+[`2026-10-04_NEW_CHAT.md`](2026-10-04_NEW_CHAT.md), describes an earlier
+continuation stage, not a requirement to keep using that feature branch.
+
+## Read first
 
 1. [`START_HERE.md`](START_HERE.md) - authority, first commands, and the safest
    continuation path.
@@ -32,4 +42,12 @@ For a new chat after the v6 model training, read [`2026-10-04_NEW_CHAT.md`](2026
 - **Privacy reviewer:** [`policies/`](policies/).
 - **Visitor-dashboard developer:** [`visitor-dashboard/`](visitor-dashboard/).
 - **Content editor:** [`CONTENT_PACK_FORMAT.md`](CONTENT_PACK_FORMAT.md).
-- **Project planning:** [`project/NEXT_STEPS_EXECUTION_MATRIX.md`](project/NEXT_STEPS_EXECUTION_MATRIX.md).
+- **Project planning:** [`project/NEXT_STEPS_EXECUTION_MATRIX.md`](project/NEXT_STEPS_EXECUTION_MATRIX.md)
+  and the [`competition binder`](../comp_info/README.md).
+- **Camera and school/hotspot networking:**
+  [`camera firmware guide`](../atlas/firmware/xiao_camera/README.md) and
+  [`school Wi-Fi setup`](../atlas/docs/SCHOOL_WIFI_SETUP.md).
+- **YOLO model/recovery evidence:** [`model index`](../atlas/models/README.md).
+- **Earlier implementations:** [`historical archive index`](../archive/README.md),
+  including the pre-cleanup recovery tag. Historical instructions are evidence,
+  not commands to execute against today's system.

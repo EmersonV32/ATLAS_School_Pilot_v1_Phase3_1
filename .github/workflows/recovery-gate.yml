@@ -31,8 +31,14 @@ jobs:
       - name: Verify recovery bundle
         run: python scripts/verify_recovery_bundle.py
 
+      - name: Verify repository layout and navigation
+        run: python scripts/verify_repository_layout.py
+
+      - name: Lint maintained runtime and tests
+        run: ruff check src tests scripts
+
       - name: Compile Python sources
         run: python -m compileall -q src scripts tests
 
       - name: Run laptop-safe test suite
-        run: python -m pytest -q
+        run: python scripts/run_deployment_pytest.py

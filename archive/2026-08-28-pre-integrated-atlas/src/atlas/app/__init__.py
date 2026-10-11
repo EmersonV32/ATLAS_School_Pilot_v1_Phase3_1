@@ -1,1 +1,0 @@
-"""ATLAS app package."""

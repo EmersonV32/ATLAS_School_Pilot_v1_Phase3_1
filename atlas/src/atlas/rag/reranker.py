@@ -94,7 +94,7 @@ class CrossEncoderReranker(RerankerBase):
         scores = self._model.predict(pairs)
         rescored = [
             c.model_copy(update={"score": float(s)})
-            for c, s in zip(chunks, scores)
+            for c, s in zip(chunks, scores, strict=False)
         ]
         rescored.sort(key=lambda x: x.score, reverse=True)
         return [

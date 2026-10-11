@@ -1,28 +1,64 @@
 ATLAS Jetson quick commands
 ===========================
 
-Project folders:
-- Old stable repo: ~/atlas/wrofutureinnovators2026
-- New Emerson repo: ~/atlas/ATLAS_School_Pilot_v1_Phase3_1
-- Python venv: ~/atlas/venvs/yolo-runtime
+Documentation refreshed: 2026-10-11. This is not a new hardware validation.
+Maintained branch: main. Historical snapshots are not deployment sources.
 
-Start old stable ATLAS:
-  ~/atlas/start_atlas_old.sh
+Existing installed runtime:
+  /home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated
+Existing Python environment:
+  /home/super-alex/atlas/venvs/atlas-school-pilot
+User service:
+  atlas.service
 
-Manual environment:
-  cd ~/atlas/wrofutureinnovators2026
-  source ~/atlas/venvs/yolo-runtime/bin/activate
+Run as super-alex on the Jetson:
+  systemctl --user status atlas.service --no-pager
+  systemctl --user start atlas.service
+  systemctl --user stop atlas.service
+  systemctl --user restart atlas.service
+  systemctl --user is-enabled atlas.service
 
-Important:
-- Do NOT run: sudo apt upgrade -y
-- NVIDIA L4T packages are held because Seeed J401 bootloader/kernel upgrades failed.
-- Safe package installs are okay, but avoid changing nvidia-l4t-* packages.
-- Current missing runtime pieces: .env with GEMINI_API_KEY, connected camera/mic/speaker/EV3.
+Start/stop/restart interrupts the experience; coordinate with the operator.
+Do not start another ATLAS copy when the service already owns port 8765.
 
-Performance while plugged in:
-  sudo jetson_clocks
+Public health:
+  curl --fail http://127.0.0.1:8765/health
+Admin dashboard:
+  http://127.0.0.1:8765/admin
+Visitor dashboard:
+  http://127.0.0.1:8765/
 
-Health checks:
-  sudo apt-get check
+Use the authenticated admin dashboard for status and camera preview.
+/status and /camera/frame.jpg require admin authentication. Do not copy
+tokens into this document or save visitor frames for troubleshooting.
+
+Read-only preflight:
+  cd /home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated
+  source /home/super-alex/atlas/venvs/atlas-school-pilot/bin/activate
+  ./scripts/preflight_device.sh
   python -m pip check
-  uname -a
+
+Networking (addresses can change):
+  hostname -I
+  nmcli -f DEVICE,TYPE,STATE,CONNECTION device status
+  nmcli -f NAME,TYPE connection show --active
+SSH from another device on a permitted network:
+  ssh super-alex@super.local
+
+The hostname requires mDNS and network peer access. Otherwise use the
+current IP from hostname -I, not a historical home address. School networks
+may block peer traffic even after authentication. Read
+atlas/docs/SCHOOL_WIFI_SETUP.md for school/hotspot fallback limitations.
+
+Safety:
+- Do not run a generic apt upgrade or unhold NVIDIA L4T packages.
+- Do not rename the installed runtime during repository cleanup.
+- Never publish API keys, Wi-Fi passwords, private keys, admin tokens,
+  visitor logs, recordings, or databases.
+- Mock tests passing does not prove live camera/audio/network behavior.
+- Keep the October 4 deployment and pending physical checks explicitly dated.
+
+Full operations: handoff/jetson/OPERATIONS_MANUAL.md
+Fresh installation: handoff/jetson/REBUILD_FROM_FRESH_FLASH.md
+Historical recovery: archive/README.md and
+snapshot/repository-pre-cleanup-2026-10-11

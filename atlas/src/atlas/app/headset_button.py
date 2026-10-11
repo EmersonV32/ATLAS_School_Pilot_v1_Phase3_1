@@ -136,7 +136,11 @@ class HeadsetButtonListener:
                     except BlockingIOError:
                         data = b""
                     for event_type, code, value in decode_input_events(data):
-                        if event_type == EV_KEY and code == self._key_code and value == 1:
+                        if (
+                            event_type == EV_KEY
+                            and code == self._key_code
+                            and value == 1
+                        ):
                             completed = clicks.press(now)
                             if completed is not None:
                                 self._dispatch(completed)

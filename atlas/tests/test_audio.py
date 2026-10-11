@@ -1,8 +1,7 @@
 """Tests for audio module."""
-import pytest
-from atlas.audio.stt import TranscriptResult
 from atlas.audio.mock_stt import MockSTT
 from atlas.audio.mock_tts import MockTTS
+from atlas.audio.stt import TranscriptResult
 
 
 def test_mock_stt_returns_transcript():

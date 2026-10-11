@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - codex/jetson-runtime-reconcile
     paths:
       - "website/**"
       - ".github/workflows/pages.yml"
@@ -21,6 +20,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     timeout-minutes: 10
     environment:
       name: github-pages

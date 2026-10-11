@@ -15,17 +15,22 @@ This is the shortest authoritative recovery path. Read
 
 ```bash
 mkdir -p ~/atlas
-git clone https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1.git \
+git clone --branch main \
+  https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1.git \
   ~/atlas/ATLAS_School_Pilot_v1_Phase3_1
 cd ~/atlas/ATLAS_School_Pilot_v1_Phase3_1/atlas
 ```
 
-The repository's root `atlas/` directory is the authoritative integrated
-runtime. Dated directories under `../archive/` are historical material and
-must not be used for a fresh recovery. The old nationals code, dataset,
-training runs, and weights are under
-`../archive/2026-08-04-nationals-2026/`; they are reference material, not the
-current runtime.
+The repository's `main` branch and root `atlas/` directory are the maintained
+recovery source. Historical code must not be used for a fresh recovery. See
+[`../../archive/README.md`](../../archive/README.md) for retained evidence and
+the `snapshot/repository-pre-cleanup-2026-10-11` recovery tag; that tag is not
+the current application release.
+
+This is a fresh-install guide, not permission to rename an existing working
+installation. The existing Jetson service path remains
+`/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`. No repository cleanup
+step changes that live path, its private configuration, or its service.
 
 Before installing anything, verify that the clone contains the complete
 recovery bundle:
@@ -58,6 +63,12 @@ Add `GEMINI_API_KEY` to `.env` with a local editor. Never commit `.env`.
 Reflash recovery also requires entering XIAO Wi-Fi credentials through
 `firmware/xiao_camera/configure_wifi.ps1`; `wifi_secrets.h` is intentionally
 not in Git.
+
+An optional school profile must be recreated separately using
+[`../../atlas/docs/SCHOOL_WIFI_SETUP.md`](../../atlas/docs/SCHOOL_WIFI_SETUP.md).
+Its private camera header and the Jetson NetworkManager profile are not Git
+recovery artifacts. Do not assume authentication or camera-to-Jetson access
+will work on a different network without testing it.
 
 ## 5. Connect and verify hardware
 
@@ -101,6 +112,8 @@ A recovery is not complete until all of these are true:
 ## Deliberately excluded private/generated state
 
 - `.env`, API keys, Wi-Fi credentials, SSH private keys.
+- XIAO `wifi_secrets.h` / `wifi_school_secrets.h` and private Jetson network
+  profiles; recreate locally without recording passwords in documentation.
 - Visitor runtime logs and generated Chroma/SQLite indexes.
 - `atlas_yolo.engine` and `atlas_yolo.onnx`, regenerated on the target stack.
 - `silero_vad.onnx`, downloaded and hash-verified by `restore_models.sh`.

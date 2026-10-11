@@ -1,4 +1,5 @@
-# ATLAS visitor profiles. Each maps to a SessionProfile.
+# Optional ATLAS visitor presets loaded by config.loader.load_profiles.
+# Active visitor/dashboard requests use dashboard.schemas and visitor_schemas.
 # educational_level must be one of:
 #   child | teen | adult_beginner | expert | visual_impairment | simple_language
 

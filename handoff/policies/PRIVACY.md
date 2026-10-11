@@ -1,47 +1,112 @@
-# ATLAS privacy summary (school pilot v1.0)
+# ATLAS privacy summary
 
-ATLAS is privacy-conscious museum technology designed for use with students.
-These defaults are enforced in code and configuration, and verified by
-automated tests (`tests/test_dashboard_privacy.py`).
+Documentation reviewed against the maintained source: 2026-10-11. This describes
+application boundaries, not a new physical pilot validation or a guarantee
+about cloud-provider retention. Read it together with the
+[visitor privacy model](../visitor-dashboard/PRIVACY_MODEL.md) and
+[cloud-service disclosure](CLOUD_LLM_DISCLOSURE.md).
 
-## What ATLAS does NOT store (by default, and in the pilot)
+## Visitor setup and temporary state
 
-| Data | Stored? | Enforcement |
-|------|---------|-------------|
-| Raw audio recordings | **No** | `privacy.store_raw_audio: false`; audio never reaches the logging layer |
-| Raw images / video | **No** | `privacy.store_raw_images: false`; frames are processed in memory only |
-| Face data / facial recognition | **No — feature does not exist** | `privacy.store_face_data: false`; no face models in the codebase |
-| Student names | **No — never collected** | `privacy.student_names_required: false`; no name field anywhere |
-| Question transcripts | **Not by default** | `logging.log_transcripts: false`; when a school explicitly enables it, transcripts are sanitized and truncated |
-| API keys / secrets | **Never** | Keys live only in environment variables; the log blocklist drops key-like fields |
-| Gender inference | **No — feature does not exist** | — |
+A name is optional, not required. ATLAS does collect a short greeting name when
+the visitor chooses to provide one; it is incorrect to claim there is no name
+field or that names are never collected.
 
-## What ATLAS logs (privacy-safe telemetry)
+| Input | Application handling |
+| --- | --- |
+| Optional greeting name | Browser memory; sent only in the local start request, not onboarding progress or admin status. |
+| Exact age | Reduced in the browser to broad age guidance; the numeric input is cleared and not sent to the server. |
+| Age guidance, language, expertise, interests, accessibility | Temporary session preferences; privacy-bounded summaries can appear in operator status and shape responses. |
+| Conversation context | Bounded in-memory recent turns; reset when the runtime session ends. Diagnostic text logs are a separate concern. |
 
-One JSON line per event with: timestamp, **anonymous** session ID, state,
-event name, language, artwork ID, vision confidence, component latencies
-(STT/retrieval/LLM/TTS), fallback flag, and error codes. Nothing else.
+The browser clears its name/age fields after successful start, reset, or a new
+page load; it does not use browser persistence for visitor profiles. Reloading
+a browser is not proof that an already running Jetson session has stopped.
 
-The logger (`src/atlas/storage/event_logger.py`) has a hard blocklist that
-drops audio/image/name/key/prompt fields even if passed by mistake.
+The runtime holds the greeting name while waiting for the first wake phrase.
+The name-bearing greeting uses the selected-language local Piper path, never
+cloud TTS. Its name is not passed into dialogue prompts, retrieval, monitoring,
+or structured session events. After a successful greeting, the pending runtime
+name is cleared; session stop/reset also clears it. If local playback fails,
+the wake gate remains pending and the name can remain locally for retry until
+success or session stop. Missing local voice support blocks a named start.
 
-## Retention
+Piper creates temporary local synthesized WAV files for playback and deletes
+them in its normal cleanup path. This is not a retained microphone recording,
+but it means that local speech is not exclusively RAM-only processing.
+Normal cleanup is not a guarantee of secure erasure after a crash.
 
-Log retention target is configurable (`logging.retention_days`, default 30).
-Log files are plain JSON lines under `data/logs/` and can be deleted at any
-time by the school.
+## Raw media, recognition, and cloud processing
 
-## Cloud disclosure
+The maintained configuration disables raw microphone-recording, camera-frame,
+video, and face-data retention as session records. Camera/audio processing and
+the authenticated operator preview do not establish permission to save or
+publish recordings. ATLAS does not implement facial recognition or gender
+inference as visitor features.
 
-ATLAS is edge-first, **not** fully offline. When (and only when) the cloud
-LLM is enabled (`llm.cloud_llm_enabled: true`), the question text and
-retrieved artwork notes are sent to Google Gemini to compose the final
-answer. See `CLOUD_LLM_DISCLOSURE.md`. In dev/mock mode no data leaves the
-machine.
+Local processing is not the same as keeping all data off the network:
 
-## Session model
+- Enabled Deepgram STT can receive question audio.
+- An enabled cloud LLM can receive question text, bounded dialogue context,
+  relevant museum excerpts, and response guidance.
+- Enabled Cartesia TTS can receive answer text.
+- Explicit enabled Gemini artwork capture can receive an in-memory cropped
+  image, although normal YOLO recognition remains local.
 
-- Session IDs are random and anonymous; they cannot be linked to a student.
-- Session memory is not persistent (`privacy.session_memory_persistent: false`).
-- The teacher dashboard runs on localhost only and is never exposed to the
-  internet; dangerous actions require a local admin token.
+Cloud speech and cloud LLM controls are independent. Disabling
+`llm.cloud_llm_enabled` does not disable `speech.cloud_speech_enabled`.
+Manual image cropping does not guarantee that people or background details are
+absent. A visitor's own spoken question may contain personal information even
+though the optional onboarding name is excluded from cloud dialogue/greetings.
+
+See the [cloud-service disclosure](CLOUD_LLM_DISCLOSURE.md) for exact feature
+gates. Schools/museums must review provider terms, retention, consent, and
+visitor notices before approving a public pilot.
+
+## Logging and operator access
+
+The Python settings model defaults transcript, live-STT, and LLM-response
+logging to off. However, the tracked prototype YAML enables those diagnostic
+text options. It must not be described as a public privacy-safe configuration
+without reviewing the actual deployed settings.
+
+Before public operation, disable all three:
+
+```yaml
+logging:
+  log_transcripts: false
+  log_live_stt: false
+  log_llm_responses: false
+```
+
+Structured events support operational metadata such as session IDs, states,
+artwork IDs, language, latency, and failure indicators. The event logger drops
+known sensitive field names and omits transcripts when configured off; it is
+not a universal redaction system for arbitrary free text or exception output.
+Random session IDs are non-identifying application identifiers, not a guarantee
+against correlation with outside information.
+
+Admin routes require the configured authentication guard. Network exposure
+depends on bind settings and the deployment; do not assume every installation
+is localhost-only or safe on an untrusted LAN. Keep operator data, tokens,
+camera previews, and private diagnostics separate from the visitor kiosk.
+
+## Retention and protected recovery
+
+`logging.retention_days` has a default target of 30 days; this summary does not
+claim a verified automatic purge. The operator must establish and verify a
+retention/deletion procedure for logs, backups, and diagnostics. Ending a
+session or erasing its in-memory profile does not erase previously written
+diagnostic logs or provider-side records.
+
+Credentials, private environment files, Wi-Fi headers/profiles, visitor logs,
+recordings, and generated databases belong outside Git. Ignore rules are not
+encryption and do not prevent an independent backup/sync service from copying
+machine-local files. Never publish secret values or private visitor output in
+documentation, chat, screenshots, or tickets.
+
+The [validation checklist](../VALIDATION_CHECKLIST.md) and current
+[visitor privacy model](../visitor-dashboard/PRIVACY_MODEL.md) are required
+release references. Automated tests cover application contracts; physical
+device behavior, actual deployment configuration, and provider-side policy
+still require separate review.

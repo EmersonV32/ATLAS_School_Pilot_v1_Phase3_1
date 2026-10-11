@@ -30,7 +30,7 @@ class Timer:
         self._start: float = 0.0
         self.elapsed_ms: float = 0.0
 
-    def __enter__(self) -> "Timer":
+    def __enter__(self) -> Timer:
         self._start = now_ms()
         return self
 

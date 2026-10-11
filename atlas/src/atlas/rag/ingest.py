@@ -12,7 +12,6 @@ CLI:
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
 from atlas.config.loader import load_settings
@@ -20,14 +19,14 @@ from atlas.config.settings import Settings
 from atlas.models.artwork import Artwork
 from atlas.models.content_pack import ContentPack, ContentPackManifest
 from atlas.models.enums import RunMode
-from atlas.rag.chunking import prepare_chunks
+from atlas.models.retrieval import RetrievedChunk
 from atlas.rag.chroma_store import (
     ChromaVectorStore,
     SimpleVectorStore,
     VectorStoreBase,
 )
+from atlas.rag.chunking import prepare_chunks
 from atlas.rag.embeddings import make_embedder
-from atlas.models.retrieval import RetrievedChunk
 from atlas.rag.sqlite_fts_store import SqliteFtsStore
 from atlas.storage import sqlite_db
 
@@ -59,7 +58,9 @@ def build_vector_store(settings: Settings) -> VectorStoreBase:
     return ChromaVectorStore(persist_dir=settings.paths.chroma_dir)
 
 
-def ingest_pack(settings: Settings, pack_dir: str | Path, *, reset: bool = False) -> dict:
+def ingest_pack(
+    settings: Settings, pack_dir: str | Path, *, reset: bool = False
+) -> dict:
     pack = load_content_pack(pack_dir)
 
     embedder = make_embedder(
@@ -86,7 +87,7 @@ def ingest_pack(settings: Settings, pack_dir: str | Path, *, reset: bool = False
         # Vector store records.
         vectors = embedder.embed([c.text for c in chunks])
         records = []
-        for chunk, vector in zip(chunks, vectors):
+        for chunk, vector in zip(chunks, vectors, strict=False):
             records.append(
                 {
                     "chunk_id": chunk.chunk_id,

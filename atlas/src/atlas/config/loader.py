@@ -167,8 +167,9 @@ def load_settings(config_dir: str | Path = "config") -> Settings:
 def load_profiles(config_dir: str | Path = "config") -> dict[str, dict[str, Any]]:
     """Load profile presets from profiles.yaml.
 
-    Returned as plain dicts keyed by profile name; consumers map these onto
-    SessionProfile. Validates that referenced enums exist.
+    Returned as plain dicts keyed by profile name for optional operator tools.
+    Active dashboard requests use their dedicated schemas instead. Validates
+    that referenced enums exist.
     """
     config_dir = Path(config_dir)
     raw = _read_yaml(config_dir / "profiles.yaml")

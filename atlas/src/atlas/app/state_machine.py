@@ -89,7 +89,6 @@ class StateMachine:
                 raise InvalidTransition(self.state, event) from exc
 
         state_latency = now_ms() - self._entered_ms
-        prev = self.state
         self.state = next_state
         self._entered_ms = now_ms()
 

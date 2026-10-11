@@ -21,7 +21,7 @@ from atlas.models.retrieval import RetrievedChunk
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     na = math.sqrt(sum(x * x for x in a)) or 1.0
     nb = math.sqrt(sum(y * y for y in b)) or 1.0
     return dot / (na * nb)
@@ -182,7 +182,7 @@ class ChromaVectorStore(VectorStoreBase):
         dists = res.get("distances", [[]])[0]
         out: list[RetrievedChunk] = []
         for rank, (cid, doc, meta, dist) in enumerate(
-            zip(ids, docs, metas, dists), start=1
+            zip(ids, docs, metas, dists, strict=False), start=1
         ):
             out.append(
                 RetrievedChunk(

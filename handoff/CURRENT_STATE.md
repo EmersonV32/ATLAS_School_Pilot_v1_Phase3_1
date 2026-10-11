@@ -1,109 +1,85 @@
 # Current state
 
-School Wi-Fi preparation, 2026-10-05 (local source only): optional camera
-PEAP/MSCHAPv2 support and an operator-run credential helper are prepared for
-`CBourget` under the user's explicitly unverified authentication assumption.
-The camera selects visible school Wi-Fi before the unchanged hotspot, with a
-30-second school authentication window. The Jetson helper stages an inactive
-profile with priority 100 and one automatic activation attempt; the documented
-local-console step enables it and sets the existing hotspot to priority 50.
-Neither device preempts a working hotspot. Both authenticate independently and
-can end up on different networks; fallback does not establish peer reachability.
-No real credentials were read/written, no camera flashed, and no Jetson profile
-installed/enabled during this preparation. All three synthetic firmware variants
-compile on core 3.3.11; final helper gate 30 passed and full suite 3,033 passed /
-1 skipped. Changed Python lint, secret/recovery, dependency and diff checks pass;
-broader runtime/test lint retains 31 existing findings in untouched files.
-Physical authentication/fallback remain untested. The
-separately diagnosed camera stream-watchdog race remains unpatched. See
-[`../atlas/docs/SCHOOL_WIFI_SETUP.md`](../atlas/docs/SCHOOL_WIFI_SETUP.md).
+Source status date: 2026-10-11. Physical observations below retain their actual
+dates; repository cleanup is not a hardware deployment or a fresh health check.
 
-Jetson deployment update, 2026-10-04 at 18:38 EDT: at the user's explicit request,
-v6 and the five runtime fixes are now deployed. The service is active in device
-mode with a newly built/verified FP16 engine at 416, healthy retrieval/speech
-readiness, and fresh camera/headset readiness signals. Native suite: 3,002 passed,
-2 expected skips. Original device config/unit hashes are unchanged, and a durable
-pre-v6 rollback backup is preserved. See
-[`../atlas/docs/2026-10-04_JETSON_V6_DEPLOYMENT.md`](../atlas/docs/2026-10-04_JETSON_V6_DEPLOYMENT.md)
-for exact artifacts, the corrected Linux test-harness failure/confirmed rollback,
-and remaining live-camera/voice/thermal acceptance checks. No Git commit/push or
-NVIDIA/package/firmware changes occurred.
+## Maintained version and source
 
-The local-only integration description below records the earlier stage.
+- Branch: `main`. The one active implementation is [atlas/](../atlas/).
+- Package: ATLAS School Pilot v1, Python package version `0.1.0`; the repository
+  name retains Phase3_1, but the runtime includes later integrated work.
+- Active detector: seven-class YOLO26 Nano **v6**, checkpoint SHA-256
+  `af11b2de376a5c54a1ee11e9765f91ecbf54a1f308a2a82f9106b00a78409731`.
+  "v6" is the detector/dataset version, not the application package version.
+- [Branch guide](BRANCHES.md): four retained historical/experimental branches
+  contain unique work and are not automatically integrated or deployed.
+- [Cleanup record](2026-10-11_REPOSITORY_CLEANUP.md): removed duplicates,
+  validation results and recovery. No private data or device state is in Git.
 
-Local integration update, 2026-10-04: at the user's explicit request, v6 now
-occupies `../atlas/models/atlas_yolo.pt`, with its matching recovery manifest.
-The exact previous model is preserved in `models/releases/2026-09-07-camera-domain-rollback/`.
-Real CPU loader/detector/tracker checks passed at 416 with the recorded Jetson
-library versions (Ultralytics 8.4.115, PyTorch 2.8.0 CPU); this is **not** a
-Jetson/XIAO/TensorRT test. Engine selection now requires matching checkpoint,
-engine and input-size provenance. Five runtime fixes are also present locally.
-No commit, push or physical deployment was performed. See
-[`../atlas/docs/2026-10-04_V6_LOCAL_INTEGRATION.md`](../atlas/docs/2026-10-04_V6_LOCAL_INTEGRATION.md)
-and [`2026-10-04_NEW_CHAT.md`](2026-10-04_NEW_CHAT.md). The device observations
-below remain dated, not an October physical-health check.
+The runtime includes artwork capture, bounded conversational context, museum
+retrieval and general Gemini fallback, configurable local/cloud speech,
+multilingual visitor setup, staff controls, headset-button handling and
+readiness/session/event storage. See [system architecture](architecture/SYSTEM_ARCHITECTURE.md).
 
-Status date: 2026-08-29
+## Latest recorded deployment: October 4
 
-## Active implementation
+At the user's explicit request, v6 and five runtime fixes were deployed to the
+Jetson on 2026-10-04 at 18:38 EDT. The service was active in device mode with a
+newly built and verified 416 FP16 TensorRT engine, retrieval/speech readiness and
+fresh camera/headset readiness signals. Native tests: 3,002 passed, two expected
+skips. Original device config/unit hashes were unchanged and a durable pre-v6
+rollback backup was preserved.
 
-The current runtime is `../atlas/`. It includes the integrated Python package,
-visitor and staff dashboards, content sources, tests, firmware, configuration,
-and Jetson deployment/recovery scripts.
+Read [the deployment record](../atlas/docs/2026-10-04_JETSON_V6_DEPLOYMENT.md)
+for exact evidence, rollback and outstanding acceptance. The installed root
+remains `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`.
+No October 11 deployment, package installation, service or firmware change is
+part of repository cleanup. The earlier
+[local integration record](../atlas/docs/2026-10-04_V6_LOCAL_INTEGRATION.md)
+describes CPU preparation, not the later deployment.
 
-Implemented behavior includes:
+## School Wi-Fi preparation and operator reports: October 5 onward
 
-- automatic and manual artwork capture;
-- museum retrieval combined with general Gemini responses when retrieval is
-  not relevant;
-- bounded conversational context for artwork and artist follow-ups;
-- speech recognition and synthesis provider integrations;
-- response-level TTS provider locking;
-- visitor profiles, accessibility choices, and multilingual interface assets;
-- multifunction-headset manual capture handling;
-- readiness refresh and continuous experience controls;
-- versioned artwork source manifests and a recovery-bundle verifier.
+The source supports optional school PEAP/MSCHAPv2 under the owner's unverified
+authentication assumption. The camera tries a visible school network first
+with a 30-second authentication window, then the unchanged hotspot. The Jetson
+helper stages an inactive priority-100 school profile; the documented local
+console step enables it and sets hotspot priority 50. Neither device preempts
+a working hotspot. They authenticate independently and may choose different
+networks, so fallback alone does not prove camera-to-Jetson reachability.
 
-## Verification state
+All three synthetic firmware variants compiled on ESP32 core 3.3.11. The owner
+reported configuring/flashing camera credentials and setting Jetson profiles;
+these reports are not successful school authentication evidence. The reported
+hotspot Jetson address was `172.20.10.3/28`, gateway `172.20.10.1`, and Avahi
+was active under hostname `super`. Treat addresses as observations, not a
+guaranteed reservation. Phone-terminal mDNS connection was not confirmed.
 
-Reconciliation and device validation on 2026-08-29 produced:
+School authentication, client isolation and fallback remain physically
+untested. The school certificate/server identity is unverified; the helper's
+explicit risk acceptance does not make that safe. Keep actual credentials in
+ignored private storage. Use [school setup](../atlas/docs/SCHOOL_WIFI_SETUP.md).
 
-- `280 passed` from the complete suite during the latest successful Jetson
-  deployment;
-- `280 passed` locally after the same Chinese-support changes;
-- passing obvious-secret and recovery-bundle checks;
-- a successful XIAO ESP32-S3 Sense firmware compile for the balanced
-  800x600/15 FPS profile;
-- a successful physical flash of that profile, with a fresh 800x600 frame and
-  six short-run samples at approximately 12.4 to 14.8 FPS;
-- HTTP 200 responses for visitor, staff, health, and bootstrap endpoints from
-  another computer while the camera was unplugged;
-- successful camera hot-plug recovery without restarting the website service,
-  followed by automatic recovery from one induced MJPEG read failure;
-- a healthy `atlas.service` after the camera-independent deployment; and
-- one non-failing Starlette deprecation warning from the installed FastAPI
-  test client.
+## Open physical risks and acceptance
 
-Traditional Chinese is now a validated visitor/runtime path: `zh-Hant`
-onboarding maps to `zh`, the live Gemini path returned a Chinese museum answer,
-and the configured Jetson Piper model synthesized a valid Chinese WAV. Cartesia
-remains unavailable, so Piper is the active speech fallback.
+- Camera live-stream timeouts/restarts were reported. The separately diagnosed
+  stream-watchdog timing race remains unpatched; repository cleanup does not
+  claim to fix it.
+- Fresh seven-class camera evaluation, false-alarm review, live voice/headset
+  flow, sustained thermal/FPS and end-to-end timing remain due.
+- School authentication and device-to-device traffic must be tested at school.
+- Hotspot connectivity and phone SSH/mDNS must be verified on the actual
+  devices; laptop tests cannot prove them.
+- Cloud provider account/billing availability must be checked before a demo.
 
-The active work is on `codex/jetson-runtime-reconcile`. It has not been merged
-into GitHub `main`. The exact device state and rollback information are in
-[`jetson/JETSON_RUNTIME_STATUS.md`](jetson/JETSON_RUNTIME_STATUS.md).
+Follow [the validation checklist](VALIDATION_CHECKLIST.md). Do not interpret
+automated tests, branch renaming or old readiness observations as physical
+acceptance.
 
-## Physical validation still required
+## Historical evidence
 
-The following cannot be proven from a laptop-only session:
-
-- XIAO firmware flashing and a 20-minute sustained thermal/FPS test;
-- sustained camera streaming, thermal behavior, and live artwork detection
-  with the flashed 800x600 profile;
-- physical Chinese STT and headset playback through the complete live flow;
-- a physical Shokz multifunction-button manual capture;
-- headset disconnect/reconnect recovery after boot; and
-- Cartesia recovery after its HTTP 402 account/billing failure is resolved.
-
-Use the Jetson section of [`VALIDATION_CHECKLIST.md`](VALIDATION_CHECKLIST.md)
-before declaring a deployment complete.
+[August Jetson status](jetson/JETSON_RUNTIME_STATUS.md) records earlier 280-test
+validation, 800x600 camera samples, hot-plug recovery and Chinese voice tests.
+Its then-current branch/provider statements are dated evidence, not today's
+source authority. [October 4 continuation](2026-10-04_NEW_CHAT.md) retains model,
+hardware and design context; read this current summary first.

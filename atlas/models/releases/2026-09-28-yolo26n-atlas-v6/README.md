@@ -5,9 +5,12 @@ now running with a new on-device FP16 engine at 416; native regression and publi
 reference PT/TRT checks passed. See
 `../../../docs/2026-10-04_JETSON_V6_DEPLOYMENT.md`. Fresh seven-class camera,
 spoken end-to-end and sustained thermal acceptance remain unverified.
-The local-only paragraph below records the prior integration stage.
-
-This is the trained model returned by the coach on 2026-09-28, plus the evidence needed for a new developer/chat to continue. On October 4 the user explicitly requested local integration: the same bytes now occupy `../../atlas_yolo.pt`, and the previous checkpoint is preserved for rollback. It remains a **physical-release candidate**, not a Jetson deployment. Fresh XIAO-camera footage and target-device tests must pass before live promotion.
+This is the trained model returned by the coach on 2026-09-28, plus the evidence
+needed for continuation. The same bytes occupy `../../atlas_yolo.pt` on `main`,
+with the previous checkpoint preserved for rollback. Local integration preceded
+the later Jetson deployment above. It is a deployed prototype, **not a physically
+accepted release**: fresh XIAO-camera footage and sustained end-to-end tests are
+still required.
 
 The real loader and ATLAS detector/tracker passed CPU smoke inference at 416
 with Ultralytics 8.4.115 and PyTorch 2.8.0+cpu. Both public Mona Lisa/Great Wave
@@ -45,7 +48,12 @@ The source Roboflow v6 ZIP is not in Git. Its SHA-256 is `47d1021c3f77f06a3d2526
 ## Next gate
 
 1. Test `best.pt` against **new** footage from the actual Seeed XIAO ESP32-S3 Sense at headset height. Include all seven artworks, different lighting/angles/distances, partial views, movement and unrelated art. Record misses and false alarms with a predeclared acceptance threshold.
-2. Confirm numeric class order and compare `.pt` predictions with a newly built TensorRT engine on the target Jetson at 416. Do not transfer the coach computer's engine or reuse an old one.
-3. Measure end-to-end camera-to-response latency and sustained thermals on the physical hardware, then decide whether to promote this checkpoint. Preserve rollback to the current model.
+2. For each new target export, confirm numeric class order and compare `.pt`
+   predictions with its new TensorRT engine at 416. October 4 reference parity
+   is recorded in the deployment document; never transfer another computer's
+   engine or reuse a stale one.
+3. Measure end-to-end camera-to-response latency and sustained thermals on the
+   physical hardware before declaring acceptance. Preserve previous-model rollback.
 
-No physical-camera or Jetson validation of this v6 candidate is recorded here.
+The deployment record establishes target reference checks, not an independent
+seven-class physical-camera accuracy/thermal acceptance result.

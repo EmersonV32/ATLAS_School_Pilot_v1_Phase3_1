@@ -1,306 +1,130 @@
-# 🚀 ATLAS Jetson Operations Manual
+# ATLAS Jetson operations manual
 
-> **Project:** `~/atlas/ATLAS_School_Pilot_v1_integrated`\
-> **Service:** `atlas.service`\
-> **Dashboard:** http://127.0.0.1:8765/admin
+Documentation refreshed: 2026-10-11. These procedures do not establish new
+physical acceptance or change the installed service.
 
-------------------------------------------------------------------------
+The maintained source branch is `main`. The existing installed runtime stays
+at `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`, using
+`/home/super-alex/atlas/venvs/atlas-school-pilot` and the user service
+`atlas.service`. Do not rename that installation to match a repository cleanup.
 
-# 📋 Quick Reference
+## Daily startup and shutdown
 
-  -------------------------------------------------------------------------------------------------------------
-  Task                         Command
-  ---------------------------- --------------------------------------------------------------------------------
-  Start                        `systemctl --user start atlas.service`
+Run as `super-alex` in a Jetson terminal. Coordinate with the operator before
+interrupting an active visitor experience.
 
-  Stop                         `systemctl --user stop atlas.service`
-
-  Restart                      `systemctl --user restart atlas.service`
-
-  Status                       `systemctl --user status atlas.service --no-pager`
-
-  Health                       `curl http://127.0.0.1:8765/health`
-
-  Dashboard                    `http://127.0.0.1:8765/admin`
-
-  Live logs                    `tail -f ~/atlas/ATLAS_School_Pilot_v1_integrated/data/logs/atlas-runtime.log`
-  -------------------------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-# 🟢 Daily Startup
-
-``` bash
-cd ~/atlas/ATLAS_School_Pilot_v1_integrated
-source ~/atlas/venvs/atlas-school-pilot/bin/activate
-
-systemctl --user restart atlas.service
-sleep 10
-
-curl http://127.0.0.1:8765/health
-```
-
-Open:
-
-``` text
-http://127.0.0.1:8765/admin
-```
-
-Verify:
-
--   ✅ Dashboard loads
--   ✅ Camera preview visible
--   ✅ `/health` reports `mode=device`
--   ✅ `vision=YoloDetector`
--   ✅ STT/TTS are `ready`
-
-------------------------------------------------------------------------
-
-# 🔴 Shutdown
-
-``` bash
-systemctl --user stop atlas.service
-```
-
-Confirm:
-
-``` bash
+```bash
 systemctl --user status atlas.service --no-pager
-```
-
-Expected:
-
-``` text
-Active: inactive (dead)
-```
-
-------------------------------------------------------------------------
-
-# 📊 Service Commands
-
-## Start
-
-``` bash
 systemctl --user start atlas.service
+curl --fail http://127.0.0.1:8765/health
 ```
 
-## Restart
+Open the visitor page at `http://127.0.0.1:8765/` or the operator dashboard at
+`http://127.0.0.1:8765/admin`. Unlock admin functions privately in the dashboard;
+never paste the token into documentation, screenshots, or shared output.
 
-``` bash
-systemctl --user restart atlas.service
-```
+Confirm live readiness rather than assuming a particular provider is available:
 
-## Stop
+- The service is active and `/health` responds.
+- The installed configuration selects the intended device mode.
+- The authenticated admin preview receives fresh camera frames.
+- The selected microphone and output are ready.
+- The intended language works through one complete spoken response.
+- Any local or cloud fallback is honestly reported.
 
-``` bash
+To stop or restart deliberately, use only the command you intend:
+
+```bash
 systemctl --user stop atlas.service
-```
-
-## Status
-
-``` bash
-systemctl --user status atlas.service --no-pager
-```
-
-------------------------------------------------------------------------
-
-# 🌐 Dashboard
-
-Health:
-
-``` bash
-curl http://127.0.0.1:8765/health
-```
-
-Status:
-
-``` bash
-curl http://127.0.0.1:8765/status
-```
-
-Admin page:
-
-``` text
-http://127.0.0.1:8765/admin
-```
-
-------------------------------------------------------------------------
-
-# 📷 Camera
-
-Download one frame:
-
-``` bash
-curl -o camera.jpg http://127.0.0.1:8765/camera/frame.jpg
-file camera.jpg
-```
-
-Expected:
-
-``` text
-camera.jpg: JPEG image data
-```
-
-Test the XIAO stream:
-
-``` bash
-curl http://atlas-camera.local:81/stream
-```
-
-or
-
-``` bash
-curl http://10.0.0.25:81/stream
-```
-
-------------------------------------------------------------------------
-
-# 📝 Logs
-
-Recent:
-
-``` bash
-tail -100 ~/atlas/ATLAS_School_Pilot_v1_integrated/data/logs/atlas-runtime.log
-```
-
-Live:
-
-``` bash
-tail -f ~/atlas/ATLAS_School_Pilot_v1_integrated/data/logs/atlas-runtime.log
-```
-
-------------------------------------------------------------------------
-
-# ⚙️ Auto Start
-
-Check:
-
-``` bash
-systemctl --user is-enabled atlas.service
-```
-
-Disable:
-
-``` bash
-systemctl --user disable atlas.service
-```
-
-Enable:
-
-``` bash
-systemctl --user enable atlas.service
-```
-
-------------------------------------------------------------------------
-
-# 🔍 Diagnostics
-
-Who owns port 8765?
-
-``` bash
-ss -ltnp | grep 8765
-```
-
-Kill process:
-
-``` bash
-kill <PID>
-```
-
-Force:
-
-``` bash
-kill -9 <PID>
-```
-
-Service internals:
-
-``` bash
-systemctl --user show atlas.service \
--p ActiveState \
--p SubState \
--p NRestarts \
--p ExecMainStatus
-```
-
-------------------------------------------------------------------------
-
-# 🎤 Demo Startup Checklist
-
--   Restart service
--   Wait 10--15 seconds
--   Open dashboard
--   Confirm camera preview
--   Confirm health endpoint
--   Verify STT/TTS = ready
--   Verify Gemini = ready
--   Ask a sample question
--   Confirm audio response
-
-------------------------------------------------------------------------
-
-# 🚨 Common Problems
-
-## Dashboard won't open
-
-``` bash
-curl http://127.0.0.1:8765/health
 systemctl --user restart atlas.service
 ```
 
-------------------------------------------------------------------------
+A restart interrupts listening and playback. Do not launch a second Uvicorn or
+device loop while the service owns port 8765.
 
-## Camera missing
+## Read-only diagnostics
 
-``` bash
-curl -o camera.jpg http://127.0.0.1:8765/camera/frame.jpg
-file camera.jpg
-
-curl http://atlas-camera.local:81/stream
+```bash
+cd /home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated
+source /home/super-alex/atlas/venvs/atlas-school-pilot/bin/activate
+./scripts/preflight_device.sh
+python -m pip check
+systemctl --user is-enabled atlas.service
+systemctl --user show atlas.service -p ActiveState -p SubState -p NRestarts -p ExecMainStatus
+ss -ltnp 'sport = :8765'
 ```
 
-If the XIAO stream works but the dashboard doesn't, restart the service.
+Changing service enablement, packages, device configuration, or cloud credentials
+is a separate operator action, not part of routine repository organization.
+Do not run a generic `apt upgrade` or unhold NVIDIA L4T packages. Read the
+[setup/recovery log](ATLAS_JETSON_NX_SETUP_LOG.md) before any low-level repair.
 
-------------------------------------------------------------------------
+## Camera and audio
 
-## Port already in use
+Use **Admin > Audio / Vision** for the XIAO preview, FPS, capture controls, and
+Shokz/judge-speaker routing. Use **Admin > Arducam** for the separate CSI camera;
+it does not feed artwork YOLO or replace the wearable camera.
 
-``` bash
-ss -ltnp | grep 8765
+`/status`, `/camera/frame.jpg`, and Arducam admin APIs are protected endpoints.
+An unauthenticated request returning 401 or 503 is not proof of camera failure.
+Use the admin UI rather than placing secrets in shell command arguments.
+
+Do not save frames, video, raw audio, or visitor transcripts while following
+this guide. Avoid a second direct MJPEG stream client: it can compete with
+ATLAS's camera reader. A short preview is not evidence of sustained streaming,
+model accuracy, or thermal safety.
+
+The previously diagnosed stream-watchdog issue and remaining camera, voice,
+thermal, and iPad acceptance checks are tracked in
+[current state](../CURRENT_STATE.md). Repository cleanup does not fix or prove
+those hardware behaviors.
+
+## Networking and SSH
+
+On the Jetson:
+
+```bash
+hostname -I
+nmcli -f DEVICE,TYPE,STATE,CONNECTION device status
+nmcli -f NAME,TYPE connection show --active
 ```
 
-Do **not** manually launch Uvicorn if `atlas.service` already owns port
-8765.
+From another authorized device, try `ssh super-alex@super.local`. This requires
+mDNS resolution and permitted peer traffic. Otherwise use the current IP from
+`hostname -I`; the historical home address is not a permanent endpoint.
 
-------------------------------------------------------------------------
+See [school Wi-Fi setup](../../atlas/docs/SCHOOL_WIFI_SETUP.md) for the optional
+school-first/hotspot-fallback profiles. The camera and Jetson select networks
+independently, and authentication does not prove peer reachability.
+Do not change an active SSH connection's network without local-console recovery.
+Do not expose SSH, the admin dashboard, or camera streams to the public internet.
 
-## Service won't start
+## Troubleshooting and incident evidence
 
-``` bash
-systemctl --user status atlas.service --no-pager
+| Symptom | Safe first check |
+| --- | --- |
+| Dashboard unavailable | Inspect service status, health, current IP, and port ownership. |
+| Camera unavailable | Check authenticated preview, preflight, power, and active network. |
+| No speech | Confirm microphone/output selection and provider readiness. |
+| Port occupied | Identify the existing process; do not start another ATLAS copy. |
+| School access fails | Keep the permitted hotspot available and use the network guide. |
+| Repeated restarts | Stop the experience and diagnose before changing multiple systems. |
 
-tail -100 ~/atlas/ATLAS_School_Pilot_v1_integrated/data/logs/atlas-runtime.log
-```
+Prototype logs can contain text when diagnostic logging is enabled. Do not copy
+raw logs or private `.env` contents into Git, chat, or public tickets. Record
+only sanitized error codes, component names, software versions, and timings.
+Never record API key/password/token values in this manual's notes.
 
-------------------------------------------------------------------------
+## Deployment and recovery
 
-## Health endpoint
+Repository cleanup alone does not deploy to hardware. For a separately approved
+deployment, use the validated `main` checkout and
+[`atlas/DEPLOY_ATLAS.ps1`](../../atlas/DEPLOY_ATLAS.ps1), retain its backup, and
+complete the [validation checklist](../VALIDATION_CHECKLIST.md).
 
-``` bash
-curl http://127.0.0.1:8765/health
-```
-
-Ideal response includes:
-
--   `mode=device`
--   `GeminiClient`
--   `DeepgramSTT ... ready`
--   `CartesiaTTS ... ready`
--   `YoloDetector`
-
-------------------------------------------------------------------------
-
-# 💡 Personal Notes
-
-Keep this page updated with: - Camera IP changes - New API keys - Common
-fixes - Demo procedure improvements
+October 4 deployment evidence is in
+[`2026-10-04_JETSON_V6_DEPLOYMENT.md`](../../atlas/docs/2026-10-04_JETSON_V6_DEPLOYMENT.md).
+Treat it as dated evidence, not a claim about today's physical state. For a
+replacement/freshly flashed Jetson, follow
+[`REBUILD_FROM_FRESH_FLASH.md`](REBUILD_FROM_FRESH_FLASH.md). Historical source
+and reports are indexed in [`archive/README.md`](../../archive/README.md).

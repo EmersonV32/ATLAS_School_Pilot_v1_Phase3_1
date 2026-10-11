@@ -9,7 +9,12 @@ to make an exhibit easier to explore without replacing the museum staff or the
 artwork itself.
 
 Public project website:
-https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/
+[ATLAS](https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/).
+
+`main` is the maintained branch. Start with
+[current state](handoff/CURRENT_STATE.md), then use the map below.
+Experimental and historical branches are explained in
+[the branch guide](handoff/BRANCHES.md); they are not deployment sources.
 
 ## What makes ATLAS different
 
@@ -33,7 +38,9 @@ https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/
 | [`atlas/`](atlas/) | Current ATLAS runtime, tests, configuration, content sources, firmware, and deployment scripts. This is the only active implementation. |
 | [`handoff/`](handoff/) | Current manuals, architecture, privacy notes, troubleshooting, validation steps, and continuity instructions for another developer, LLM, or Jetson. |
 | [`comp_info/`](comp_info/) | WRO 2026 competition binder with official rules, deadlines, travel and customs guidance, packing, booth, judging, and recovery checklists. |
-| [`archive/`](archive/) | Date-organized historical snapshots, reports, one-time patches, and superseded utilities. Nothing here is part of the active runtime. |
+| [`website/`](website/README.md) | Public project website, published from `main` with GitHub Pages. |
+| [`resources/`](resources/README.md) | Original vendor CAD references; not runtime dependencies. |
+| [`archive/`](archive/README.md) | Historical reports and detector-training evidence only. Retired code remains recoverable from Git. |
 
 Start a technical continuation with
 [`handoff/START_HERE.md`](handoff/START_HERE.md). Start a Jetson rebuild with
@@ -75,8 +82,10 @@ Activate the environment, then install and verify the project:
 
 ```bash
 python -m pip install -e ".[dev]"
-python -m pytest -q
+python scripts/run_deployment_pytest.py
+ruff check src tests scripts
 python scripts/verify_recovery_bundle.py
+python scripts/verify_repository_layout.py
 ```
 
 Run the dashboard with mock integrations:
@@ -97,6 +106,11 @@ dashboard at `http://127.0.0.1:8765/admin` by default.
 - [Operations and demo guides](handoff/operations/)
 - [Troubleshooting](handoff/TROUBLESHOOTING.md)
 - [Recovery and Jetson manuals](handoff/jetson/)
+- [Model versions and rollback](atlas/models/README.md)
+- [School Wi-Fi setup and untested assumptions](atlas/docs/SCHOOL_WIFI_SETUP.md)
+- [Runtime change records](atlas/docs/README.md)
+- [Maintenance scripts by purpose](atlas/scripts/README.md)
+- [Training workflow](atlas/training/README.md)
 - [Historical archive index](archive/README.md)
 
 ## Status
@@ -105,4 +119,7 @@ ATLAS is an actively developed student prototype. Automated laptop validation
 is included in the repository; camera, audio, headset, CUDA/TensorRT, and
 systemd behavior must also be checked on the target Jetson after deployment.
 
-The old repository for ATLAS is at: https://github.com/alexwithadog/wrofutureinnovators2026 
+The [previous repository](https://github.com/alexwithadog/wrofutureinnovators2026)
+is historical, not the current source of truth. The cleanup recovery tag is
+`snapshot/repository-pre-cleanup-2026-10-11`; see
+[the cleanup record](handoff/2026-10-11_REPOSITORY_CLEANUP.md).
