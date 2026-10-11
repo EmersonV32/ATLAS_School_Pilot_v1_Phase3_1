@@ -107,10 +107,20 @@ outer-page overflow or persistent visitor storage appeared. Screenshots were
 visually reviewed and the synthetic server stopped. Optional name/age entry,
 Safari/iPad and all physical devices remain outside this browser claim.
 
-Clean-clone verification and the separately reviewed early duplicate-start
-safeguard are pending final validation. No laptop check proves live camera,
-speech, school-network or Jetson thermal acceptance. The owner explicitly
-confirmed that the Jetson, camera and headset are offline.
+Fresh-clone secret/recovery/navigation checks passed without ignored local
+files. The separately reviewed early duplicate-start safeguard passed 96
+focused startup/device/handoff regressions; final full-suite validation of that
+addition is pending. No laptop check proves live camera, speech, school-network
+or Jetson thermal acceptance. The owner explicitly confirmed that the Jetson,
+camera and headset are offline.
+
+The launcher now refuses an active user `atlas.service` before activating the
+environment. Device-loop startup probes its configured dashboard address before
+loading expensive adapters. IPv4/IPv6 fallback, occupied/invalid bindings,
+disabled dashboards and unavailable systemd are covered by synthetic tests.
+The probe releases its socket immediately: this reduces ordinary duplicate
+starts, but is not a race-free singleton lock. Actual server binding still
+occurs later and is independently checked.
 
 ## Performance boundaries
 

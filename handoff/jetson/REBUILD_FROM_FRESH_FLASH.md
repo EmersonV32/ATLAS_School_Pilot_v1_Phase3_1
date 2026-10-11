@@ -15,7 +15,7 @@ This is the shortest authoritative recovery path. Read
 
 ```bash
 mkdir -p ~/atlas
-git clone --branch main \
+git clone --single-branch --branch main \
   https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1.git \
   ~/atlas/ATLAS_School_Pilot_v1_Phase3_1
 cd ~/atlas/ATLAS_School_Pilot_v1_Phase3_1/atlas
@@ -27,6 +27,10 @@ recovery source. Historical code must not be used for a fresh recovery. See
 the `snapshot/repository-pre-cleanup-2026-10-11` recovery tag; that tag is not
 the current application release.
 
+The install clone fetches `main` history, not every experimental branch. Fetch
+a specific research branch separately only when reviewing that work; do not
+add it to normal device startup.
+
 This is a fresh-install guide, not permission to rename an existing working
 installation. The existing Jetson service path remains
 `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`. No repository cleanup
@@ -37,6 +41,7 @@ recovery bundle:
 
 ```bash
 python scripts/verify_recovery_bundle.py
+python scripts/verify_repository_layout.py
 ```
 
 ## 3. Bootstrap the current runtime

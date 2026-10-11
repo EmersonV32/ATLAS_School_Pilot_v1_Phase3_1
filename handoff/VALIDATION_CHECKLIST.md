@@ -41,7 +41,7 @@ training recipes. Git-backed gates require new files/deletions to be staged.
 From a new temporary directory:
 
 ```bash
-git clone --branch main <repository-url> atlas-recovery-test
+git clone --single-branch --branch main <repository-url> atlas-recovery-test
 cd atlas-recovery-test/atlas
 python scripts/verify_recovery_bundle.py
 python scripts/verify_repository_layout.py

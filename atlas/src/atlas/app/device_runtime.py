@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import errno
 import logging
 import queue
+import socket
 import sys
 import threading
 import time
@@ -397,11 +399,66 @@ class DeviceRuntime:
             required += ("Gemini",)
         return required
 
+    def _check_dashboard_port_available(self) -> None:
+        """Reject an occupied/invalid local bind before expensive adapter loads.
+
+        This is an early diagnostic, not a port reservation or race-free lock;
+        the dashboard server still owns the actual bind later in startup.
+        """
+        dashboard = getattr(self.container.settings, "dashboard", None)
+        if dashboard is None or not dashboard.enabled:
+            return
+        host, port = dashboard.host, dashboard.port
+        try:
+            if not isinstance(port, int) or not 0 <= port <= 65535:
+                raise ValueError("dashboard port must be between 0 and 65535")
+            addresses = socket.getaddrinfo(
+                host,
+                port,
+                socket.AF_UNSPEC,
+                socket.SOCK_STREAM,
+                0,
+                socket.AI_PASSIVE,
+            )
+            if not addresses:
+                raise OSError("no dashboard bind addresses")
+            checked = set()
+            usable_address = False
+            for family, kind, protocol, _name, address in addresses:
+                if (family, address) in checked:
+                    continue
+                checked.add((family, address))
+                try:
+                    with socket.socket(family, kind, protocol) as probe:
+                        # Match asyncio's POSIX restart behavior without Windows'
+                        # permissive SO_REUSEADDR semantics for active listeners.
+                        if sys.platform != "win32":
+                            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                        probe.bind(address)
+                    usable_address = True
+                except OSError as exc:
+                    # A hostname may resolve to an unavailable family/address.
+                    # Match server fallback while never ignoring an occupied port.
+                    if exc.errno not in {
+                        errno.EADDRNOTAVAIL,
+                        errno.EAFNOSUPPORT,
+                        errno.EPROTONOSUPPORT,
+                    }:
+                        raise
+            if not usable_address:
+                raise OSError("no usable dashboard bind addresses")
+        except (OSError, ValueError, TypeError) as exc:
+            raise RuntimeError(
+                f"Dashboard address {host}:{port} is unavailable. Check its "
+                "host/port and stop any other ATLAS instance before starting."
+            ) from exc
+
     def run(
         self,
         max_interactions: int = 0,
         wait_for_terminal: bool = False,
     ) -> None:
+        self._check_dashboard_port_available()
         statuses = self.preload()
         required = self._required_components()
         failed = [name for name in required if statuses.get(name) != "ready"]
