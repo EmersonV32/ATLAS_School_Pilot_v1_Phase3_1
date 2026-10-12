@@ -536,6 +536,22 @@ class RuntimeService:
 
     def artwork_status(self) -> dict[str, Any]:
         status = self.container.artwork_tracker.status()
+        # Preserve the legacy selected/last-stable subject, but distinguish it
+        # from an actual current view. Camera loss must not erase discussion
+        # memory or make a typed question claim to see a remembered painting.
+        visual = self.container.artwork_tracker.visualization_status()
+        try:
+            camera_ready = bool(self.container.camera_source.status().get("ready"))
+        except Exception:
+            camera_ready = False
+        live_id = (
+            visual.get("artwork_id")
+            if visual.get("stable") and (
+                status.get("manual_override") or camera_ready
+            ) else None
+        )
+        status["live_artwork_id"] = live_id
+        status["current_view_confirmed"] = live_id is not None
         if "low_confidence" in self.demo_flags:
             status["confidence"] = 0.30
             status["stable"] = False
@@ -729,7 +745,7 @@ class RuntimeService:
         if settings.logging.log_transcripts:
             logger.info("[Typed question] %s", question)
         artwork = self.artwork_status()
-        artwork_id = artwork.get("artwork_id")
+        artwork_id = artwork.get("live_artwork_id")
         engine = self.container.dialogue_engine
         focus = engine.prepare_turn(
             question, artwork_id, expected_generation=engine_generation
@@ -894,12 +910,18 @@ class RuntimeService:
             if settings.privacy.transcript_logging_sanitized:
                 transcript = transcript[:200]
             log_fields["transcript"] = transcript
-        self.container.logger.log(
-            session_id=session_id,
-            state="dashboard",
-            event="typed_question",
-            **log_fields,
-        )
+        try:
+            self.container.logger.log(
+                session_id=session_id,
+                state="dashboard",
+                event="typed_question",
+                **log_fields,
+            )
+        except Exception as exc:
+            # Activity is advisory, just as for the local FAQ path above.
+            logger.warning(
+                "Dashboard activity could not be recorded: %s", type(exc).__name__,
+            )
         return answer
 
     # -- content ---------------------------------------------------------------
@@ -974,8 +996,10 @@ class RuntimeService:
                 "deepgram_model": speech.deepgram_model,
                 "deepgram_language": speech.deepgram_language,
                 "listen_duration_s": speech.listen_duration_s,
+                "max_utterance_s": speech.max_utterance_s,
                 "silero_threshold": speech.silero_threshold,
                 "silero_min_silence_ms": speech.silero_min_silence_ms,
+                "silero_hesitation_silence_ms": speech.silero_hesitation_silence_ms,
                 "cartesia_model": speech.cartesia_model,
                 "cartesia_voice_id": speech.cartesia_voice_id,
             },

@@ -85,6 +85,9 @@ class CartesiaTTS(BaseTTS):
         self._volume_percent = normalize_volume(volume_percent)
         self._connection = None
         self._lock = threading.Lock()
+        self._cancel_lock = threading.Lock()
+        self._speech_generation = 0
+        self._whole_player = None
         self.playback_started = False
         self.last_first_audio_ms: float | None = None
         self.last_total_ms: float | None = None
@@ -186,9 +189,13 @@ class CartesiaTTS(BaseTTS):
     def _receive_utterance(self, context_id: str) -> None:
         player = None
         try:
+            if self._utterance_context_id != context_id:
+                return
             connection = self._ensure_connection()
             while True:
                 raw = connection.recv(timeout=self._response_timeout_s)
+                if self._utterance_context_id != context_id:
+                    return
                 payload = json.loads(raw)
                 if payload.get("context_id") != context_id:
                     continue
@@ -205,7 +212,13 @@ class CartesiaTTS(BaseTTS):
                             self._output_device_name,
                             self._sample_rate,
                         )
-                        self._utterance_player = player
+                        with self._cancel_lock:
+                            cancelled = self._utterance_context_id != context_id
+                            if not cancelled:
+                                self._utterance_player = player
+                        if cancelled:
+                            player.kill()
+                            return
                         self.playback_started = True
                         started = self._utterance_started_at or time.perf_counter()
                         self.last_first_audio_ms = (
@@ -232,14 +245,25 @@ class CartesiaTTS(BaseTTS):
                 player and finish_raw_player(player, timeout_s=30)
             )
         except Exception as exc:
-            self._utterance_error = exc
+            if self._utterance_context_id == context_id:
+                self._utterance_error = exc
             if player is not None:
                 try:
                     finish_raw_player(player, timeout_s=2)
                 except Exception:
                     pass
         finally:
-            started = self._utterance_started_at
+            if player is not None and self._utterance_context_id != context_id:
+                try:
+                    if player.poll() is None:
+                        player.kill()
+                    finish_raw_player(player, timeout_s=2)
+                except Exception:
+                    pass
+            started = (
+                self._utterance_started_at
+                if self._utterance_context_id == context_id else None
+            )
             if started is not None:
                 self.last_total_ms = (time.perf_counter() - started) * 1000.0
 
@@ -352,25 +376,51 @@ class CartesiaTTS(BaseTTS):
             return completed
 
     def abort_utterance(self) -> None:
-        with self._lock:
+        # Whole-answer synthesis holds _lock while receiving/draining audio.
+        # Signal and interrupt it BEFORE trying that lock; a visit stop must
+        # neither wait for speech nor retry the cancelled answer before audio.
+        with self._cancel_lock:
+            self._speech_generation += 1
+            connection = self._connection
+            self._connection = None
             thread = self._utterance_thread
-            player = self._utterance_player
+            players = (self._utterance_player, self._whole_player)
             self._utterance_context_id = None
-            self._close_connection()
-        if player is not None and player.poll() is None:
-            player.kill()
+        for player in players:
+            if player is not None:
+                try:
+                    if player.poll() is None:
+                        player.kill()
+                except OSError:
+                    pass
+        if connection is not None:
+            try:
+                connection.close()
+            except Exception:
+                pass
         if thread is not None and thread.is_alive():
             thread.join(timeout=2)
-        with self._lock:
-            self._utterance_thread = None
-            self._utterance_player = None
+        # Connecting may still be in progress. Generation checks will discard
+        # it; do not block a session reset on the provider's connect timeout.
+        if self._lock.acquire(blocking=False):
+            try:
+                self._utterance_thread = None
+                self._utterance_player = None
+            finally:
+                self._lock.release()
 
-    def _speak_once(self, text: str, language: str) -> bool:
+    def _speech_cancelled(self, generation: int) -> bool:
+        with self._cancel_lock:
+            return generation != self._speech_generation
+
+    def _speak_once(self, text: str, language: str, generation: int) -> bool:
         started = time.perf_counter()
         self.last_first_audio_ms = None
         self.last_total_ms = None
         self.playback_started = False
         connection = self._ensure_connection()
+        if self._speech_cancelled(generation):
+            return False
         logger.info(
             "[Cartesia] Synthesis started [model=%s voice=%s language=%s chars=%d]",
             self._model,
@@ -392,6 +442,8 @@ class CartesiaTTS(BaseTTS):
         try:
             while True:
                 raw = connection.recv(timeout=self._response_timeout_s)
+                if self._speech_cancelled(generation):
+                    return False
                 payload = json.loads(raw)
                 if payload.get("context_id") != context_id:
                     continue
@@ -408,6 +460,12 @@ class CartesiaTTS(BaseTTS):
                             self._output_device_name,
                             self._sample_rate,
                         )
+                        with self._cancel_lock:
+                            self._whole_player = player
+                            cancelled = generation != self._speech_generation
+                        if cancelled:
+                            player.kill()
+                            return False
                         self.playback_started = True
                         self.last_first_audio_ms = (
                             time.perf_counter() - started
@@ -443,18 +501,36 @@ class CartesiaTTS(BaseTTS):
                     pass
             raise
         finally:
+            if player is not None and self._speech_cancelled(generation):
+                try:
+                    if player.poll() is None:
+                        player.kill()
+                    finish_raw_player(player, timeout_s=2)
+                except Exception:
+                    pass
+            with self._cancel_lock:
+                self._whole_player = None
             self.last_total_ms = (time.perf_counter() - started) * 1000.0
 
     def speak(self, text: str, language: str = "en") -> bool:
         if not text.strip():
             return False
+        generation = self._speech_generation
         with self._lock:
             for attempt in range(2):
+                if self._speech_cancelled(generation):
+                    return False
                 try:
-                    return self._speak_once(text.strip(), language)
+                    result = self._speak_once(text.strip(), language, generation)
+                    if self._speech_cancelled(generation):
+                        self._close_connection()
+                        return False
+                    return result
                 except Exception as exc:
                     audio_started = self.playback_started
                     self._close_connection()
+                    if self._speech_cancelled(generation):
+                        return False
                     if attempt == 0 and not audio_started:
                         logger.warning(
                             "[Cartesia] Socket stale before playback; reconnecting once"

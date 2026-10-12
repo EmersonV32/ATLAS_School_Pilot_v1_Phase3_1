@@ -135,6 +135,29 @@ def test_camera_status_marks_stalled_network_frame_unready() -> None:
     assert status["last_frame_age_s"] is not None
 
 
+def test_latest_does_not_serve_a_stalled_frame_and_recovers() -> None:
+    source = CameraSource("http://atlas-camera.local:81/stream")
+    frame = object()
+    source._frame = frame
+    source._frame_number = 7
+    source._last_frame_at = time.monotonic() - 5.0
+    source._ready.set()
+    assert source.latest() == (None, 7)
+    source._last_frame_at = time.monotonic()
+    assert source.latest() == (frame, 7)
+
+
+def test_latest_never_copies_a_stale_frame() -> None:
+    class Frame:
+        def copy(self):
+            raise AssertionError("A stale image must not be copied or encoded")
+
+    source = CameraSource(0)
+    source._frame = Frame()
+    source._last_frame_at = time.monotonic() - 60.0
+    assert source.latest(copy=True)[0] is None
+
+
 def test_mjpeg_reader_extracts_one_complete_jpeg(monkeypatch) -> None:
     import cv2
     import numpy as np

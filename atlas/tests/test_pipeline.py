@@ -455,3 +455,54 @@ def test_listen_once_can_skip_repeated_cue():
     runner = _make_runner(stt=RecordingSTT(), tts=RecordingTTS())
     assert runner.listen_once(play_cue=False) is not None
     assert events == ["prepare", "listen"]
+
+
+@pytest.mark.parametrize("entrypoint", ["run_once", "respond_to_transcript"])
+@pytest.mark.parametrize("failure", ["reject", "exception"])
+def test_rejected_stream_segment_is_not_reported_as_complete_speech(
+    entrypoint, failure,
+):
+    class StreamingLLM:
+        def generate_stream(self, _messages):
+            yield "A painting uses composition. "
+            yield "The diagonal creates movement."
+
+    class PartialTTS(MockTTS):
+        def __init__(self):
+            super().__init__()
+            self.segments = []
+            self.replays = []
+
+        def begin_utterance(self, language="en"):
+            return True
+
+        def speak_segment(self, text, language="en"):
+            self.segments.append(text)
+            if len(self.segments) == 2:
+                if failure == "exception":
+                    raise OSError("Synthetic segment loss")
+                return False
+            return True
+
+        def end_utterance(self):
+            # The provider successfully drained the accepted first segment.
+            return True
+
+        def speak(self, text, language="en"):
+            self.replays.append(text)
+            return True
+
+    tts = PartialTTS()
+    runner = _make_runner(
+        dialogue_engine=DialogueEngine(StreamingLLM()), tts=tts,
+        stream_responses=True, retriever=lambda *_args: [],
+    )
+    if entrypoint == "run_once":
+        result = runner.run_once()
+    else:
+        result = runner.respond_to_transcript(
+            TranscriptResult("Explain the diagonal composition")
+        )
+    assert result.dialogue.response.endswith("The diagonal creates movement.")
+    assert not result.tts_ok
+    assert not tts.replays  # Never replay partial speech with a different voice.

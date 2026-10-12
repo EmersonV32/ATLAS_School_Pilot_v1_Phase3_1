@@ -598,6 +598,28 @@ class TestEval:
 
 
 class TestAdminConfig:
+    def test_listening_bounds_are_visible_without_exposing_secrets(self, client):
+        response = client.get("/admin/config", headers=_admin(client))
+        assert response.status_code == 200
+        speech = response.json()["config"]["speech"]
+        assert speech["max_utterance_s"] == 45.0
+        assert speech["silero_hesitation_silence_ms"] == 4000
+        assert not any("key" in field or "password" in field for field in speech)
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("max_utterance_s", 4), ("max_utterance_s", 121),
+            ("silero_hesitation_silence_ms", 199),
+            ("silero_hesitation_silence_ms", 10001),
+        ],
+    )
+    def test_listening_bounds_reject_unsafe_values(self, client, field, value):
+        response = client.put(
+            "/admin/config", headers=_admin(client), json={"speech": {field: value}}
+        )
+        assert response.status_code == 422
+
     def test_config_requires_token(self, client):
         assert client.get("/admin/config").status_code == 401
         assert client.put("/admin/config", json={}).status_code == 401
@@ -628,6 +650,8 @@ class TestAdminConfig:
                     "stt_provider": "deepgram",
                     "tts_provider": "cartesia",
                     "silero_threshold": 0.55,
+                    "max_utterance_s": 60.0,
+                    "silero_hesitation_silence_ms": 5000,
                 },
                 "hardware": {"yolo_backend": "tensorrt"},
                 "rag": {"top_k": 7},
@@ -642,6 +666,8 @@ class TestAdminConfig:
         body = response.json()
         assert body["restart_required"] is True
         assert body["config"]["speech"]["stt_provider"] == "deepgram"
+        assert body["config"]["speech"]["max_utterance_s"] == 60.0
+        assert body["config"]["speech"]["silero_hesitation_silence_ms"] == 5000
         assert body["config"]["hardware"]["yolo_backend"] == "tensorrt"
         assert body["config"]["rag"]["top_k"] == 7
         assert body["config"]["logging"]["log_live_stt"] is True
@@ -651,6 +677,8 @@ class TestAdminConfig:
         )
         persisted = override_path.read_text(encoding="utf-8")
         assert "silero_threshold: 0.55" in persisted
+        assert "max_utterance_s: 60.0" in persisted
+        assert "silero_hesitation_silence_ms: 5000" in persisted
         assert "log_llm_responses: true" in persisted
         assert "api_key" not in persisted
 

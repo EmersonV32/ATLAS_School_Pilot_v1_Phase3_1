@@ -447,3 +447,60 @@ def test_direct_view_questions_use_actual_camera_not_previous_named_subject(ques
     engine = DialogueEngine(RecordingLLM())
     engine.prepare_turn("Discuss Mona Lisa", "starry_night")
     assert engine.prepare_turn(question, "starry_night").artwork_id == "starry_night"
+
+
+@pytest.mark.parametrize("camera_ready", [True, False])
+def test_typed_current_view_does_not_claim_a_remembered_artwork(
+    workflow_service, camera_ready,
+):
+    service = workflow_service
+    llm = RecordingLLM()
+    service.container.dialogue_engine._llm = llm
+    service.container.retriever.retrieve = lambda _q: SimpleNamespace(
+        chunks=[], total_latency_ms=0.0,
+    )
+    tracker = service.container.artwork_tracker
+    tracker._last_stable = detection("mona_lisa")
+    # Either a fresh camera with no current detection, or a stalled camera
+    # whose last detector result is still cached.
+    tracker._latest_visual = detection("mona_lisa") if not camera_ready else None
+    service.container._camera_source = SimpleNamespace(
+        status=lambda: {"ready": camera_ready}, stop=lambda: None,
+    )
+    service.ask("Who painted Mona Lisa?")
+    assert "Leonardo" in service.ask("Who painted it?")["answer"]
+    answer = service.ask("What am I looking at?")
+    assert answer["artwork_id"] is None
+    assert "Mona Lisa" not in answer["answer"]
+    focus = service.container.dialogue_engine.prepare_turn(
+        "What am I looking at?", service.artwork_status()["live_artwork_id"],
+    )
+    assert focus.live_artwork_id is None and focus.artwork_id is None
+
+
+def test_typed_confirmed_new_view_replaces_old_focus(workflow_service):
+    service = workflow_service
+    service.ask("Who painted Mona Lisa?")
+    tracker = service.container.artwork_tracker
+    tracker._last_stable = detection("starry_night")
+    tracker._latest_visual = detection("starry_night")
+    service.container._camera_source = SimpleNamespace(
+        status=lambda: {"ready": True}, stop=lambda: None,
+    )
+    assert "Vincent" in service.ask("Who painted this?")["answer"]
+
+
+def test_activity_storage_failure_cannot_discard_a_generated_answer(workflow_service):
+    service = workflow_service
+    service.container.dialogue_engine._llm = RecordingLLM()
+    service.container.retriever.retrieve = lambda _q: SimpleNamespace(
+        chunks=[], total_latency_ms=0.0,
+    )
+
+    def broken_log(**_kwargs):
+        raise OSError("Synthetic disk full")
+
+    service.container.logger.log = broken_log
+    answer = service.ask("Explain the effect of a diagonal composition")
+    assert answer["answer"] == "A useful explanation of composition and technique."
+    assert service.last_answer == answer

@@ -4,6 +4,10 @@
 const $ = (id) => document.getElementById(id);
 let authRequired = true;
 let adminUnlocked = false;
+let adminAccessGeneration = 0;
+class AdminAccessChangedError extends Error {
+  constructor() { super("Admin access changed; outdated response discarded."); }
+}
 let cameraTimer = null;
 let currentHelpRequestId = null;
 let lastAlertedHelpRequestId = null;
@@ -151,6 +155,7 @@ function token() {
 
 function setAdminLocked(locked, message = "") {
   if (locked) {
+    adminAccessGeneration++;
     stopPanJog();
     panGeneration++;
     latestPan = null;
@@ -198,6 +203,8 @@ async function api(path, options = {}, protectedRoute = true) {
 }
 
 async function requestApi(path, options = {}, protectedRoute = true) {
+  const accessGeneration = adminAccessGeneration;
+  const requestToken = token();
   if (protectedRoute && authRequired && !token()) throw new Error("Admin token required");
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (protectedRoute && authRequired) headers["X-Atlas-Admin-Token"] = token();
@@ -213,14 +220,18 @@ async function requestApi(path, options = {}, protectedRoute = true) {
     response = await fetch(path, { ...fetchOptions, headers, signal: controller.signal });
     try { body = await response.json(); } catch (_) { /* no response body */ }
   } catch (_) {
+    if (protectedRoute && (accessGeneration !== adminAccessGeneration || requestToken !== token())) throw new AdminAccessChangedError();
     throw new Error(controller.signal.aborted ? "Request timed out. Check the connection and retry." : "Cannot reach ATLAS. Check the connection and retry.");
   } finally {
     window.clearTimeout(deadline);
     callerSignal?.removeEventListener("abort", cancel);
   }
+  if (protectedRoute && (accessGeneration !== adminAccessGeneration || requestToken !== token())) {
+    throw new AdminAccessChangedError();
+  }
   if (!response.ok) {
     const detail = body && body.detail ? body.detail : response.statusText;
-    if (protectedRoute && response.status === 401 && authRequired && headers["X-Atlas-Admin-Token"] === token()) {
+    if (protectedRoute && response.status === 401 && authRequired && accessGeneration === adminAccessGeneration && headers["X-Atlas-Admin-Token"] === token()) {
       window.sessionStorage.removeItem("atlasAdminToken");
       setAdminLocked(true, "This token was not accepted. Try again.");
     }
@@ -368,6 +379,7 @@ async function refreshVisitorStatus() {
   try {
     renderVisitorStatus(await api("/api/admin/live-status", {}, true));
   } catch (_) {
+    if (_ instanceof AdminAccessChangedError) return;
     latestVisitor = null;
     setIssue("visitor-request", { title: "Visitor monitor unavailable", detail: "Onboarding and assistance values may be out of date. Check the connection.", severity: "danger", view: "visitor" });
     $("visitor-live-state").textContent = "Unavailable";
@@ -521,6 +533,7 @@ async function refreshAudio() {
   try {
     renderAudioStatus(await api("/api/admin/audio", {}, true));
   } catch (error) {
+    if (error instanceof AdminAccessChangedError) return;
     latestAudio = null;
     $("metric-audio").textContent = "Unknown";
     setIssue("audio-request", { title: "Audio status unavailable", detail: "Cannot confirm the selected output. Check the connection and audio devices.", severity: "danger", view: "audio-vision" });
@@ -588,7 +601,9 @@ async function refreshStatus() {
     $("camera-detection").textContent = artwork.label || "No artwork";
     $("camera-detection").className = `status-pill ${artwork.stable ? "ok" : "neutral"}`;
     $("camera-confidence").textContent = confidence == null ? "--" : `${Math.round(confidence * 100)}%`;
-    $("camera-source").textContent = artwork.artwork_id
+    $("camera-source").textContent = artwork.current_view_confirmed === false && artwork.artwork_id
+      ? "Remembered artwork / not a confirmed current view"
+      : artwork.artwork_id
       ? `${artwork.stable ? "Stable" : "Detecting"} / ${artwork.source}` : "Camera stream";
     const camera = status.camera || {};
     $("metric-camera").textContent = camera.ready ? "Frame ready" : "Disconnected";
@@ -601,6 +616,7 @@ async function refreshStatus() {
     }
     renderOperationalDetails();
   } catch (_) {
+    if (_ instanceof AdminAccessChangedError) return;
     setIssue("status-request", { title: "Runtime connection lost", detail: "Live values are last known. Check the Jetson, network and ATLAS service.", severity: "danger", view: "logs" });
     $("admin-state").textContent = "Offline";
     $("admin-state").className = "status-pill danger";
@@ -622,6 +638,7 @@ async function refreshHealth() {
     replaceIssues("health-", Object.entries(health.components).filter(([, value]) => componentState(value) !== "ok").map(([name, value]) => [name, { title: `${titleCase(name)} needs attention`, detail: componentState(value) === "warning" ? "A primary or fallback path is degraded, but another path is reported available." : "The runtime reported this component as unavailable or unhealthy. Review diagnostics.", severity: componentState(value), view: "audio-vision" }]));
     renderOperationalDetails();
   } catch (error) {
+    if (error instanceof AdminAccessChangedError) return;
     latestHealth = null;
     setIssue("health-request", { title: "Component checks unavailable", detail: "Camera, speech and knowledge readiness cannot be confirmed.", severity: "danger", view: "audio-vision" });
     appendStatus(list, "dashboard", error.message, true);
@@ -669,10 +686,12 @@ function fillConfig(payload) {
   setValue("cfg-deepgram-model", config.speech.deepgram_model);
   setValue("cfg-deepgram-language", config.speech.deepgram_language);
   setValue("cfg-listen-duration", config.speech.listen_duration_s);
+  setValue("cfg-max-utterance", config.speech.max_utterance_s);
   setValue("cfg-cartesia-model", config.speech.cartesia_model);
   setValue("cfg-cartesia-voice", config.speech.cartesia_voice_id);
   setValue("cfg-vad-threshold", config.speech.silero_threshold);
   setValue("cfg-vad-silence", config.speech.silero_min_silence_ms);
+  setValue("cfg-vad-hesitation", config.speech.silero_hesitation_silence_ms);
   setValue("cfg-cloud-speech", config.speech.cloud_speech_enabled);
   setValue("cfg-offline-fallback", config.speech.offline_fallback_enabled);
   setValue("cfg-yolo", config.hardware.yolo_backend);
@@ -761,6 +780,7 @@ async function unlockAdmin({ quiet = false } = {}) {
     startRefreshLoops();
     if (!quiet) notice("Admin dashboard unlocked");
   } catch (error) {
+    if (error instanceof AdminAccessChangedError) return;
     if (authRequired) {
       window.sessionStorage.removeItem("atlasAdminToken");
       setAdminLocked(true, "Token not accepted. Check it and try again.");
@@ -789,10 +809,12 @@ function configPatch() {
       deepgram_model: $("cfg-deepgram-model").value.trim(),
       deepgram_language: $("cfg-deepgram-language").value.trim(),
       listen_duration_s: numberValue("cfg-listen-duration"),
+      max_utterance_s: numberValue("cfg-max-utterance"),
       cartesia_model: $("cfg-cartesia-model").value.trim(),
       cartesia_voice_id: $("cfg-cartesia-voice").value.trim(),
       silero_threshold: numberValue("cfg-vad-threshold"),
       silero_min_silence_ms: numberValue("cfg-vad-silence"),
+      silero_hesitation_silence_ms: numberValue("cfg-vad-hesitation"),
       cloud_speech_enabled: $("cfg-cloud-speech").checked,
       offline_fallback_enabled: $("cfg-offline-fallback").checked,
     },
@@ -981,17 +1003,21 @@ function showCameraImage(image, source) {
 }
 
 async function fetchPreview(path) {
+  const accessGeneration = adminAccessGeneration;
+  const requestToken = token();
   const controller = new AbortController();
   const deadline = window.setTimeout(() => controller.abort(), 8000);
   try {
-    const requestToken = token();
     const response = await fetch(path, { cache: "no-store", headers: authRequired ? { "X-Atlas-Admin-Token": requestToken } : {}, signal: controller.signal });
+    if (!adminUnlocked || accessGeneration !== adminAccessGeneration || requestToken !== token()) throw new AdminAccessChangedError();
     if (response.status === 401 && authRequired && requestToken === token()) {
       window.sessionStorage.removeItem("atlasAdminToken");
       setAdminLocked(true, "This token was not accepted. Try again.");
     }
     if (!response.ok) throw new Error("Preview unavailable.");
-    return URL.createObjectURL(await response.blob());
+    const blob = await response.blob();
+    if (!adminUnlocked || accessGeneration !== adminAccessGeneration || requestToken !== token()) throw new AdminAccessChangedError();
+    return URL.createObjectURL(blob);
   } finally { window.clearTimeout(deadline); }
 }
 
@@ -1002,15 +1028,17 @@ async function refreshCamera() {
     return;
   }
   if (cameraRequestInFlight) return;
+  const accessGeneration = adminAccessGeneration;
+  const requestToken = token();
   cameraRequestInFlight = true;
   let nextUrl = null;
   try {
     nextUrl = await fetchPreview(`/camera/frame.jpg?t=${Date.now()}`);
-    if (!adminUnlocked) return;
+    if (!adminUnlocked || accessGeneration !== adminAccessGeneration || requestToken !== token()) return;
     const image = $("admin-camera");
     const previousUrl = cameraObjectUrl;
     await showCameraImage(image, nextUrl);
-    if (!adminUnlocked) return;
+    if (!adminUnlocked || accessGeneration !== adminAccessGeneration || requestToken !== token()) return;
     cameraObjectUrl = nextUrl;
     nextUrl = null;
     if (previousUrl) URL.revokeObjectURL(previousUrl);
@@ -1021,6 +1049,7 @@ async function refreshCamera() {
     $("camera-state").className = "status-pill ok";
     scheduleCameraRefresh(250);
   } catch (_) {
+    if (!adminUnlocked || accessGeneration !== adminAccessGeneration || requestToken !== token()) return;
     if (cameraObjectUrl) {
       URL.revokeObjectURL(cameraObjectUrl);
       cameraObjectUrl = null;
@@ -1036,6 +1065,8 @@ async function refreshCamera() {
   } finally {
     if (nextUrl) URL.revokeObjectURL(nextUrl);
     cameraRequestInFlight = false;
+    // Unlock may have attempted a refresh while this old request was pending.
+    if (adminUnlocked && (accessGeneration !== adminAccessGeneration || requestToken !== token())) scheduleCameraRefresh(0);
   }
 }
 
@@ -1203,6 +1234,7 @@ async function refreshArducamStatus() {
   try {
     renderArducamStatus(await api("/api/admin/arducam/status", {}, true));
   } catch (error) {
+    if (error instanceof AdminAccessChangedError) return;
     setIssue("arducam-request", { title: "Arducam status unavailable", detail: "CSI camera readiness cannot be confirmed. Check the connection.", severity: "danger", view: "arducam" });
     $("arducam-state").textContent = "Unavailable";
     $("arducam-state").className = "status-pill danger";
@@ -1217,15 +1249,17 @@ async function refreshArducam() {
     return;
   }
   if (arducamRequestInFlight) return;
+  const accessGeneration = adminAccessGeneration;
+  const requestToken = token();
   arducamRequestInFlight = true;
   let nextUrl = null;
   try {
     nextUrl = await fetchPreview(`/api/admin/arducam/frame.jpg?t=${Date.now()}`);
-    if (!adminUnlocked) return;
+    if (!adminUnlocked || accessGeneration !== adminAccessGeneration || requestToken !== token()) return;
     const image = $("admin-arducam");
     const previousUrl = arducamObjectUrl;
     await showCameraImage(image, nextUrl);
-    if (!adminUnlocked) return;
+    if (!adminUnlocked || accessGeneration !== adminAccessGeneration || requestToken !== token()) return;
     arducamObjectUrl = nextUrl;
     nextUrl = null;
     if (previousUrl) URL.revokeObjectURL(previousUrl);
@@ -1236,6 +1270,7 @@ async function refreshArducam() {
     $("arducam-state").className = "status-pill ok";
     scheduleArducamRefresh(250);
   } catch (error) {
+    if (!adminUnlocked || accessGeneration !== adminAccessGeneration || requestToken !== token()) return;
     if (arducamObjectUrl) {
       URL.revokeObjectURL(arducamObjectUrl);
       arducamObjectUrl = null;
@@ -1252,6 +1287,7 @@ async function refreshArducam() {
   } finally {
     if (nextUrl) URL.revokeObjectURL(nextUrl);
     arducamRequestInFlight = false;
+    if (adminUnlocked && (accessGeneration !== adminAccessGeneration || requestToken !== token())) scheduleArducamRefresh(0);
   }
 }
 

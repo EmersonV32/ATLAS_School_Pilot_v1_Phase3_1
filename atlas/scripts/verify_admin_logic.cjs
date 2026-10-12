@@ -140,7 +140,7 @@ function check(script, expected) { assert.deepEqual(JSON.parse(JSON.stringify(ev
   const outdated = evaluate('requestApi("/status")');
   evaluate('$("inp-token").value = "new-synthetic-token";');
   respond({ ok: false, status: 401, json: async () => ({ detail: "Synthetic token rejected" }) });
-  await assert.rejects(outdated, /Synthetic token rejected/); checks++;
+  await assert.rejects(outdated, /access changed/); checks++;
   check('adminUnlocked', true);
   sandbox.fetch = (_, options) => new Promise((resolve, reject) => options.signal.addEventListener("abort", () => reject(new Error("Aborted"))));
   const stalled = evaluate('requestApi("/status")');
@@ -232,5 +232,47 @@ function check(script, expected) { assert.deepEqual(JSON.parse(JSON.stringify(ev
   const cancelled = evaluate('requestApi("/status", {signal: callerSignal, timeoutMs: 1200})');
   aborter.abort();
   await assert.rejects(cancelled, /timed out/); checks++;
+  evaluate('authRequired = true; adminUnlocked = true; $("inp-token").value = "synthetic-audit-token";');
+  let releaseOldAccess;
+  sandbox.fetch = () => new Promise(resolve => { releaseOldAccess = resolve; });
+  const lateAccess = evaluate('requestApi("/status")');
+  evaluate('setAdminLocked(true); adminUnlocked = true;');
+  releaseOldAccess({ok: true, json: async () => ({private: "old access"})});
+  await assert.rejects(lateAccess, /access changed/); checks++;
+  const lateToken = evaluate('requestApi("/status")');
+  evaluate('$("inp-token").value = "different-synthetic-token";');
+  releaseOldAccess({ok: true, json: async () => ({private: "old token"})});
+  await assert.rejects(lateToken, /access changed/); checks++;
+  for (const status of [401, 503]) {
+    const lateError = evaluate('requestApi("/status")');
+    evaluate('setAdminLocked(true); adminUnlocked = true;');
+    releaseOldAccess({ok: false, status, json: async () => ({detail: "Old failure"})});
+    await assert.rejects(lateError, /access changed/); checks++;
+    check('adminUnlocked', true);
+  }
+  let rejectOldAccess;
+  sandbox.fetch = () => new Promise((_, reject) => { rejectOldAccess = reject; });
+  const lateNetwork = evaluate('requestApi("/status")');
+  evaluate('setAdminLocked(true); adminUnlocked = true;');
+  rejectOldAccess(new Error("Old network failure"));
+  await assert.rejects(lateNetwork, /access changed/); checks++;
+  check('adminUnlocked', true);
+  sandbox.fetch = () => new Promise(resolve => { releaseOldAccess = resolve; });
+  const latePreviewError = evaluate('fetchPreview("/camera/frame.jpg")');
+  evaluate('setAdminLocked(true); adminUnlocked = true;');
+  releaseOldAccess({ok: false, status: 401});
+  await assert.rejects(latePreviewError, /access changed/); checks++;
+  check('adminUnlocked', true);
+  for (const preview of ["refreshCamera", "refreshArducam"]) {
+    evaluate(`document.body.dataset.adminView = ${JSON.stringify(preview === "refreshCamera" ? "main" : "arducam")};`);
+    evaluate('showCameraImage = async (image, url) => { image.src = url; };');
+    const lateFrame = evaluate(`${preview}()`);
+    evaluate('setAdminLocked(true); adminUnlocked = true;');
+    releaseOldAccess({ok: true, blob: async () => new Blob(["synthetic frame"])});
+    await lateFrame;
+    check(preview === "refreshCamera" ? 'cameraObjectUrl' : 'arducamObjectUrl', null);
+    check(`$("${preview === "refreshCamera" ? "admin-camera" : "admin-arducam"}").classList.contains("hidden")`, true);
+    assert.equal(timers.get(timerId), evaluate(preview), "A fresh unlock must resume the preview after discarding the old request"); checks++;
+  }
   console.log(`${checks} dashboard JavaScript checks passed (synthetic, no live services).`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

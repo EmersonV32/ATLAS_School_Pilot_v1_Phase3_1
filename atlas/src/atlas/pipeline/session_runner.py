@@ -760,12 +760,14 @@ class SessionRunner:
                             language=transcript.language,
                         )
                     )
+                    tts_results.append(queued)
                     logger.info(
                         "[TTS] Sentence %d queued in continuous context [ok=%s]",
                         sentence_number,
                         queued,
                     )
                 except Exception as exc:
+                    tts_results.append(False)
                     logger.exception(
                         "[TTS] Sentence %d queue failed: %s",
                         sentence_number,
@@ -1119,12 +1121,14 @@ class SessionRunner:
                             language=transcript.language,
                         )
                     )
+                    tts_results.append(queued)
                     logger.info(
                         "[TTS] Sentence %d queued in continuous context [ok=%s]",
                         sentence_number,
                         queued,
                     )
                 except Exception as exc:
+                    tts_results.append(False)
                     logger.exception(
                         "[TTS] Sentence %d queue failed: %s",
                         sentence_number,

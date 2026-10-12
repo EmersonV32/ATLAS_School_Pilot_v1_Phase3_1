@@ -145,8 +145,14 @@ class SpeechConfigUpdate(BaseModel):
     deepgram_model: str | None = Field(default=None, min_length=1, max_length=80)
     deepgram_language: str | None = Field(default=None, min_length=2, max_length=20)
     listen_duration_s: float | None = Field(default=None, ge=3.0, le=20.0)
+    max_utterance_s: float | None = Field(
+        default=None, ge=5.0, le=120.0, allow_inf_nan=False
+    )
     silero_threshold: float | None = Field(default=None, ge=0.05, le=0.95)
     silero_min_silence_ms: int | None = Field(default=None, ge=100, le=3000)
+    silero_hesitation_silence_ms: int | None = Field(
+        default=None, ge=200, le=10000
+    )
     cartesia_model: str | None = Field(default=None, min_length=1, max_length=80)
     cartesia_voice_id: str | None = Field(default=None, min_length=1, max_length=100)
 

@@ -183,6 +183,8 @@ class CameraSource:
     always receive the freshest frame instead of processing stale frames.
     """
 
+    MAX_FRAME_AGE_S = 4.5
+
     def __init__(
         self,
         source: str | int,
@@ -434,9 +436,17 @@ class CameraSource:
             self._capture = None
 
     def latest(self, copy: bool = False) -> tuple[Any, int]:
-        """Return ``(frame, sequence_number)`` or ``(None, 0)``."""
+        """Return a fresh frame, or None with the last sequence number.
+
+        A stalled reader can retain its last buffer. Never serve that buffer as
+        a live preview or send it to manual artwork identification.
+        """
         with self._lock:
-            frame = self._frame
+            fresh = (
+                self._last_frame_at > 0
+                and time.monotonic() - self._last_frame_at <= self.MAX_FRAME_AGE_S
+            )
+            frame = self._frame if fresh else None
             number = self._frame_number
             if copy and frame is not None:
                 frame = frame.copy()
@@ -465,7 +475,7 @@ class CameraSource:
                     observed_fps = (len(self._frame_times) - 1) / elapsed
             # A reader thread can remain alive while a network stream is
             # silently stalled. Report that as unavailable, not "ready".
-            fresh = age is not None and age <= 4.5
+            fresh = age is not None and age <= self.MAX_FRAME_AGE_S
             return {
                 "source": self.source,
                 "ready": self._ready.is_set() and fresh,

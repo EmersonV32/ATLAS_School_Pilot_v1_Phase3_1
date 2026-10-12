@@ -15,7 +15,7 @@ const languages = ["en", "fr", "es", "zh", "pt", "ar", "hi", "de", "it", "ja", "
 const html = fs.readFileSync(path.join(root, "templates/admin.html"), "utf8").replace("<!-- ATLAS_ADMIN_LANGUAGE_OPTIONS -->", languages.map(code => `<option value="${code}">${code.toUpperCase()}</option>`).join(""));
 const config = {
   llm: { provider: "mock", model: "mock-guide", timeout_s: 12, cloud_llm_enabled: false, streaming_enabled: false, sentence_tts_enabled: false },
-  speech: { stt_provider: "deepgram", tts_provider: "cartesia", deepgram_model: "nova-3", deepgram_language: "multi", listen_duration_s: 8, cartesia_model: "sonic-3", cartesia_voice_id: "synthetic-voice", silero_threshold: 0.5, silero_min_silence_ms: 2000, cloud_speech_enabled: false, offline_fallback_enabled: true },
+  speech: { stt_provider: "deepgram", tts_provider: "cartesia", deepgram_model: "nova-3", deepgram_language: "multi", listen_duration_s: 8, max_utterance_s: 45, cartesia_model: "sonic-3", cartesia_voice_id: "synthetic-voice", silero_threshold: 0.5, silero_min_silence_ms: 2000, silero_hesitation_silence_ms: 4000, cloud_speech_enabled: false, offline_fallback_enabled: true },
   hardware: { yolo_backend: "auto", vision_conf_threshold: 0.65, vision_mask_conf_threshold: 0.7, vision_center_weight: 0.5, vision_center_threshold: 0.5, vision_hold_seconds: 1, vision_gap_tolerance_s: 1, manual_capture_crop_ratio: 0.8, camera_width: 800, camera_height: 600, camera_fps: 15 },
   rag: { top_k: 4, dense_top_k: 8, keyword_top_k: 8, chunk_max_words: 100, language_fallback_enabled: true, fallback_language: "en" },
   logging: { log_transcripts: false, log_live_stt: false, log_llm_responses: false },
@@ -234,8 +234,15 @@ const report = { layouts: [], actions: [], failures: [], errors: [], contrastChe
     await page.locator("#btn-clear-estop").click();
     await ready();
     await page.locator('[data-admin-tab="settings"]').click();
+    assert.equal(await page.locator("#cfg-max-utterance").inputValue(), "45");
+    assert.equal(await page.locator("#cfg-vad-hesitation").inputValue(), "4000");
+    await page.locator("#cfg-max-utterance").fill("60");
+    await page.locator("#cfg-vad-hesitation").fill("5000");
     await page.locator("#btn-save-config-top").click();
     await page.waitForFunction(() => !document.querySelector("#restart-badge").classList.contains("hidden"));
+    assert.equal(config.speech.max_utterance_s, 60);
+    assert.equal(config.speech.silero_hesitation_silence_ms, 5000);
+    report.actions.push("Listening limits are visible and saved with restart required");
     await page.locator('[data-admin-tab="logs"]').click();
     await page.waitForFunction(() => latestLogs.snapshot_id === "synthetic-activity-1");
     await page.locator("#technical-logs > summary").click();

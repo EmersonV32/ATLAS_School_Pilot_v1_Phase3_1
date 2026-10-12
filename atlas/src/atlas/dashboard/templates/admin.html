@@ -248,11 +248,13 @@
               <label>TTS<select id="cfg-tts"><option value="cartesia">Cartesia</option><option value="piper">Piper</option></select></label>
               <label>Deepgram model<input id="cfg-deepgram-model" type="text"></label>
               <label>Deepgram language<input id="cfg-deepgram-language" type="text"></label>
-              <label>Listening window (s)<input id="cfg-listen-duration" type="number" min="3" max="20" step="0.5"></label>
+              <label>Wait for speech to start (s)<input id="cfg-listen-duration" type="number" min="3" max="20" step="0.5"></label>
+              <label>Maximum question length (s)<input id="cfg-max-utterance" type="number" min="5" max="120" step="0.5"></label>
               <label>Cartesia model<input id="cfg-cartesia-model" type="text"></label>
               <label>Cartesia voice ID<input id="cfg-cartesia-voice" type="text"></label>
               <label>VAD threshold<input id="cfg-vad-threshold" type="number" min="0.05" max="0.95" step="0.05"></label>
-              <label>Silence endpoint (ms)<input id="cfg-vad-silence" type="number" min="100" max="3000" step="50"></label>
+              <label>Normal pause allowance (ms)<input id="cfg-vad-silence" type="number" min="100" max="3000" step="50"></label>
+              <label>Unfinished question pause (ms)<input id="cfg-vad-hesitation" type="number" min="200" max="10000" step="50"></label>
               <label class="switch-field"><input id="cfg-cloud-speech" type="checkbox"><span>Cloud speech</span></label>
               <label class="switch-field"><input id="cfg-offline-fallback" type="checkbox"><span>Offline fallback</span></label>
               <label class="switch-field"><input id="cfg-log-live-stt" type="checkbox"><span>Log live STT</span></label>
@@ -446,6 +448,6 @@
   </div>
 
   <p id="admin-notice" class="notice hidden" role="status" aria-live="polite"></p>
-  <script src="/static/admin.js?v=20"></script>
+  <script src="/static/admin.js?v=22"></script>
 </body>
 </html>

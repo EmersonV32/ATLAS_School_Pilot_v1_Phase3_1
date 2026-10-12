@@ -62,7 +62,7 @@ class BaseTTS(ABC):
         return True
 
     def abort_utterance(self) -> None:
-        """Cancel an active multi-segment synthesis context."""
+        """Cancel active synthesis/playback, including a whole-answer request."""
         return None
 
     @abstractmethod

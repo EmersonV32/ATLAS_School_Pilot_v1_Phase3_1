@@ -10,6 +10,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import wave
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -48,6 +49,51 @@ class PiperTTS(BaseTTS):
         self._output_device_name = output_device_name
         self._volume_percent = normalize_volume(volume_percent)
         self._command: list[str] | None = None
+        self._process_lock = threading.Lock()
+        self._speech_generation = 0
+        self._processes: dict[int, subprocess.Popen] = {}
+
+    def abort_utterance(self) -> None:
+        """Cancel only subprocesses owned by this adapter, never other audio."""
+        with self._process_lock:
+            self._speech_generation += 1
+            processes = list(self._processes.values())
+        for process in processes:
+            try:
+                if process.poll() is None:
+                    process.kill()
+            except OSError:
+                pass
+
+    def close(self) -> None:
+        self.abort_utterance()
+
+    def _run_process(
+        self, command, *, generation: int, input_data=None, timeout_s: float = 30.0
+    ):
+        with self._process_lock:
+            if generation != self._speech_generation:
+                return subprocess.CompletedProcess(command, -1, b"", b"")
+            process = subprocess.Popen(
+                command, stdin=subprocess.PIPE if input_data is not None else None,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+            self._processes[id(process)] = process
+        try:
+            try:
+                stdout, stderr = process.communicate(
+                    input=input_data, timeout=timeout_s
+                )
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate(timeout=2)
+                return subprocess.CompletedProcess(command, -1, stdout, stderr)
+            return subprocess.CompletedProcess(
+                command, process.returncode, stdout, stderr,
+            )
+        finally:
+            with self._process_lock:
+                self._processes.pop(id(process), None)
 
     def set_output_device(self, output_device_name: str) -> None:
         self._output_device_name = str(output_device_name).strip()
@@ -97,7 +143,19 @@ class PiperTTS(BaseTTS):
             "Piper voices ready: %s", ", ".join(map(str, self._voices.values()))
         )
 
-    def _play_wav(self, output_path: str) -> bool:
+    def _play_wav(self, output_path: str, *, generation=None) -> bool:
+        generation = self._speech_generation if generation is None else generation
+        # Synthesis and playback need different deadlines. A valid long answer
+        # must not be killed by the old fixed 30-second playback timeout.
+        playback_timeout_s = 30.0
+        try:
+            with wave.open(output_path, "rb") as wav_file:
+                duration_s = wav_file.getnframes() / wav_file.getframerate()
+            playback_timeout_s = max(playback_timeout_s, duration_s + 10.0)
+        except (wave.Error, EOFError):
+            # Malformed audio still fails through the actual player; retain a
+            # finite deadline rather than trusting a corrupt/missing duration.
+            pass
         if self._volume_percent < 100:
             with wave.open(output_path, "rb") as wav_file:
                 params = wav_file.getparams()
@@ -121,8 +179,8 @@ class PiperTTS(BaseTTS):
                 if playback_device:
                     playback += ["-D", playback_device]
                 playback.append(output_path)
-            return subprocess.run(
-                playback, capture_output=True, timeout=30, check=False
+            return self._run_process(
+                playback, generation=generation, timeout_s=playback_timeout_s,
             )
 
         with ThreadPoolExecutor(max_workers=len(names)) as executor:
@@ -130,14 +188,15 @@ class PiperTTS(BaseTTS):
         failures = [result for result in results if result.returncode != 0]
         if failures:
             logger.warning(
-                "Audio playback failed: %s",
-                failures[0].stderr.decode("utf-8", errors="replace")[-300:],
+                "Audio playback failed or cancelled [exit=%s]",
+                failures[0].returncode,
             )
             return False
-        return True
+        return generation == self._speech_generation
 
     def cue(self) -> bool:
         """Play an immediate two-note cue so the visitor knows to speak."""
+        generation = self._speech_generation
         fd, output_path = tempfile.mkstemp(prefix="atlas-cue-", suffix=".wav")
         os.close(fd)
         try:
@@ -159,7 +218,7 @@ class PiperTTS(BaseTTS):
                         )
                         frames.extend(struct.pack("<h", sample))
                     wav_file.writeframes(frames)
-            return self._play_wav(output_path)
+            return self._play_wav(output_path, generation=generation)
         except Exception as exc:
             logger.warning("Listening cue failed: %s", exc)
             return False
@@ -167,6 +226,7 @@ class PiperTTS(BaseTTS):
             Path(output_path).unlink(missing_ok=True)
 
     def speak(self, text: str, language: str = "en") -> bool:
+        generation = self._speech_generation
         voice = self._voice_for(language)
         try:
             if self._command is None:
@@ -174,21 +234,19 @@ class PiperTTS(BaseTTS):
             fd, output_path = tempfile.mkstemp(prefix="atlas-tts-", suffix=".wav")
             os.close(fd)
             try:
-                synthesis = subprocess.run(
+                synthesis = self._run_process(
                     self._resolve_command()
                     + ["--model", str(voice), "--output-file", output_path],
-                    input=(text.strip() + "\n").encode("utf-8"),
-                    capture_output=True,
-                    timeout=30,
-                    check=False,
+                    input_data=(text.strip() + "\n").encode("utf-8"),
+                    generation=generation,
                 )
                 if synthesis.returncode != 0 or not Path(output_path).stat().st_size:
                     logger.warning(
-                        "Piper synthesis failed: %s",
-                        synthesis.stderr.decode("utf-8", errors="replace")[-300:],
+                        "Piper synthesis failed or cancelled [exit=%s]",
+                        synthesis.returncode,
                     )
                     return False
-                return self._play_wav(output_path)
+                return self._play_wav(output_path, generation=generation)
             finally:
                 Path(output_path).unlink(missing_ok=True)
         except Exception as exc:

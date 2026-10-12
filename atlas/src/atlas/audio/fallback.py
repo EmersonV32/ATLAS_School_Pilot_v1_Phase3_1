@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 from .stt import BaseSTT, TranscriptResult
@@ -167,6 +168,8 @@ class FallbackTTS(BaseTTS):
         self._locked_adapter: BaseTTS | None = None
         self._buffered_adapter: BaseTTS | None = None
         self._utterance_had_audio = False
+        self._cancel_lock = threading.Lock()
+        self._speech_generation = 0
 
     def warm_up(self) -> None:
         primary_error: Exception | None = None
@@ -380,6 +383,8 @@ class FallbackTTS(BaseTTS):
         return False
 
     def abort_utterance(self) -> None:
+        with self._cancel_lock:
+            self._speech_generation += 1
         self._streaming_primary = False
         self._stream_segments = []
         self._locked_adapter = None
@@ -389,8 +394,17 @@ class FallbackTTS(BaseTTS):
             self.primary.abort_utterance()
         except Exception as exc:
             logger.warning("[TTS] Could not abort primary utterance: %s", exc)
+        try:
+            self.fallback.abort_utterance()
+        except Exception as exc:
+            logger.warning("[TTS] Could not abort fallback utterance: %s", exc)
+
+    def _speech_cancelled(self, generation: int) -> bool:
+        with self._cancel_lock:
+            return generation != self._speech_generation
 
     def speak(self, text: str, language: str = "en") -> bool:
+        generation = self._speech_generation
         if self._locked_adapter is not None and not self._streaming_primary:
             adapter = self._locked_adapter
             try:
@@ -402,6 +416,8 @@ class FallbackTTS(BaseTTS):
                     exc,
                 )
                 result = False
+            if self._speech_cancelled(generation):
+                return False
             if result:
                 self.last_provider = type(adapter).__name__
                 self._last_adapter = adapter
@@ -427,7 +443,10 @@ class FallbackTTS(BaseTTS):
             return False
         if self.primary_ready:
             try:
-                if self.primary.speak(text, language):
+                primary_ok = self.primary.speak(text, language)
+                if self._speech_cancelled(generation):
+                    return False
+                if primary_ok:
                     self.last_provider = type(self.primary).__name__
                     self._last_adapter = self.primary
                     logger.info("[TTS] Provider used: %s", self.last_provider)
@@ -438,6 +457,8 @@ class FallbackTTS(BaseTTS):
                     type(self.primary).__name__,
                     exc,
                 )
+            if self._speech_cancelled(generation):
+                return False
             if getattr(self.primary, "playback_started", False):
                 self.last_provider = type(self.primary).__name__
                 self._last_adapter = self.primary
@@ -453,7 +474,11 @@ class FallbackTTS(BaseTTS):
             )
             self.primary_ready = False
         try:
+            if self._speech_cancelled(generation):
+                return False
             result = self.fallback.speak(text, language)
+            if self._speech_cancelled(generation):
+                return False
             self.last_provider = type(self.fallback).__name__
             self._last_adapter = self.fallback
             log = logger.info if result else logger.error
