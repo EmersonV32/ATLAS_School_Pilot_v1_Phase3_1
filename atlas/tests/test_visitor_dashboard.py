@@ -151,14 +151,14 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert "Onboarding live monitor" in response.text
         assert "Live camera" in response.text
-        assert "Live logs" in response.text
+        assert "Live activity" in response.text
         assert "Stop &amp; clear" in response.text
         assert 'id="admin-unlock-gate"' in response.text
         assert 'id="btn-start-demo"' in response.text
         assert 'id="admin-workspace"' in response.text
         assert 'class="admin-page admin-locked"' in response.text
-        assert "/static/style.css?v=19" in response.text
-        assert "/static/admin.js?v=18" in response.text
+        assert "/static/style.css?v=20" in response.text
+        assert "/static/admin.js?v=19" in response.text
         assert 'id="btn-toggle-visitor-monitor"' in response.text
         assert 'id="btn-save-config-top"' in response.text
         assert 'data-log-format="human"' in response.text

@@ -257,6 +257,23 @@ def test_unmatched_question_continues_to_hybrid_retrieval():
     ]
 
 
+@pytest.mark.parametrize("enabled", [False, True])
+def test_scripted_response_activity_respects_text_logging_without_changing_voice(
+    enabled, caplog,
+):
+    caplog.set_level(logging.INFO, logger="atlas.pipeline.session_runner")
+    tts = MockTTS()
+    runner = _make_runner(tts=tts, log_llm_responses=enabled)
+    result = runner.respond_to_transcript(
+        TranscriptResult("Who painted the Mona Lisa?", "en"),
+    )
+    assert result.event == "scripted_faq"
+    assert result.success
+    assert result.tts_ok
+    assert (f"[ATLAS final] {result.dialogue.response}" in caplog.text) is enabled
+    assert (result.dialogue.response in caplog.text) is enabled
+
+
 @pytest.mark.parametrize(
     ("command", "expected"),
     [

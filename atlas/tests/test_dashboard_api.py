@@ -77,7 +77,7 @@ class TestHealthAndStatus:
         assert "ATLAS Admin" in res.text
         assert "Live camera" in res.text
         assert '<option value="zh">繁體中文</option>' in res.text
-        assert "Live logs" in res.text
+        assert "Live activity" in res.text
         assert "Current state" in res.text
         assert 'data-admin-tab="main"' in res.text
         assert 'data-admin-tab="demo"' in res.text
@@ -489,6 +489,100 @@ class TestContent:
         )
         assert res.status_code == 200
         assert res.json()["chunks_ingested"] > 0
+
+
+class TestSharedActivitySnapshot:
+    def test_requires_admin_and_disallows_browser_cache(self, client):
+        assert client.get("/logs/snapshot").status_code == 401
+        response = client.get("/logs/snapshot", headers=_admin(client))
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
+        assert response.json()["runtime_available"] is False
+        assert response.json()["runtime"] == []
+
+    def test_runtime_quotes_use_active_flags_even_for_old_logs(self, client):
+        service = client.app.state.service
+        path = service.container.settings.paths.logs_dir / "atlas-runtime.log"
+        path.write_text(
+            "[STT final] synthetic hidden question\n"
+            "[STT live] synthetic hidden interim\n"
+            "[LLM final] synthetic hidden response\n",
+            encoding="utf-8",
+        )
+        hidden = client.get("/logs/snapshot", headers=_admin(client)).json()
+        assert "synthetic hidden" not in str(hidden)
+        flags = service.container.settings.logging
+        flags.log_transcripts = flags.log_live_stt = flags.log_llm_responses = True
+        shown = client.get("/logs/snapshot", headers=_admin(client)).json()
+        assert len(shown["runtime"]) == 3
+        for entry in shown["runtime"]:
+            assert "synthetic hidden" in entry["raw"]
+            assert "synthetic hidden" in entry["text"]
+        assert shown["snapshot_id"] != hidden["snapshot_id"]
+        assert client.get("/logs/snapshot", headers=_admin(client)).json()[
+            "snapshot_id"
+        ] == shown["snapshot_id"]
+
+    def test_snapshot_limits_preserve_pairing_and_original_order(self, client):
+        service = client.app.state.service
+        path = service.container.settings.paths.logs_dir / "atlas-runtime.log"
+        path.write_text(
+            "[STT] Preparing to listen\n"
+            "[Vision] Triggered Mona Lisa after 1.0s\n"
+            "[Button] Manual artwork capture requested\n", encoding="utf-8",
+        )
+        for name in ("session_start", "session_stop"):
+            service.container.logger.log(session_id="test", state="session", event=name)
+        result = client.get(
+            "/logs/snapshot?limit=2&event_limit=1", headers=_admin(client)
+        ).json()
+        assert len(result["runtime"]) == 2
+        assert result["runtime"][0]["actor"] == "Camera"
+        assert result["runtime"][1]["actor"] == "Button"
+        assert len(result["events"]) == 1
+        assert result["events"][0]["raw"]["event"] == "session_stop"
+        assert result["events"][0]["text"] == "The visitor session ended."
+
+    def test_invalid_limit_type_rejected(self, client):
+        assert client.get(
+            "/logs/snapshot?limit=invalid", headers=_admin(client)
+        ).status_code == 422
+
+    @pytest.mark.parametrize("enabled", [False, True])
+    def test_local_answer_is_observable_without_new_question_retention(
+        self, client, enabled, caplog,
+    ):
+        import logging
+
+        caplog.set_level(logging.INFO, logger="atlas.dashboard.runtime_service")
+        service = client.app.state.service
+        service.container.settings.logging.log_llm_responses = enabled
+        service.container.settings.logging.log_transcripts = True
+        question = "Who painted the Mona Lisa?"
+        answer = client.post(
+            "/ask", headers=_admin(client), json={"question": question},
+        ).json()
+        assert (f"[ATLAS final] {answer['answer']}" in caplog.text) is enabled
+        event = service.container.logger.read_recent()[-1]
+        assert event["event"] == "typed_question"
+        assert "transcript" not in event
+        assert question not in str(event)
+
+    def test_activity_write_failure_does_not_break_a_local_answer(
+        self, client, monkeypatch,
+    ):
+        def unavailable(**_fields):
+            raise OSError("synthetic activity disk unavailable")
+
+        monkeypatch.setattr(
+            client.app.state.service.container.logger, "log", unavailable,
+        )
+        response = client.post(
+            "/ask", headers=_admin(client),
+            json={"question": "Who painted the Mona Lisa?"},
+        )
+        assert response.status_code == 200
+        assert response.json()["answer"].startswith("Leonardo da Vinci")
 
 
 class TestEval:

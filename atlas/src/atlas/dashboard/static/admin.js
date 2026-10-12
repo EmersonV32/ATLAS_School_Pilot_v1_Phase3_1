@@ -22,7 +22,10 @@ let latestStatus = null;
 let latestHealth = null;
 let latestAudio = null;
 let latestConfig = null;
-let latestLogs = { runtime: [], events: [] };
+let latestLogs = { runtime: [], events: [], snapshot_id: "", captured_at: "" };
+let logsRequestInFlight = false;
+let logRefreshGeneration = 0;
+let lastLogSync = 0;
 let latestVisitor = null;
 let lastStatusSync = 0;
 const issues = new Map();
@@ -47,7 +50,7 @@ const viewCopy = {
   "audio-vision": ["Audio & vision", "Follow the signal from the camera and microphone to the spoken answer."],
   arducam: ["Arducam", "An independent CSI preview. Frames are live only and never stored."],
   visitor: ["Visitor monitor", "Follow onboarding, readiness and assistance without exposing identifying details."],
-  logs: ["Activity & logs", "Read recent system events, find failures and export an operator snapshot."],
+  logs: ["Activity & logs", "Follow the conversation, camera and controls in plain language. Technical details stay in sync."],
   settings: ["Settings", "Review the active configuration. Saved changes require a runtime restart."],
 };
 
@@ -113,6 +116,9 @@ function renderIssues() {
 }
 
 function updateFreshness() {
+  if (lastLogSync && adminUnlocked && document.body.dataset.adminView === "logs" && !$("chk-pause-logs").checked && Date.now() - lastLogSync >= 10000) {
+    $("log-freshness").textContent = "Stale · last shared snapshot";
+  }
   if (!lastStatusSync) return;
   const age = Math.max(0, Math.floor((Date.now() - lastStatusSync) / 1000));
   $("last-sync").textContent = age < 5 ? "Updated just now" : `Last update ${age}s ago`;
@@ -136,6 +142,14 @@ function token() {
 function setAdminLocked(locked, message = "") {
   if (locked) {
     adminUnlocked = false;
+    logRefreshGeneration++;
+    lastLogSync = 0;
+    latestLogs = { runtime: [], events: [], snapshot_id: "", captured_at: "" };
+    $("activity-timeline").replaceChildren();
+    $("activity-timeline").dataset.signature = "";
+    $("activity-count").textContent = "Unlock to view live activity.";
+    $("runtime-log-view").textContent = "Unlock to view logs.";
+    $("event-log-view").textContent = "Unlock to view logs.";
     refreshIntervals.forEach(window.clearInterval);
     refreshIntervals = [];
     window.clearTimeout(cameraTimer);
@@ -702,7 +716,7 @@ function startRefreshLoops() {
   refreshIntervals = [
     window.setInterval(() => pollOnce("status", refreshStatus), 2000),
     window.setInterval(() => pollOnce("health", refreshHealth), 12000),
-    window.setInterval(() => pollOnce("logs", refreshLogs), 5000),
+    window.setInterval(() => pollOnce("logs", refreshLogs), 2000),
     window.setInterval(() => pollOnce("visitor", refreshVisitorStatus), 1000),
     window.setInterval(() => pollOnce("audio", refreshAudio), 5000),
     window.setInterval(() => pollOnce("arducam", refreshArducamStatus), 2000),
@@ -787,60 +801,127 @@ function keepLogPosition(node, content) {
   if (follow) node.scrollTop = node.scrollHeight;
 }
 
-function logMatches(text) {
+function logMatches(entry) {
   const query = $("log-search").value.trim().toLowerCase();
   const level = $("log-severity").value;
-  const normalized = String(text).toLowerCase();
+  const normalized = `${entry.actor} ${entry.text} ${JSON.stringify(entry.raw)}`.toLowerCase();
   if (query && !normalized.includes(query)) return false;
-  if (level === "warning" && !normalized.includes("warning") && !normalized.includes("warn")) return false;
-  if (level === "error" && !normalized.includes("error") && !normalized.includes("failed") && !normalized.includes("exception")) return false;
+  if (level !== "all" && level && entry.level !== level) return false;
   return true;
 }
 
-function eventText(event, guided) {
-  if (!guided) return JSON.stringify(event, null, 2);
-  return `${event.summary || "Event"}\n${event.details || ""}`.trim();
+function entryText(entry, guided) {
+  if (!guided) return typeof entry.raw === "string" ? entry.raw : JSON.stringify(entry.raw, null, 2);
+  return `${entry.actor}: ${entry.text}`;
+}
+
+function renderActivity(runtimeEntries, eventEntries) {
+  const timeline = $("activity-timeline");
+  const signature = JSON.stringify([...runtimeEntries, ...eventEntries]);
+  if (timeline.dataset.signature === signature) return;
+  const oldScroll = timeline.scrollTop;
+  const openIds = new Set([...timeline.querySelectorAll("details[open]")].map(node => node.dataset.entryId));
+  const focusedId = timeline.contains(document.activeElement) && document.activeElement.dataset.entryId;
+  const fragment = document.createDocumentFragment();
+  for (const [label, entries] of [["Session events", eventEntries], ["Runtime activity", runtimeEntries]]) {
+    if (!entries.length) continue;
+    const heading = document.createElement("h3");
+    heading.className = "activity-source";
+    heading.textContent = label;
+    fragment.append(heading);
+    const list = document.createElement("ol");
+    list.className = "activity-list";
+    entries.forEach((entry) => {
+      const row = document.createElement("li");
+      row.className = `activity-entry activity-${entry.kind} activity-level-${entry.level}`;
+      row.dataset.entryId = entry.id;
+      const header = document.createElement("div");
+      header.className = "activity-entry-heading";
+      const actor = document.createElement("strong");
+      actor.textContent = entry.actor;
+      const meta = document.createElement("span");
+      meta.className = "activity-meta";
+      // Preserve the original recorded time, including timezone if supplied.
+      meta.textContent = `${entry.level === "info" ? "Update" : entry.level === "error" ? "Error" : "Warning"} · ${entry.timestamp || "No recorded time"}`;
+      header.append(actor, meta);
+      const description = document.createElement("p");
+      description.textContent = entry.text;
+      const detail = document.createElement("details");
+      detail.dataset.entryId = entry.id;
+      detail.open = openIds.has(entry.id);
+      const summary = document.createElement("summary");
+      summary.textContent = "Matching technical entry";
+      summary.dataset.entryId = entry.id;
+      const raw = document.createElement("pre");
+      raw.textContent = entryText(entry, false);
+      detail.append(summary, raw);
+      row.append(header, description, detail);
+      list.append(row);
+    });
+    fragment.append(list);
+  }
+  if (!runtimeEntries.length && !eventEntries.length) {
+    const empty = document.createElement("p");
+    empty.className = "activity-empty";
+    empty.textContent = latestLogs.runtime.length + latestLogs.events.length ? "No updates match these filters. Try clearing the search or level filter." : "No activity has been recorded yet. Start ATLAS to see listening, artwork and response events.";
+    fragment.append(empty);
+  }
+  timeline.replaceChildren(fragment);
+  timeline.dataset.signature = signature;
+  const focused = [...timeline.querySelectorAll("summary")].find(node => node.dataset.entryId === focusedId);
+  if (focused) focused.focus({ preventScroll: true });
+  timeline.scrollTop = $("chk-follow-activity").checked && !focusedId ? timeline.scrollHeight : oldScroll;
 }
 
 function renderLogSnapshot() {
   const guidedRuntime = logFormats.runtime === "human";
   const guidedEvents = logFormats.events === "human";
   const runtimeEntries = latestLogs.runtime.filter(logMatches);
-  const eventEntries = latestLogs.events.map((event) => eventText(event, guidedEvents)).filter(logMatches);
+  const eventEntries = latestLogs.events.filter(logMatches);
   $("runtime-log-view").classList.toggle("guided-log", guidedRuntime);
   $("event-log-view").classList.toggle("guided-log", guidedEvents);
-  keepLogPosition($("runtime-log-view"), runtimeEntries.join(guidedRuntime ? "\n\n" : "\n") || "No matching runtime output.");
-  keepLogPosition($("event-log-view"), eventEntries.join(guidedEvents ? "\n\n" : "\n") || "No matching events.");
+  keepLogPosition($("runtime-log-view"), runtimeEntries.map(entry => entryText(entry, guidedRuntime)).join(guidedRuntime ? "\n\n" : "\n") || latestLogs.runtime_notice || "No matching runtime output.");
+  keepLogPosition($("event-log-view"), eventEntries.map(entry => entryText(entry, guidedEvents)).join("\n\n") || "No matching events.");
+  renderActivity(runtimeEntries, eventEntries);
+  $("activity-count").textContent = `${runtimeEntries.length + eventEntries.length} of ${latestLogs.runtime.length + latestLogs.events.length} updates · shared snapshot${latestLogs.snapshot_id ? " " + latestLogs.snapshot_id.slice(0, 8) : " not yet loaded"}`;
+  $("event-log-state").textContent = guidedEvents ? "Guided" : "Raw";
 
-  const allText = [...latestLogs.runtime, ...latestLogs.events.map((event) => JSON.stringify(event))];
+  const allEntries = [...latestLogs.runtime, ...latestLogs.events];
   $("log-runtime-count").textContent = String(latestLogs.runtime.length);
   $("log-event-count").textContent = String(latestLogs.events.length);
-  $("log-warning-count").textContent = String(allText.filter((line) => /warn/i.test(line)).length);
-  $("log-error-count").textContent = String(allText.filter((line) => /error|failed|exception/i.test(line)).length);
+  $("log-warning-count").textContent = String(allEntries.filter(entry => entry.level === "warning").length);
+  $("log-error-count").textContent = String(allEntries.filter(entry => entry.level === "error").length);
 }
 
 async function refreshLogs(force = false) {
-  if (!force && document.body.dataset.adminView !== "logs") return;
+  if (!adminUnlocked || logsRequestInFlight) return;
+  if (!force && (document.hidden || document.body.dataset.adminView !== "logs")) return;
   if ($("chk-pause-logs").checked && !force) return;
+  logsRequestInFlight = true;
+  const generation = logRefreshGeneration;
+  const requestToken = token();
   try {
-    const [runtime, events] = await Promise.all([
-      api(`/logs/runtime${logFormats.runtime === "human" ? "/human" : ""}?limit=500`, {}, true),
-      api(`/logs/recent${logFormats.events === "human" ? "/human" : ""}?limit=200`),
-    ]);
-    const guidedEvents = logFormats.events === "human";
-    latestLogs = { runtime: runtime.lines, events };
+    const snapshot = await api("/logs/snapshot?limit=250&event_limit=100", { cache: "no-store" }, true);
+    if (!adminUnlocked || generation !== logRefreshGeneration || requestToken !== token()) return;
+    if (!snapshot || !Array.isArray(snapshot.runtime) || !Array.isArray(snapshot.events) || !snapshot.snapshot_id) throw new Error("Incomplete activity snapshot.");
+    latestLogs = snapshot;
+    lastLogSync = Date.now();
     renderLogSnapshot();
     setIssue("logs-request", null);
-    $("log-freshness").textContent = `Updated ${new Date().toLocaleTimeString()}`;
-    $("runtime-log-state").textContent = runtime.available ? "Live" : "Unavailable";
-    $("runtime-log-state").className = runtime.available ? "ok" : "bad";
-    $("event-log-state").textContent = guidedEvents ? "Guided" : "Raw";
-  } catch (error) {
-    setIssue("logs-request", { title: "Live logs unavailable", detail: "The last log snapshot may be out of date. Refresh after checking the connection.", severity: "warning", view: "logs" });
-    $("runtime-log-state").textContent = "Error";
+    $("log-freshness").textContent = $("chk-pause-logs").checked ? "Paused · refreshed shared snapshot" : `Synced ${new Date().toLocaleTimeString()}`;
+    $("runtime-log-state").textContent = snapshot.runtime_available ? "Synced" : "Unavailable";
+    $("runtime-log-state").className = snapshot.runtime_available ? "ok" : "bad";
+    const visibility = snapshot.text_visibility || {};
+    $("activity-runtime-notice").textContent = snapshot.runtime_notice || "";
+    $("activity-runtime-notice").classList.toggle("hidden", !snapshot.runtime_notice);
+    $("activity-privacy").textContent = `Quoted text: user questions ${visibility.user_final ? "on" : "off"} · interim speech ${visibility.user_live ? "on" : "off"} · ATLAS responses ${visibility.atlas ? "on" : "off"}. Existing privacy switches apply; this view does not enable recording. Interim speech is not final. A written response is not proof of audible playback.`;
+  } catch (_) {
+    if (!adminUnlocked || generation !== logRefreshGeneration || requestToken !== token()) return;
+    setIssue("logs-request", { title: "Live activity unavailable", detail: "Readable activity and technical logs are showing the same last known snapshot, not confirmed live. Check the connection and refresh.", severity: "warning", view: "logs" });
+    $("log-freshness").textContent = "Offline · last shared snapshot";
+    $("runtime-log-state").textContent = "Stale";
     $("runtime-log-state").className = "bad";
-    keepLogPosition($("runtime-log-view"), error.message);
-  }
+  } finally { logsRequestInFlight = false; }
 }
 
 async function applyExperience() {
@@ -1042,6 +1123,7 @@ $("btn-show-issues").addEventListener("click", () => {
   $("issue-title").focus({ preventScroll: true });
 });
 $("chk-pause-logs").addEventListener("change", () => {
+  logRefreshGeneration++;
   $("log-freshness").textContent = $("chk-pause-logs").checked ? "Paused · last snapshot" : "Resuming updates";
   if (!$("chk-pause-logs").checked) refreshLogs(true);
 });
@@ -1111,7 +1193,7 @@ document.querySelectorAll("[data-log-view]").forEach((button) => {
       peer.setAttribute("aria-pressed", String(peer === button));
       peer.classList.toggle("active", peer === button);
     });
-    refreshLogs(true);
+    renderLogSnapshot();
   });
 });
 $("cfg-llm-provider").addEventListener("change", () => {
@@ -1142,20 +1224,27 @@ $("btn-clear-log-filter").addEventListener("click", () => {
 $("btn-export-logs").addEventListener("click", () => {
   const snapshot = [
     "ATLAS admin log snapshot",
-    `Captured: ${new Date().toISOString()}`,
+    `Captured: ${latestLogs.captured_at || "No snapshot loaded"}`,
+    `Shared snapshot: ${latestLogs.snapshot_id || "none"}`,
+    "READABLE ACTIVITY",
+    ...[...latestLogs.runtime, ...latestLogs.events].map(entry => entryText(entry, true)),
     "",
     "RUNTIME",
-    ...latestLogs.runtime,
+    ...latestLogs.runtime.map(entry => entryText(entry, false)),
     "",
     "EVENTS",
-    ...latestLogs.events.map((event) => JSON.stringify(event, null, 2)),
+    ...latestLogs.events.map(entry => entryText(entry, false)),
   ].join("\n");
   const url = URL.createObjectURL(new Blob([snapshot], { type: "text/plain;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = `atlas-logs-${new Date().toISOString().replaceAll(":", "-")}.txt`;
+  link.hidden = true;
+  document.body.append(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  // Revoking immediately can cancel the browser before it reads the download.
+  window.setTimeout(() => URL.revokeObjectURL(url), 10000);
   notice("Log snapshot exported.");
 });
 document.querySelectorAll("[data-sim]").forEach((button) => {

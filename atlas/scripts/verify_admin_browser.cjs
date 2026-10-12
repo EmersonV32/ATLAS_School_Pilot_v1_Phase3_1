@@ -26,12 +26,26 @@ const initial = {
   audio: { route: "headset", volume_percent: 75, output_device_name: "Simulated headset output", headset_name: "Simulated microphone", headset_available: true, speaker_available: true, both_available: true, provider: "MockTTS" },
   visitor: { state: { unit_id: "ATLAS demo", connection: "online", phase: "idle", step: "welcome", language: "en", demo_mode: false, transfer: "idle", updated_at: new Date().toISOString(), profile: { age_guidance: null, interests: [], accessibility: [], expertise: null } }, readiness: { ready: true, blockers: [], items: ["camera", "headset", "speech", "knowledge"].map(id => ({ id, label: id, status: "ready", detail: "Synthetic check" })) }, help_request: null },
 };
+const activityEntry = (id, actor, kind, text, raw, level = "info") => ({id, source: "runtime", actor, kind, text, raw, level, timestamp: "2026-10-12 10:30:00"});
+let activitySnapshot = {
+  snapshot_id: "synthetic-activity-1", captured_at: "2026-10-12T14:30:00Z", runtime_available: true,
+  text_visibility: { user_final: true, user_live: true, atlas: true },
+  runtime: [
+    activityEntry("listen", "Listening", "listening", "The microphone is listening in English. The visitor can ask a question.", "[STT] Preparing to listen [language=en timeout=45s]"),
+    activityEntry("question", "User", "conversation", "Question: “Who is in the Mona Lisa?”", "[STT final] Who is in the Mona Lisa?"),
+    activityEntry("answer", "ATLAS", "conversation", "Response: “The Mona Lisa is a portrait of Lisa Gherardini, painted by Leonardo da Vinci.”", "[LLM final] The Mona Lisa is a portrait of Lisa Gherardini, painted by Leonardo da Vinci."),
+    activityEntry("camera", "Camera", "camera", "The camera detected Mona Lisa. This artwork is now selected.", "[Vision] Triggered Mona Lisa after 1.2s"),
+    activityEntry("button", "Button", "button", "The headset multifunction button was pressed. ATLAS will identify the artwork in front of the camera.", "[Button] Manual artwork capture requested"),
+    activityEntry("check", "System", "system", "Synthetic knowledge check complete. No physical devices connected.", "Synthetic knowledge check complete. No physical devices connected."),
+  ],
+  events: [{id: "session", source: "events", actor: "Session", kind: "session", level: "info", timestamp: "2026-10-12T14:29:00Z", text: "A demonstration session started.", raw: {event: "demo_session_start", state: "session"}}],
+};
 const report = { layouts: [], actions: [], failures: [], errors: [], contrastChecks: 0 };
 
 (async () => {
-  const browser = await chromium.launch({ headless: true, ...(process.argv[3] ? { executablePath: process.argv[3] } : {}) });
+  const browser = await chromium.launch({ headless: true, downloadsPath: output, ...(process.argv[3] ? { executablePath: process.argv[3] } : {}) });
   try {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce", serviceWorkers: "block" });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce", serviceWorkers: "block", acceptDownloads: true });
     const page = await context.newPage();
     page.on("pageerror", error => report.errors.push(String(error)));
     let state = clone(initial);
@@ -42,6 +56,8 @@ const report = { layouts: [], actions: [], failures: [], errors: [], contrastChe
     let offline = false;
     let expectedFailure = false;
     let previewRequests = 0;
+    let activityRequests = 0;
+    let failActivity = false;
     page.on("console", message => { if (message.type() === "error" && !expectedFailure) report.errors.push(message.text()); });
     await context.route("**/*", async route => {
       const request = route.request();
@@ -85,8 +101,11 @@ const report = { layouts: [], actions: [], failures: [], errors: [], contrastChe
       if (pathname === "/api/admin/live-status") return json(state.visitor);
       if (pathname === "/content/packs") return json([{ pack_id: "demo_pack", name: "Museum collection", selected: true }]);
       if (pathname === "/artworks") return json([{ artwork_id: "mona_lisa", title: "Mona Lisa" }, { artwork_id: "starry_night", title: "The Starry Night" }]);
-      if (pathname.startsWith("/logs/runtime")) return json({ available: true, lines: ["Synthetic runtime ready. No physical devices connected.", "Synthetic knowledge check complete."] });
-      if (pathname.startsWith("/logs/recent")) return json([{ summary: "Demo initialized", details: "Synthetic UI QA only." }]);
+      if (pathname === "/logs/snapshot") {
+        activityRequests++;
+        if (failActivity) return route.fulfill({status: 503, contentType: "application/json", body: '{"detail":"Synthetic activity offline"}'});
+        return json(activitySnapshot);
+      }
       if (pathname === "/api/admin/arducam/status") return json({ ready: true, enabled: true, source: "Synthetic CSI preview", configured_width: 800, configured_height: 600, configured_fps: 15, observed_fps: 15, sensor_id: 0, last_frame_age_s: 0.1, reconnect_count: 0 });
       throw new Error(`Unexpected endpoint ${pathname}`);
     });
@@ -100,7 +119,7 @@ const report = { layouts: [], actions: [], failures: [], errors: [], contrastChe
       await page.setViewportSize({ width, height });
       for (const tab of tabs) {
         await page.locator(`[data-admin-tab="${tab}"]`).click();
-        if (tab === "settings") await page.locator("details").evaluateAll(nodes => nodes.forEach(node => node.open = true));
+        if (tab === "settings") await page.locator(".settings-panel details").evaluateAll(nodes => nodes.forEach(node => node.open = true));
         const dimensions = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth, small: [...document.querySelectorAll("button")].filter(node => node.getClientRects().length && node.getBoundingClientRect().height < 39).map(node => node.id || node.textContent), reduced: matchMedia("(prefers-reduced-motion: reduce)").matches }));
         assert.equal(dimensions.scroll, dimensions.width, `${tab} at ${width}: overflow`);
         assert.deepEqual(dimensions.small, [], `${tab}: small controls`);
@@ -166,16 +185,68 @@ const report = { layouts: [], actions: [], failures: [], errors: [], contrastChe
     await page.locator("#btn-save-config-top").click();
     await page.waitForFunction(() => !document.querySelector("#restart-badge").classList.contains("hidden"));
     await page.locator('[data-admin-tab="logs"]').click();
+    await page.waitForFunction(() => latestLogs.snapshot_id === "synthetic-activity-1");
+    await page.locator("#technical-logs > summary").click();
+    assert.match(await page.locator("#activity-timeline").innerText(), /Who is in the Mona Lisa/);
+    assert.match(await page.locator("#activity-timeline").innerText(), /multifunction button was pressed/);
+    const rawLine = page.locator('.activity-entry[data-entry-id="question"]');
+    await rawLine.locator("summary").click();
+    assert.equal(await rawLine.locator("pre").innerText(), activitySnapshot.runtime[1].raw);
+    await rawLine.locator("summary").focus();
+    await page.evaluate(() => refreshLogs(true));
+    assert.equal(await rawLine.locator("details").getAttribute("open"), "");
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.entryId), "question");
+    report.actions.push("Readable entries match raw entries; unchanged refresh preserves focus and disclosure");
     await page.locator("#chk-pause-logs").check();
     assert.match(await page.locator("#log-freshness").innerText(), /Paused/);
+    const pausedId = await page.evaluate(() => latestLogs.snapshot_id);
+    activitySnapshot = {...activitySnapshot, snapshot_id: "synthetic-activity-2", runtime: [...activitySnapshot.runtime, activityEntry("fault", "Voice", "voice", "The answer could not be played aloud. Speech needs attention.", "tts_fallback_used: showing answer as text only", "warning")]};
+    await page.evaluate(() => refreshLogs());
+    assert.equal(await page.evaluate(() => latestLogs.snapshot_id), pausedId);
+    const pausedRequests = activityRequests;
+    await page.locator('[data-log-view="runtime"][data-log-format="raw"]').click();
+    assert.equal(activityRequests, pausedRequests, "Paused format switch fetched fresh data");
+    assert.match(await page.locator("#runtime-log-view").innerText(), /\[STT final\]/);
+    assert.match(await page.locator("#activity-count").innerText(), /synthet/);
     await page.locator("#chk-pause-logs").uncheck();
+    await page.waitForFunction(() => latestLogs.snapshot_id === "synthetic-activity-2");
+    await page.locator("#log-severity").selectOption("warning");
+    assert.equal(await page.locator(".activity-entry").count(), 1);
+    assert.match(await page.locator("#runtime-log-view").innerText(), /tts_fallback_used/);
+    assert.match(await page.locator("#log-warning-count").innerText(), /1/);
     await page.locator("#log-search").fill("synthetic");
     await page.locator("#btn-clear-log-filter").click();
     await page.locator('[data-log-view="runtime"][data-log-format="raw"]').click();
     await page.locator('[data-log-view="runtime"][data-log-format="human"]').click();
+    await page.locator("#chk-follow-activity").uncheck();
+    await page.locator("#activity-timeline").evaluate(node => node.scrollTop = 0);
+    activitySnapshot = {...activitySnapshot, snapshot_id: "synthetic-activity-3", runtime: [...activitySnapshot.runtime, activityEntry("safe-markup", "User", "conversation", 'Question: “<img src=x onerror="window.activityInjected=true">”', '[STT final] <img src=x onerror="window.activityInjected=true">')]};
+    await page.evaluate(() => refreshLogs(true));
+    assert.equal(await page.locator("#activity-timeline img").count(), 0, "Log text was interpreted as HTML");
+    assert.equal(await page.locator("#activity-timeline").evaluate(node => node.scrollTop), 0);
+    const sharedBeforeFailure = await page.locator("#runtime-log-view").innerText();
+    failActivity = true; expectedFailure = true;
+    await page.evaluate(() => refreshLogs(true));
+    assert.equal(await page.locator("#runtime-log-view").innerText(), sharedBeforeFailure);
+    assert.match(await page.locator("#log-freshness").innerText(), /Offline/);
+    assert.match(await page.locator("#activity-count").innerText(), /synthet/);
+    failActivity = false; expectedFailure = false;
+    await page.evaluate(() => refreshLogs(true));
+    assert.match(await page.locator("#log-freshness").innerText(), /Synced/);
+    report.failures.push("Activity and raw logs freeze together on pause/offline, recover together, safely render markup");
+    await page.locator("#log-search").fill("Mona Lisa");
+    await page.locator("#chk-pause-logs").check();
+    await page.locator("#technical-logs > summary").click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({path: path.join(output, "readable-activity.png"), fullPage: true});
+    await page.locator("#btn-clear-log-filter").click();
     const download = page.waitForEvent("download");
     await page.locator("#btn-export-logs").click();
     assert.match((await download).suggestedFilename(), /^atlas-logs-/);
+    const exported = fs.readFileSync(await (await download).path(), "utf8");
+    assert.match(exported, /Shared snapshot: synthetic-activity-3/);
+    assert.match(exported, /READABLE ACTIVITY/);
+    assert.match(exported, /\[STT final\]/);
     await page.locator('[data-admin-tab="main"]').click();
     expectedFailure = true;
     failedAction = true;

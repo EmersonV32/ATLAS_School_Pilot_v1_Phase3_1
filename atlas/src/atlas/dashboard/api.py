@@ -329,6 +329,13 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # -- logs ---------------------------------------------------------------
+    @app.get("/logs/snapshot", dependencies=[Depends(require_admin)])
+    def logs_snapshot(
+        response: Response, limit: int = 250, event_limit: int = 100
+    ) -> dict:
+        response.headers["Cache-Control"] = "no-store"
+        return service.log_snapshot(limit=limit, event_limit=event_limit)
+
     @app.get("/logs/recent", dependencies=[Depends(require_admin)])
     def logs_recent(limit: int = 50) -> list[dict]:
         return service.recent_logs(limit=min(max(limit, 1), 200))

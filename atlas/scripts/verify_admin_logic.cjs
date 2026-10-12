@@ -26,6 +26,8 @@ class Element {
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   focus() {}
+  querySelectorAll() { return []; }
+  contains() { return false; }
 }
 const nodes = new Map();
 const timers = new Map();
@@ -35,7 +37,8 @@ const sandbox = {
   document: {
     body: new Element(), hidden: false,
     getElementById: id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); },
-    createElement: () => new Element(), querySelectorAll: () => [], querySelector: () => new Element(),
+    createElement: () => new Element(), createDocumentFragment: () => new Element(), activeElement: null,
+    querySelectorAll: () => [], querySelector: () => new Element(),
   },
   window: {
     scrollTo: () => {},
@@ -138,5 +141,43 @@ function check(script, expected) { assert.deepEqual(JSON.parse(JSON.stringify(ev
   const stalled = evaluate('requestApi("/status")');
   timers.get(timerId)();
   await assert.rejects(stalled, /timed out/); checks++;
+  const activity = {
+    snapshot_id: "synthetic-v1", captured_at: "2026-10-12T12:00:00Z", runtime_available: true,
+    text_visibility: {user_final: false, user_live: false, atlas: false}, events: [],
+    runtime: [{id: "one", actor: "User", kind: "conversation", level: "info", timestamp: "", text: "Question received", raw: "[STT] Final result"}],
+  };
+  let logCalls = 0, releaseLog;
+  evaluate('authRequired = false; adminUnlocked = true; document.body.dataset.adminView = "logs"; $("log-severity").value = "all";');
+  sandbox.fetch = () => { logCalls++; return new Promise(resolve => { releaseLog = resolve; }); };
+  const firstLog = evaluate('refreshLogs()');
+  await evaluate('refreshLogs(true)');
+  assert.equal(logCalls, 1); checks++;
+  releaseLog({ok: true, json: async () => activity}); await firstLog;
+  check('latestLogs.snapshot_id', "synthetic-v1");
+  check('$("runtime-log-view").textContent', "User: Question received");
+  evaluate('logFormats.runtime = "raw"; renderLogSnapshot();');
+  check('$("runtime-log-view").textContent', "[STT] Final result");
+  assert.equal(logCalls, 1, "Format switching must not fetch a different snapshot"); checks++;
+  const pendingLog = evaluate('refreshLogs()');
+  evaluate('$("chk-pause-logs").checked = true; logRefreshGeneration++;');
+  releaseLog({ok: true, json: async () => ({...activity, snapshot_id: "must-not-appear"})}); await pendingLog;
+  check('latestLogs.snapshot_id', "synthetic-v1");
+  const pausedCalls = logCalls;
+  await evaluate('refreshLogs()');
+  assert.equal(logCalls, pausedCalls); checks++;
+  evaluate('$("chk-pause-logs").checked = false;');
+  sandbox.fetch = async () => { throw new Error("Synthetic connection lost"); };
+  await evaluate('refreshLogs()');
+  check('latestLogs.snapshot_id', "synthetic-v1");
+  check('$("runtime-log-view").textContent', "[STT] Final result");
+  check('$("log-freshness").textContent', "Offline · last shared snapshot");
+  evaluate('lastLogSync = Date.now() - 12000; updateFreshness();');
+  check('$("log-freshness").textContent', "Stale · last shared snapshot");
+  sandbox.fetch = () => new Promise(resolve => { releaseLog = resolve; });
+  const lateLog = evaluate('refreshLogs()');
+  evaluate('setAdminLocked(true);');
+  releaseLog({ok: true, json: async () => activity}); await lateLog;
+  check('latestLogs.runtime.length', 0);
+  check('$("runtime-log-view").textContent', "Unlock to view logs.");
   console.log(`${checks} dashboard JavaScript checks passed (synthetic, no live services).`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

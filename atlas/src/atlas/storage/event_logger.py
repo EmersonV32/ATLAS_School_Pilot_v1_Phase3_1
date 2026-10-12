@@ -111,8 +111,17 @@ class EventLogger:
         path = self._log_path()
         if not path.exists():
             return []
-        with path.open("r", encoding="utf-8") as fh:
-            lines = fh.readlines()
+        # Live dashboards poll frequently: don't re-read a whole day's history.
+        # The byte cap is a safety bound for malformed or unusually large rows.
+        limit = min(max(limit, 1), 1000)
+        with path.open("rb") as fh:
+            fh.seek(0, 2)
+            size = fh.tell()
+            read_size = min(size, max(65536, min(limit * 8192, 4 * 1024 * 1024)))
+            fh.seek(size - read_size)
+            lines = fh.read().decode("utf-8", errors="replace").splitlines()
+        if read_size < size and lines:
+            lines = lines[1:]  # Partial leading record from the bounded tail.
         recent = lines[-limit:]
         out: list[dict[str, Any]] = []
         for line in recent:
@@ -120,7 +129,9 @@ class EventLogger:
             if not line:
                 continue
             try:
-                out.append(json.loads(line))
+                record = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if isinstance(record, dict):
+                out.append(record)
         return out

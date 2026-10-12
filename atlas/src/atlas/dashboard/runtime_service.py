@@ -8,6 +8,7 @@ module never constructs its own pipeline.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -23,6 +24,13 @@ from atlas.app.dependency_container import Container
 from atlas.audio.devices import find_alsa_playback, find_pulse_playback
 from atlas.audio.playback import join_output_device_names
 from atlas.config.settings import Settings
+from atlas.dashboard.activity import (
+    explain_event,
+    explain_runtime,
+    pair_entries,
+    safe_event,
+    safe_runtime_line,
+)
 from atlas.dashboard.visitor_activation import (
     clean_greeting_name,
     local_greeting,
@@ -34,7 +42,7 @@ from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.languages import OUTPUT_LANGUAGE_NAMES, normalize_language_code
 from atlas.models.retrieval import RetrievalQuery
 from atlas.utils.ids import new_session_id
-from atlas.utils.time import Timer
+from atlas.utils.time import Timer, now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +92,8 @@ def _human_runtime_line(line: str) -> str:
         return "Knowledge search completed: " + cleaned.split("[RAG]", 1)[1].strip()
     if "[LLM final]" in cleaned:
         return "ATLAS answer: " + cleaned.split("[LLM final]", 1)[1].strip()
+    if "[ATLAS final]" in cleaned:
+        return "ATLAS answer: " + cleaned.split("[ATLAS final]", 1)[1].strip()
     if "[LLM sentence" in cleaned:
         return "ATLAS is saying: " + re.sub(r"^\[LLM sentence \d+\]\s*", "", cleaned)
     if "[Gemini]" in cleaned:
@@ -769,6 +779,19 @@ class RuntimeService:
                 scripted.intent,
                 scripted.artwork_id or "none",
             )
+            if settings.logging.log_llm_responses:
+                logger.info("[ATLAS final] %s", scripted.response)
+            # Keep the pre-existing FAQ question privacy behaviour: no new
+            # visitor text is persisted just to populate the readable view.
+            try:
+                self.container.logger.log(
+                    session_id=session_id, state="dashboard", event="typed_question",
+                    language=lang.value, artwork_id=scripted.artwork_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Dashboard activity could not be recorded: %s", type(exc).__name__,
+                )
             return answer
 
         if "llm_timeout" in self.demo_flags:
@@ -1189,4 +1212,48 @@ class RuntimeService:
         return {
             "available": raw["available"],
             "lines": [_human_runtime_line(line) for line in raw["lines"]],
+        }
+
+    def log_snapshot(self, limit: int = 250, event_limit: int = 100) -> dict[str, Any]:
+        """Read each source once and pair its raw and readable representations.
+
+        This is a bounded view of existing logs, not a second transcript store.
+        Source ordering is preserved; untimestamped stdout isn't assigned a
+        made-up time or interleaved with structured events as if it were exact.
+        """
+        settings = self.container.settings.logging
+        runtime = self.runtime_logs(limit=min(max(limit, 1), 1000))
+        events = self.recent_logs(limit=min(max(event_limit, 1), 200))
+        runtime_entries = pair_entries(
+            [safe_runtime_line(line, settings) for line in runtime["lines"]]
+            if runtime["available"] else [],
+            "runtime", explain_runtime,
+        )
+        titles = (
+            self._artwork_map()
+            if any(event.get("event") == "ARTWORK_DETECTED" for event in events)
+            else {}
+        )
+        event_entries = pair_entries(
+            [safe_event(event, settings) for event in events], "events",
+            lambda event: explain_event(event, titles),
+        )
+        content = {"runtime": runtime_entries, "events": event_entries}
+        snapshot_id = hashlib.sha256(
+            json.dumps(content, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()[:24]
+        return {
+            "snapshot_id": snapshot_id, "captured_at": now_iso(),
+            "runtime_available": runtime["available"],
+            "runtime_notice": (
+                "" if runtime["available"] else
+                "Runtime output is unavailable. It appears when the device "
+                "service records activity."
+            ),
+            "text_visibility": {
+                "user_final": settings.log_transcripts,
+                "user_live": settings.log_live_stt,
+                "atlas": settings.log_llm_responses,
+            },
+            **content,
         }

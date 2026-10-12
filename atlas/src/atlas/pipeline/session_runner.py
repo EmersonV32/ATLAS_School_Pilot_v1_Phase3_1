@@ -1041,6 +1041,10 @@ class SessionRunner:
                 confidence="high",
                 fallback_used=False,
             )
+            # The readable dashboard also needs local FAQ responses, not only
+            # Gemini responses. Respect the existing opt-in text logging flag.
+            if self._log_llm_responses:
+                logger.info("[ATLAS final] %s", scripted.response)
             self._hw.set_status_led("green")
             try:
                 spoke = bool(
