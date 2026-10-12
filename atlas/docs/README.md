@@ -6,6 +6,7 @@ proof of today's physical device health.
 
 | Document | Purpose |
 | --- | --- |
+| [Conversation and listening stability](2026-10-11_CONVERSATION_LISTENING_STABILITY.md) | Feature-branch subject/memory fixes, pause handling, software verification and remaining live acceptance. |
 | [School Wi-Fi setup](SCHOOL_WIFI_SETUP.md) | School-first selection, hotspot fallback, credential handling and untested school assumptions. |
 | [Adding artworks](ADDING_ARTWORKS.md) | Content/artwork release workflow. |
 | [Five fixes and v6 preparation](2026-10-04_FIXES_AND_V6_UPDATE.md) | Diagnosis, regressions and training evidence. |

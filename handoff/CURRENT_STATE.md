@@ -30,6 +30,25 @@ retrieval and general Gemini fallback, configurable local/cloud speech,
 multilingual visitor setup, staff controls, headset-button handling and
 readiness/session/event storage. See [system architecture](architecture/SYSTEM_ARCHITECTURE.md).
 
+## October 11 conversation/listening work — not deployed
+
+`main` remains the maintained baseline. The local feature branch
+`codex/conversation-listening-stability` adds shared typed/spoken visit memory,
+explicit artwork transitions, consistent FAQ/RAG/Gemini subjects and Deepgram
+hesitation/long-question handling. See the
+[workflow record](../atlas/docs/2026-10-11_CONVERSATION_LISTENING_STABILITY.md)
+for exact bounds and acceptance steps. These changes have not been promoted to
+`main`, pushed or deployed; the devices were offline. They do not resolve the
+separate camera-stream watchdog or school-network acceptance risks below.
+The final local workflow suite passed 3,146 tests with one expected skip; lint,
+dependency, secret, compilation, recovery and navigation checks pass. Synthetic
+visitor browser QA passed 33 keyboard transitions at 1024×768 with reduced
+motion and no visitor state stored in the browser.
+
+The deferred SG90 camera-pan work is retained separately on
+`codex/arducam-sg90-pan`; it is not implicitly integrated into this workflow
+branch. Hardware/controller/power choices and physical testing remain deferred.
+
 ## Latest recorded deployment: October 4
 
 At the user's explicit request, v6 and five runtime fixes were deployed to the

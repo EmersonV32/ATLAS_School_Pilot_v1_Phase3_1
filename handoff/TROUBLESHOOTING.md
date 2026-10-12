@@ -26,8 +26,16 @@ Work top-down: dev mode first, then one real adapter at a time (see
 | Symptom | Fix |
 |---|---|
 | "faster-whisper not installed" | `pip install -e ".[audio]"` (plus `sounddevice`, `numpy` for the mic path). |
-| No transcript captured | Check the Shokz OpenComm2 UC is the default input device; speak within `listen_duration_s` (5 s). ATLAS asks to repeat; use the dashboard typed-question fallback meanwhile. |
+| No transcript captured | Check the Shokz OpenComm2 UC is the default input device; `listen_duration_s` defaults to 8 s. Whisper uses a fixed recording window; use the dashboard typed-question fallback meanwhile. |
 | Slow on Jetson | Use `whisper_model_size: tiny` (Orin Nano) or `small` (Orin NX), `whisper_compute_type: int8`. |
+
+## Deepgram (STT) — workflow feature branch
+
+On `codex/conversation-listening-stability`, Deepgram waits 8 seconds for speech
+to begin, then captures for up to 45 seconds. Normal end-of-question silence is
+2 seconds; clearly unfinished phrases get up to 4 seconds. These are source
+defaults, not proof of deployment or guarantees for arbitrary pauses. See the
+[workflow record](../atlas/docs/2026-10-11_CONVERSATION_LISTENING_STABILITY.md).
 
 ## Piper (TTS)
 
