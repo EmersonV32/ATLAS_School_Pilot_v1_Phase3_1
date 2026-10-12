@@ -24,6 +24,8 @@ cp .env.example .env                      # Windows: Copy-Item .env.example .env
 
 Keep real credentials only in the ignored `.env` file. The optional dependency
 groups are `rag`, `vision`, `audio`, `audio-cloud`, `llm`, `dev`, and `all`.
+The optional `camera-pan` group is only for the retained PCA9685 backend;
+[direct SG90 camera pan](docs/CAMERA_PAN.md) needs no additional Python package.
 
 ## Verify
 

@@ -79,6 +79,40 @@ checks, 35 browser layouts, 18 control actions, nine failure/recovery scenarios
 and an actual synchronized export. Visitor QA again passed 33 keyboard
 transitions at 1024x768. Physical acceptance remains outstanding.
 
+## October 12 direct SG90 camera pan - not deployed
+
+The user confirmed Seeed reComputer Super / Jetson Orin NX 16 GB (J4012).
+Local branch `codex/jetson-direct-camera-pan` now combines the latest readable
+activity/dashboard/conversation work with the earlier pan controller and a
+direct Linux hardware-PWM driver. No PCA9685 is needed for this backend.
+The old `codex/arducam-sg90-pan` branch and its PCA-only deployment patch are
+historical proposals, not the current combined release or deployment authority.
+
+See [camera pan setup](../atlas/docs/CAMERA_PAN.md): J10 physical pin 32 / PG.06
+/ PWM7 is the default route, with pin 15 / PWM1 supported as a verified
+alternative. The Super wiki/schematic were checked against NVIDIA's SoC PWM
+map; the actual installed pinmux/waveform still needs verification. GPIO drive
+is weak, so buffer-free signal compatibility is not proven. J10's documented
+5 V capacity alone does not prove suitable motor startup/stall power.
+
+Pan is off by default. Device movement additionally requires explicit PWM,
+power and travel confirmations. Private dashboard controls sit beside the
+CSI preview; faults appear on the global issue board. Manual jog expires on
+lost renewal, while explicitly requested sweep/target motion may continue
+after a network disconnect. Safety clear does not restart motion. The existing
+service owns the motor; no camera/audio/model/provider/service/boot settings
+were changed on hardware. Human tracking remains future work.
+
+Final local gate passed 3,323 tests, one expected skip and the existing
+non-failing deprecation warning; 81 JavaScript checks; 35 browser layouts,
+29 control requests, 10 failure/recovery checks and 2,717 contrast checks.
+Ruff, compile, dependencies, secrets, recovery and whitespace checks passed.
+Visitor QA again passed 33 keyboard transitions at 1024x768, with reduced
+motion, no browser errors and no visitor browser storage/cookies.
+No push, `main` promotion or deployment occurred. The servo waveform, safe
+power, full physical travel, mount/cable strain and voice/preview under motor
+load must be supervised on the real offline hardware before enabling pan.
+
 ## Latest recorded deployment: October 4
 
 At the user's explicit request, v6 and five runtime fixes were deployed to the
