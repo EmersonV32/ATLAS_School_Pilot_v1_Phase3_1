@@ -128,8 +128,8 @@ On the Jetson, in the *actual installed application's* directory (containing
 ```bash
 # First cut servo power. Use the existing service's actual user/root.
 systemctl --user stop atlas.service
-git apply --check /path/to/camera-pan-runtime.patch
-git apply /path/to/camera-pan-runtime.patch
+git --work-tree="$PWD" apply --verbose --check /path/to/camera-pan-runtime.patch
+git --work-tree="$PWD" apply --verbose /path/to/camera-pan-runtime.patch
 # Use the exact existing atlas.service virtual-environment Python:
 /path/to/existing/venv/bin/python scripts/run_deployment_pytest.py
 ```
@@ -138,16 +138,20 @@ If `git apply --check` fails, stop: the installed source differs from the
 reviewed baseline. Do not force it or overwrite unrelated changes. Keep the
 patch unchanged for reversible rollback. Existing runtime configuration is
 preserved; keep pan disabled through deployment and the initial service check.
+The explicit work tree keeps application-relative paths correct even when the
+application sits inside a larger Git checkout. Verify the verbose output shows
+the expected source and regression-test patches, not skipped patches.
 
 When wiring is decided, install **only** the small optional I2C library into
 that same existing virtual environment, with explicit approval:
 
 ```bash
-/path/to/existing/venv/bin/python -m pip install --no-deps 'smbus2>=0.4,<1'
+/path/to/existing/venv/bin/python -m pip install --no-deps 'smbus2==0.6.1'
 ```
 
 For offline installation, obtain the compatible smbus2 wheel beforehand and
-use `--no-index --no-deps /path/to/wheel`. Do not reinstall ATLAS's heavy
+use `--no-index --no-deps /path/to/smbus2-0.6.1-py2.py3-none-any.whl`. The prepared
+deployment bundle includes that verified public PyPI wheel. Do not reinstall ATLAS's heavy
 dependencies, upgrade JetPack/L4T, replace the service, or rebuild TensorRT.
 Read/confirm the existing service's working directory and Python executable
 before substituting paths. Tests do not load the installed `.env`.
@@ -159,8 +163,8 @@ calibration/activation process above and restart under supervision.
 Rollback (with servo power disconnected and service stopped):
 
 ```bash
-git apply -R --check /path/to/camera-pan-runtime.patch
-git apply -R /path/to/camera-pan-runtime.patch
+git --work-tree="$PWD" apply --verbose -R --check /path/to/camera-pan-runtime.patch
+git --work-tree="$PWD" apply --verbose -R /path/to/camera-pan-runtime.patch
 ```
 
 Remove the newly added `camera_pan` config section before restarting old code,
@@ -206,3 +210,4 @@ This feature adds no face recognition or identifying visitor storage.
 - [PCA9685 module pinout and separate motor supply](https://learn.adafruit.com/16-channel-pwm-servo-driver/pinouts)
 - [NXP PCA9685 datasheet: common frequency and register sequencing](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf)
 - [NVIDIA Jetson.GPIO hardware-PWM limitations](https://github.com/NVIDIA/jetson-gpio)
+- [smbus2 0.6.1 wheel and published checksum](https://pypi.org/project/smbus2/0.6.1/)
