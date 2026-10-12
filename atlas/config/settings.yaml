@@ -5,6 +5,22 @@
 mode: dev
 default_pack_id: demo_pack
 
+# Optional independent SG90 camera mount; see docs/CAMERA_PAN.md.
+# Disabled until its dedicated PCA9685 wiring and physical travel are verified.
+camera_pan:
+  enabled: false
+  calibration_confirmed: false
+  i2c_bus: null
+  i2c_address: 0x40
+  channel: 0
+  min_angle: 0
+  max_angle: 180
+  center_angle: 90
+  min_pulse_us: 1000
+  max_pulse_us: 2000
+  sweep_speed_deg_s: 5
+  manual_speed_deg_s: 15
+
 paths:
   data_dir: data
   content_packs_dir: data/content_packs

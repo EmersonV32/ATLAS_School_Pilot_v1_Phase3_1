@@ -1,9 +1,11 @@
 """Abstract hardware interface and StandCommand enum.
 
 Safety model:
-  - `send()` is the ONLY path for motor commands, and it refuses while the
+  - `send()` is the ONLY path for EV3 exhibit motor commands, and it refuses while the
     emergency stop is active. Adapters implement `_send_command()` and must
     never expose another movement path.
+  - The independent camera mount uses CameraPanController instead; it checks
+    this stop latch as well as its own stop, calibrated limits, and jog lease.
   - Hardware commands come only from the session runner / dashboard —
     never from LLM output.
 """

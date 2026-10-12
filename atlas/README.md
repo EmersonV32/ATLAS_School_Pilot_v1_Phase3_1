@@ -23,7 +23,9 @@ cp .env.example .env                      # Windows: Copy-Item .env.example .env
 ```
 
 Keep real credentials only in the ignored `.env` file. The optional dependency
-groups are `rag`, `vision`, `audio`, `audio-cloud`, `llm`, `dev`, and `all`.
+groups are `rag`, `vision`, `audio`, `audio-cloud`, `llm`, `dev`, `camera-pan`,
+and `all`. The optional [SG90 camera mount](docs/CAMERA_PAN.md) is disabled by
+default and uses a dedicated PCA9685 controller; hardware validation is required.
 
 ## Verify
 
@@ -86,7 +88,7 @@ Important package boundaries:
 - `rag/` and `dialogue/`: retrieval, context, safety, and response generation
 - `dashboard/`: FastAPI API, runtime bridge, visitor UI, and staff UI
 - `storage/`: local event and session persistence
-- `hardware/`: mock and EV3 hardware adapters
+- `hardware/`: mock/EV3 adapters and the independent optional camera-pan controller
 
 ## Deployment
 

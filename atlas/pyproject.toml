@@ -24,6 +24,7 @@ rag = [
     "rank-bm25>=0.2.2",
 ]
 vision = ["ultralytics>=8.4.115"]
+camera-pan = ["smbus2>=0.4,<1; sys_platform == 'linux'"]
 audio = [
     "faster-whisper>=1.0",
     "piper-tts>=1.2",
