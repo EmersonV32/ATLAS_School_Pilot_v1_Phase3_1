@@ -8,10 +8,33 @@ transcript-logging rules.
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from atlas.models.languages import ADMIN_LANGUAGE_CODES
+
+
+class CameraPanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    action: Literal["sweep", "hold", "center", "position", "jog"]
+    client_id: UUID
+    control_epoch: UUID
+    sequence: int = Field(ge=0, le=2**53 - 1, strict=True)
+    angle: float | None = Field(default=None, ge=0, le=180, strict=True)
+    direction: int | None = Field(default=None, ge=-1, le=1, strict=True)
+
+    @model_validator(mode="after")
+    def validate_action(self) -> CameraPanRequest:
+        if (self.action == "position") != (self.angle is not None):
+            raise ValueError("Only position requires an angle")
+        if self.action == "jog":
+            if self.direction not in {-1, 1}:
+                raise ValueError("Jog requires direction -1 or 1")
+        elif self.direction is not None:
+            raise ValueError("Only jog accepts a direction")
+        return self
 
 
 class SessionProfileRequest(BaseModel):

@@ -10,6 +10,7 @@ same dependency-injection pattern in later phases.
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Lock
 
 from atlas.config.loader import load_settings
 from atlas.config.settings import Settings
@@ -31,6 +32,8 @@ class Container:
         self._dialogue_engine = None
         self._camera_source = None
         self._arducam_source = None
+        self._camera_pan = None
+        self._camera_pan_lock = Lock()
         self._vision_detector = None
         self._artwork_tracker = None
         self._manual_artwork_capture = None
@@ -203,6 +206,40 @@ class Container:
                 name="arducam",
             )
         return self._arducam_source
+
+    @property
+    def camera_pan(self):
+        """Independent optional pan; constructing/status checking never moves it."""
+        with self._camera_pan_lock:
+            if self._camera_pan is None:
+                from atlas.hardware.camera_pan import CameraPanController
+                from atlas.hardware.camera_pan_driver import (
+                    MockPanDriver,
+                    PCA9685PanDriver,
+                )
+
+                simulated = self.settings.mode != RunMode.DEVICE
+                driver = (
+                    MockPanDriver() if simulated
+                    else PCA9685PanDriver(self.settings.camera_pan)
+                )
+                self._camera_pan = CameraPanController(
+                    self.settings.camera_pan,
+                    driver,
+                    simulated=simulated,
+                    emergency_guard=lambda: bool(
+                        getattr(self._hardware, "emergency_stopped", False)
+                    ),
+                )
+            return self._camera_pan
+
+    def start_camera_pan(self) -> None:
+        if self.settings.camera_pan.enabled:
+            self.camera_pan.start()
+
+    def stop_camera_pan(self) -> None:
+        if self._camera_pan is not None:
+            self._camera_pan.close()
 
     @property
     def vision_detector(self):
@@ -434,6 +471,7 @@ class Container:
 
     def close(self) -> None:
         """Release camera and Bluetooth resources."""
+        self.stop_camera_pan()
         if self._camera_source is not None:
             self._camera_source.stop()
         if self._arducam_source is not None:

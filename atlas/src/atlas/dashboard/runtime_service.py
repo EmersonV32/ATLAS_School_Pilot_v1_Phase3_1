@@ -942,12 +942,29 @@ class RuntimeService:
         return self.dashboard_config()
 
     # -- hardware ---------------------------------------------------------------
+    def camera_pan_status(self) -> dict[str, Any]:
+        return self.container.camera_pan.status()
+
+    def camera_pan_control(self, req) -> dict[str, Any]:
+        return self.container.camera_pan.command(
+            req.action, client_id=str(req.client_id), sequence=req.sequence,
+            control_epoch=str(req.control_epoch),
+            angle=req.angle, direction=req.direction,
+        )
+
     def emergency_stop(self) -> dict[str, Any]:
+        # Disable pan even if the separate EV3 Bluetooth stop fails.
+        pan = getattr(self.container, "camera_pan", None)
+        if pan is not None:
+            pan.emergency_stop()
         self.container.hardware.emergency_stop()
         return {"emergency_stopped": True}
 
     def clear_emergency_stop(self) -> dict[str, Any]:
         self.container.hardware.clear_emergency_stop()
+        pan = getattr(self.container, "camera_pan", None)
+        if pan is not None:
+            pan.clear_emergency_stop()
         return {"emergency_stopped": False}
 
     # -- demo controls -------------------------------------------------------
