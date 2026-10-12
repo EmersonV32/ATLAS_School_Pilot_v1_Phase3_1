@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import threading
 from collections.abc import Callable
@@ -192,6 +193,7 @@ class RuntimeService:
         )
         self.audio_volume_percent = int(hardware.audio_volume_percent)
         self.last_answer: dict[str, Any] | None = None
+        self._last_interaction: dict[str, Any] | None = None
         self._pending_settings: Settings | None = None
         # Demo-only simulation flags (never active outside dev/demo mode).
         self.demo_flags: set[str] = set()
@@ -213,6 +215,7 @@ class RuntimeService:
     def _invalidate_session(self) -> None:
         self._session_generation += 1
         self.last_answer = None
+        self._last_interaction = None
         self.container.artwork_tracker.reset()
         self.container.dialogue_engine.reset_conversation()
         if self._session_changed is not None:
@@ -637,6 +640,39 @@ class RuntimeService:
         return {a.artwork_id: a.title for a in pack.artworks}
 
     # -- typed-question fallback ----------------------------------------------
+    def record_voice_result(
+        self, result: Any, *, session_id: str, expected_generation: int,
+        latency_ms: float,
+    ) -> bool:
+        """Project only outcome flags, never retain speech, prompts or answers."""
+        with self._session_lock:
+            if (
+                self.session_id != session_id
+                or expected_generation
+                != self.container.dialogue_engine.conversation_generation
+                or getattr(result, "error", None) == "session_cancelled"
+            ):
+                return False
+            dialogue = getattr(result, "dialogue", None)
+            response_failed = bool(
+                getattr(result, "error", None) or getattr(dialogue, "error", None)
+            )
+            speech_ok = bool(getattr(result, "tts_ok", True))
+            self._last_interaction = {
+                "source": "voice",
+                "state": (
+                    "failed" if response_failed or not speech_ok
+                    else "completed" if dialogue is not None else "control"
+                ),
+                "response_failed": response_failed,
+                "speech_ok": speech_ok,
+                "fallback_used": bool(getattr(dialogue, "fallback_used", False)),
+                "latency_ms": (
+                    max(0.0, latency_ms) if math.isfinite(latency_ms) else None
+                ),
+            }
+            return True
+
     def ask(
         self,
         question: str,
@@ -659,6 +695,14 @@ class RuntimeService:
                     "Session changed while answering; question cancelled"
                 )
             self.last_answer = answer
+            self._last_interaction = {
+                "source": "dashboard",
+                "state": "failed" if answer.get("error") else "completed",
+                "response_failed": bool(answer.get("error")),
+                "speech_ok": None,
+                "fallback_used": bool(answer.get("fallback_used")),
+                "latency_ms": answer.get("total_latency_ms"),
+            }
         return answer
 
     def _answer_question(
@@ -1052,6 +1096,10 @@ class RuntimeService:
         }
 
     def status(self) -> dict[str, Any]:
+        with self._session_lock:
+            interaction = (
+                dict(self._last_interaction) if self._last_interaction else None
+            )
         settings = self.container.settings
         try:
             camera_status = self.container.camera_source.status()
@@ -1083,6 +1131,7 @@ class RuntimeService:
             "artwork": self.artwork_status(),
             "camera": camera_status,
             "last_answer": last,
+            "last_interaction": interaction,
             "demo_flags": sorted(self.demo_flags),
             "privacy": {
                 "store_raw_audio": settings.privacy.store_raw_audio,

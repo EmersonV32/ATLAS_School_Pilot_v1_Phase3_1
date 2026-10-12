@@ -23,12 +23,129 @@ let latestHealth = null;
 let latestAudio = null;
 let latestConfig = null;
 let latestLogs = { runtime: [], events: [] };
+let latestVisitor = null;
+let lastStatusSync = 0;
+const issues = new Map();
+const pollsInFlight = new Set();
+const pendingMutations = new Set();
+const actionControls = {
+  "/admin/config": ["btn-save-config", "btn-save-config-top"],
+  "/api/admin/demo/start": ["btn-start-demo"],
+  "/api/admin/session/stop": ["btn-stop", "btn-visitor-stop"],
+  "/session/profile": ["btn-apply-experience"],
+  "/api/admin/audio/test": ["btn-test-audio"],
+  "/session/manual-artwork": ["btn-override", "btn-clear-override"],
+  "/session/capture": ["btn-capture"],
+  "/content/ingest": ["btn-ingest"],
+  "/eval/rag": ["btn-eval"],
+  "/hardware/emergency-stop": ["btn-estop"],
+  "/hardware/clear-emergency-stop": ["btn-clear-estop"],
+};
+const viewCopy = {
+  main: ["Live overview", "Your cameras, visitor experience and system health in one place."],
+  demo: ["Demo controls", "Set up the experience, check readiness and run a live demonstration."],
+  "audio-vision": ["Audio & vision", "Follow the signal from the camera and microphone to the spoken answer."],
+  arducam: ["Arducam", "An independent CSI preview. Frames are live only and never stored."],
+  visitor: ["Visitor monitor", "Follow onboarding, readiness and assistance without exposing identifying details."],
+  logs: ["Activity & logs", "Read recent system events, find failures and export an operator snapshot."],
+  settings: ["Settings", "Review the active configuration. Saved changes require a runtime restart."],
+};
+
+function setIssue(key, issue) {
+  if (issue) issues.set(key, issue);
+  else issues.delete(key);
+  renderIssues();
+}
+
+function replaceIssues(prefix, entries) {
+  for (const key of issues.keys()) if (key.startsWith(prefix)) issues.delete(key);
+  for (const [key, issue] of entries) issues.set(`${prefix}${key}`, issue);
+  renderIssues();
+}
+
+function renderIssues() {
+  const active = [...issues.values()].sort((a, b) => (a.severity === "danger" ? 0 : 1) - (b.severity === "danger" ? 0 : 1));
+  const confirmed = latestStatus && latestHealth && latestAudio && latestVisitor && lastStatusSync;
+  const simulated = latestStatus && latestStatus.mode !== "device";
+  const severity = active.some((item) => item.severity === "danger") ? "danger" : active.length ? "warning" : confirmed ? "ok" : "neutral";
+  $("issue-board").dataset.severity = severity;
+  $("issue-mark").textContent = active.length ? "!" : confirmed ? "✓" : "…";
+  const heading = active.length ? `${active.length} ${active.length === 1 ? "issue needs" : "issues need"} attention`
+    : confirmed ? (simulated ? "Simulated checks are healthy" : "Reported checks are healthy") : "Checking system health";
+  // Avoid repeatedly announcing the same summary on every polling response.
+  if ($("issue-title").textContent !== heading) $("issue-title").textContent = heading;
+  $("issue-summary").textContent = active.length ? "Live faults stay here until they recover. Open the relevant view to investigate."
+    : confirmed ? (simulated ? "Mock/dev runtime — this is not a physical device or cloud-service validation." : "The latest runtime reports no active faults. This is not a full hardware or cloud-service test.")
+      : "Readiness is not confirmed until live checks complete.";
+  const list = $("issue-list");
+  // Preserve keyboard focus: do not rebuild identical live rows every second.
+  const signature = JSON.stringify(active);
+  if (list.dataset.signature !== signature) {
+    list.dataset.signature = signature;
+    list.replaceChildren();
+    active.forEach((issue) => {
+      const row = document.createElement("li");
+      const copy = document.createElement("div");
+      const title = document.createElement("strong");
+      const detail = document.createElement("p");
+      title.textContent = issue.title;
+      detail.textContent = issue.detail;
+      copy.append(title, detail);
+      row.append(copy);
+      if (issue.view) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "secondary compact-button";
+        button.textContent = "Inspect";
+        button.setAttribute("aria-label", `Inspect ${issue.title}`);
+        button.addEventListener("click", () => {
+          setAdminView(issue.view);
+          $("dashboard-heading").focus();
+        });
+        row.append(button);
+      }
+      list.append(row);
+    });
+  }
+  $("btn-clear-action-error").classList.toggle("hidden", !issues.has("action"));
+  $("btn-show-issues").classList.toggle("hidden", !active.length);
+  $("btn-show-issues").textContent = `${active.length} ${active.length === 1 ? "issue" : "issues"}`;
+}
+
+function updateFreshness() {
+  if (!lastStatusSync) return;
+  const age = Math.max(0, Math.floor((Date.now() - lastStatusSync) / 1000));
+  $("last-sync").textContent = age < 5 ? "Updated just now" : `Last update ${age}s ago`;
+  if (age >= 10) {
+    setIssue("stale", { title: "Live status is stale", detail: "Displayed values are last known, not confirmed live. Check the Jetson connection.", severity: "danger", view: "logs" });
+    $("admin-state").textContent = "Status stale";
+    $("admin-state").className = "status-pill danger";
+  }
+}
+
+async function pollOnce(key, refresh) {
+  if (!adminUnlocked || pollsInFlight.has(key)) return;
+  pollsInFlight.add(key);
+  try { await refresh(); } finally { pollsInFlight.delete(key); }
+}
 
 function token() {
   return $("inp-token").value.trim();
 }
 
 function setAdminLocked(locked, message = "") {
+  if (locked) {
+    adminUnlocked = false;
+    refreshIntervals.forEach(window.clearInterval);
+    refreshIntervals = [];
+    window.clearTimeout(cameraTimer);
+    window.clearTimeout(arducamTimer);
+    window.clearTimeout(audioVolumeTimer);
+    for (const url of [cameraObjectUrl, arducamObjectUrl]) if (url) URL.revokeObjectURL(url);
+    cameraObjectUrl = arducamObjectUrl = null;
+    ["admin-camera", "admin-arducam"].forEach((id) => { $(id).removeAttribute("src"); $(id).classList.add("hidden"); });
+    ["camera-empty", "arducam-empty"].forEach((id) => $(id).classList.remove("hidden"));
+  }
   document.body.classList.toggle("admin-locked", locked);
   document.body.classList.toggle("admin-unlocked", !locked);
   $("admin-unlock-gate").setAttribute("aria-hidden", String(!locked));
@@ -37,24 +154,46 @@ function setAdminLocked(locked, message = "") {
 }
 
 async function api(path, options = {}, protectedRoute = true) {
+  if (!options.method || options.method === "GET" || path === "/api/admin/audio") return requestApi(path, options, protectedRoute);
+  const key = `${options.method} ${path}`;
+  if (pendingMutations.has(key)) throw new Error("This action is already running. Wait for it to finish.");
+  pendingMutations.add(key);
+  const controls = (actionControls[path] || []).map((id) => [$(id), $(id).disabled]);
+  controls.forEach(([button]) => { button.disabled = true; button.setAttribute("aria-busy", "true"); });
+  try { return await requestApi(path, options, protectedRoute); }
+  finally {
+    pendingMutations.delete(key);
+    controls.forEach(([button, disabled]) => { button.disabled = disabled; button.removeAttribute("aria-busy"); });
+  }
+}
+
+async function requestApi(path, options = {}, protectedRoute = true) {
   if (protectedRoute && authRequired && !token()) throw new Error("Admin token required");
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (protectedRoute && authRequired) headers["X-Atlas-Admin-Token"] = token();
-  const response = await fetch(path, { ...options, headers });
+  const controller = new AbortController();
+  const deadline = window.setTimeout(() => controller.abort(), options.method && options.method !== "GET" ? 60000 : 10000);
+  let response;
   let body = null;
-  try { body = await response.json(); } catch (_) { /* no response body */ }
+  try {
+    response = await fetch(path, { ...options, headers, signal: controller.signal });
+    try { body = await response.json(); } catch (_) { /* no response body */ }
+  } catch (_) {
+    throw new Error(controller.signal.aborted ? "Request timed out. Check the connection and retry." : "Cannot reach ATLAS. Check the connection and retry.");
+  } finally { window.clearTimeout(deadline); }
   if (!response.ok) {
     const detail = body && body.detail ? body.detail : response.statusText;
-    if (protectedRoute && response.status === 401 && authRequired) {
+    if (protectedRoute && response.status === 401 && authRequired && headers["X-Atlas-Admin-Token"] === token()) {
       window.sessionStorage.removeItem("atlasAdminToken");
       setAdminLocked(true, "This token was not accepted. Try again.");
     }
-    throw new Error(String(detail));
+    throw new Error(typeof detail === "string" ? detail : "The request was rejected. Check the entered values and retry.");
   }
   return body;
 }
 
 function notice(message, bad = false) {
+  if (bad && adminUnlocked) setIssue("action", { title: "Action did not complete", detail: message, severity: "danger" });
   const node = $("admin-notice");
   node.textContent = message;
   node.classList.toggle("bad", bad);
@@ -109,11 +248,21 @@ function playHelpTone() {
 }
 
 function renderVisitorStatus(payload) {
+  latestVisitor = payload;
   const state = payload.state;
   const readiness = payload.readiness;
   const help = payload.help_request;
   const connected = state.connection === "online";
   const helpRequested = Boolean(help && help.status === "requested");
+  const visitorIssues = [];
+  if (!connected) visitorIssues.push(["connection", { title: "Visitor connection lost", detail: "The visitor monitor cannot confirm an active connection.", severity: "danger", view: "visitor" }]);
+  if (state.transfer === "failed") visitorIssues.push(["transfer", { title: "Visitor profile transfer failed", detail: "Review the visitor readiness checks before starting again.", severity: "danger", view: "visitor" }]);
+  if (helpRequested) visitorIssues.push(["help", { title: "Visitor needs assistance", detail: "Open the visitor monitor and acknowledge the request.", severity: "warning", view: "visitor" }]);
+  readiness.items.filter((item) => item.status !== "ready").forEach((item) => {
+    visitorIssues.push([`ready-${item.id}`, { title: `${item.label}: ${titleCase(item.status)}`, detail: item.detail || "Review this readiness check in the visitor monitor.", severity: ["unavailable", "unsupported"].includes(item.status) ? "danger" : "warning", view: "visitor" }]);
+  });
+  replaceIssues("visitor-", visitorIssues);
+  setIssue("visitor-request", null);
   $("visitor-live-panel").classList.toggle("has-help-request", helpRequested);
   $("visitor-assistance").classList.toggle("has-help-request", helpRequested);
   document.body.classList.toggle("visitor-help-active", helpRequested);
@@ -182,14 +331,26 @@ async function refreshVisitorStatus() {
   try {
     renderVisitorStatus(await api("/api/admin/live-status", {}, true));
   } catch (_) {
+    latestVisitor = null;
+    setIssue("visitor-request", { title: "Visitor monitor unavailable", detail: "Onboarding and assistance values may be out of date. Check the connection.", severity: "danger", view: "visitor" });
     $("visitor-live-state").textContent = "Unavailable";
     $("visitor-live-state").className = "status-pill danger";
   }
 }
 
+function componentState(value) {
+  const normalized = String(value && typeof value === "object" ? value.status || value.active || value.provider || "" : value || "").toLowerCase();
+  if (/primary \((ready|unavailable)\).*fallback \((ready|unavailable)\)/.test(normalized)) {
+    const primary = normalized.includes("primary (ready)");
+    const fallback = normalized.includes("fallback (ready)");
+    return primary && fallback ? "ok" : primary || fallback ? "warning" : "danger";
+  }
+  if (!normalized || /error|unavailable|failed|disconnected|not ready|^empty$|^unknown$/.test(normalized)) return "danger";
+  return /degraded|fallback active/.test(normalized) ? "warning" : "ok";
+}
+
 function valueIsHealthy(value) {
-  const normalized = String(value || "").toLowerCase();
-  return Boolean(normalized) && !normalized.includes("error") && !normalized.includes("unavailable");
+  return componentState(value) !== "danger";
 }
 
 function renderDemoReadiness() {
@@ -228,16 +389,17 @@ function renderOperationalDetails() {
   const camera = status.camera || {};
   const artwork = status.artwork || {};
   const answer = status.last_answer || {};
+  const interaction = status.last_interaction;
   const sessionActive = Boolean(status.session_active);
   const demoActive = Boolean(status.demo_active);
 
   $("demo-cycle-state").textContent = demoActive ? "Running" : "Waiting";
   $("demo-cycle-state").className = `status-pill ${demoActive ? "ok" : "neutral"}`;
-  $("demo-stage-listen").textContent = sessionActive ? "Listening loop active" : "Idle";
+  $("demo-stage-listen").textContent = sessionActive ? "Session active" : "Idle";
   $("demo-stage-language").textContent = status.experience && status.experience.language
     ? status.experience.language.toUpperCase() : "No language";
   $("demo-stage-artwork").textContent = artwork.label || "No artwork";
-  $("demo-stage-response").textContent = answer.answer ? "Answer delivered" : "No response";
+  $("demo-stage-response").textContent = interaction ? (interaction.state === "failed" ? "Needs attention" : interaction.state === "completed" ? "Response completed" : "Control applied") : answer.answer ? "Dashboard answer ready" : "No response recorded";
 
   $("diag-camera").textContent = camera.ready ? "Connected" : "Disconnected";
   $("diag-yolo").textContent = latestConfig
@@ -255,6 +417,8 @@ function setAdminView(view, { persist = true } = {}) {
   const supported = new Set(["main", "demo", "audio-vision", "arducam", "visitor", "logs", "settings"]);
   const nextView = supported.has(view) ? view : "main";
   document.body.dataset.adminView = nextView;
+  $("dashboard-heading").textContent = viewCopy[nextView][0];
+  $("dashboard-description").textContent = viewCopy[nextView][1];
   document.querySelectorAll("[data-admin-tab]").forEach((button) => {
     const active = button.dataset.adminTab === nextView;
     button.classList.toggle("active", active);
@@ -263,7 +427,12 @@ function setAdminView(view, { persist = true } = {}) {
   document.querySelectorAll("[data-admin-views]").forEach((panel) => {
     panel.classList.toggle("view-hidden", !panel.dataset.adminViews.split(" ").includes(nextView));
   });
-  if (persist) window.sessionStorage.setItem("atlasAdminView", nextView);
+  if (persist) {
+    window.sessionStorage.setItem("atlasAdminView", nextView);
+    window.scrollTo(0, 0);
+  }
+  if (adminUnlocked) refreshCamera();
+  if (nextView === "logs" && adminUnlocked) refreshLogs();
   if (nextView === "arducam" && adminUnlocked) {
     refreshArducamStatus();
     refreshArducam();
@@ -284,6 +453,8 @@ function routeIsAvailable(status) {
 function renderAudioStatus(status) {
   latestAudio = status;
   const routeAvailable = routeIsAvailable(status);
+  setIssue("audio-request", null);
+  setIssue("audio-route", routeAvailable ? null : { title: "Selected audio output unavailable", detail: "Connect the selected headset or speaker, or choose an available output.", severity: "danger", view: "audio-vision" });
   document.querySelectorAll("[data-audio-route]").forEach((button) => {
     const active = button.dataset.audioRoute === status.route;
     button.setAttribute("aria-pressed", String(active));
@@ -291,6 +462,7 @@ function renderAudioStatus(status) {
   $("audio-volume").value = status.volume_percent;
   $("audio-volume-value").textContent = `${status.volume_percent}%`;
   $("audio-output-name").textContent = status.output_device_name;
+  $("audio-input-name").textContent = status.headset_name || "Not reported";
   $("audio-provider").textContent = providerLabel(status.provider);
   $("audio-state").textContent = routeAvailable ? `${titleCase(status.route)} active` : `${titleCase(status.route)} unavailable`;
   $("audio-state").className = `status-pill ${routeAvailable ? "ok" : "warning"}`;
@@ -310,9 +482,12 @@ async function refreshAudio() {
   try {
     renderAudioStatus(await api("/api/admin/audio", {}, true));
   } catch (error) {
+    latestAudio = null;
+    $("metric-audio").textContent = "Unknown";
+    setIssue("audio-request", { title: "Audio status unavailable", detail: "Cannot confirm the selected output. Check the connection and audio devices.", severity: "danger", view: "audio-vision" });
     $("audio-state").textContent = "Unavailable";
     $("audio-state").className = "status-pill danger";
-    if (adminUnlocked) console.warn("Audio status unavailable", error);
+    // The persistent issue board is the operator-facing error surface.
   }
 }
 
@@ -329,22 +504,36 @@ async function refreshStatus() {
   try {
     const status = await api("/status");
     latestStatus = status;
+    lastStatusSync = Date.now();
+    setIssue("status-request", null);
+    setIssue("stale", null);
+    updateFreshness();
+    const simulated = status.mode !== "device";
+    $("runtime-mode").textContent = simulated ? "Simulated runtime" : "Device runtime";
+    $("runtime-mode").className = `status-pill ${simulated ? "warning" : "neutral"}`;
+    replaceIssues("runtime-", [
+      ...(status.emergency_stopped ? [["stop", { title: "Emergency stop is active", detail: "Motion is stopped. Only clear the stop once the equipment is safe.", severity: "danger", view: "audio-vision" }]] : []),
+      ...(!status.camera || !status.camera.ready || status.camera.last_frame_age_s > 3 ? [["camera", { title: "Artwork camera is not ready", detail: "A fresh camera frame is unavailable. Check camera power, network and the live preview.", severity: "danger", view: "audio-vision" }]] : []),
+      ...(status.last_interaction && status.last_interaction.response_failed ? [["response", { title: "Last response failed", detail: "ATLAS reported an AI or interaction failure. Review Activity & logs before retrying.", severity: "danger", view: "logs" }]] : []),
+      ...(status.last_interaction && status.last_interaction.speech_ok === false ? [["speech", { title: "Last spoken response was not played", detail: "Check the headset, selected output and speech provider before retrying.", severity: "danger", view: "audio-vision" }]] : []),
+    ]);
     $("admin-state").textContent = status.emergency_stopped ? "Emergency stop" : "Online";
     $("admin-state").className = `status-pill ${status.emergency_stopped ? "danger" : "ok"}`;
     $("metric-mode").textContent = status.mode;
     $("metric-session").textContent = status.session_active ? "Active" : "Idle";
     $("metric-artwork").textContent = status.artwork.label || "None";
-    $("metric-latency").textContent = status.last_answer && status.last_answer.latency_ms != null
-      ? `${Math.round(status.last_answer.latency_ms)} ms` : "--";
+    const latency = status.last_interaction ? status.last_interaction.latency_ms : status.last_answer && status.last_answer.latency_ms;
+    $("metric-latency").textContent = latency != null ? `${Math.round(latency)} ms` : "--";
     $("vision-session").textContent = status.session_active ? "Active" : "Idle";
     $("vision-language").textContent = (status.experience && status.experience.language || "--").toUpperCase();
     $("vision-artwork").textContent = status.artwork.label || "None";
     $("vision-confidence").textContent = status.artwork.confidence == null
       ? "--" : `${Math.round(Number(status.artwork.confidence) * 100)}%`;
-    $("vision-latency").textContent = status.last_answer && status.last_answer.latency_ms != null
-      ? `${Math.round(status.last_answer.latency_ms)} ms` : "--";
-    $("vision-last-answer").textContent = status.last_answer && status.last_answer.answer
-      ? status.last_answer.answer : "No answer yet.";
+    $("vision-latency").textContent = latency != null ? `${Math.round(latency)} ms` : "--";
+    // The overview shows answer state, not private visitor speech or answers.
+    const interaction = status.last_interaction;
+    $("vision-last-answer").textContent = interaction ? (interaction.state === "failed" ? "Last interaction needs attention. See the issue board." : interaction.state === "control" ? "Last voice control applied." : `Last ${interaction.source === "voice" ? "spoken" : "dashboard"} response completed.`)
+      : status.last_answer && status.last_answer.answer ? "Last dashboard response completed." : "No response recorded yet.";
     $("btn-stop").disabled = !status.session_active;
     if (!experienceDirty) {
       $("experience-state").textContent = status.session_active ? "Session active" : "Session idle";
@@ -362,16 +551,17 @@ async function refreshStatus() {
     $("camera-source").textContent = artwork.artwork_id
       ? `${artwork.stable ? "Stable" : "Detecting"} / ${artwork.source}` : "Camera stream";
     const camera = status.camera || {};
-    $("metric-camera").textContent = camera.ready ? "Live" : "Disconnected";
+    $("metric-camera").textContent = camera.ready ? "Frame ready" : "Disconnected";
     const cameraResolution = camera.actual_width && camera.actual_height
       ? ` @ ${camera.actual_width}x${camera.actual_height}` : "";
     $("vision-camera-fps").textContent = camera.observed_fps != null
       ? `${Number(camera.observed_fps).toFixed(1)} fps${cameraResolution}` : "--";
     if (camera.last_error) {
-      $("camera-source").textContent = `Recovering: ${camera.last_error}`;
+      $("camera-source").textContent = "Camera recovering. Check its power and connection.";
     }
     renderOperationalDetails();
   } catch (_) {
+    setIssue("status-request", { title: "Runtime connection lost", detail: "Live values are last known. Check the Jetson, network and ATLAS service.", severity: "danger", view: "logs" });
     $("admin-state").textContent = "Offline";
     $("admin-state").className = "status-pill danger";
   }
@@ -383,13 +573,17 @@ async function refreshHealth() {
   try {
     const health = await api("/health");
     latestHealth = health;
+    setIssue("health-request", null);
     $("vision-stt").textContent = health.components.stt || "Unavailable";
     $("vision-tts").textContent = health.components.tts || "Unavailable";
     Object.entries(health.components).forEach(([name, value]) => {
-      appendStatus(list, name, value, String(value).startsWith("error"));
+      appendStatus(list, titleCase(name), providerLabel(value), !valueIsHealthy(value));
     });
+    replaceIssues("health-", Object.entries(health.components).filter(([, value]) => componentState(value) !== "ok").map(([name, value]) => [name, { title: `${titleCase(name)} needs attention`, detail: componentState(value) === "warning" ? "A primary or fallback path is degraded, but another path is reported available." : "The runtime reported this component as unavailable or unhealthy. Review diagnostics.", severity: componentState(value), view: "audio-vision" }]));
     renderOperationalDetails();
   } catch (error) {
+    latestHealth = null;
+    setIssue("health-request", { title: "Component checks unavailable", detail: "Camera, speech and knowledge readiness cannot be confirmed.", severity: "danger", view: "audio-vision" });
     appendStatus(list, "dashboard", error.message, true);
   }
 }
@@ -506,12 +700,13 @@ function setVisitorMonitorCollapsed(collapsed, { persist = true } = {}) {
 function startRefreshLoops() {
   if (refreshIntervals.length) return;
   refreshIntervals = [
-    window.setInterval(refreshStatus, 2000),
-    window.setInterval(refreshHealth, 12000),
-    window.setInterval(refreshLogs, 1500),
-    window.setInterval(refreshVisitorStatus, 1000),
-    window.setInterval(refreshAudio, 5000),
-    window.setInterval(refreshArducamStatus, 2000),
+    window.setInterval(() => pollOnce("status", refreshStatus), 2000),
+    window.setInterval(() => pollOnce("health", refreshHealth), 12000),
+    window.setInterval(() => pollOnce("logs", refreshLogs), 5000),
+    window.setInterval(() => pollOnce("visitor", refreshVisitorStatus), 1000),
+    window.setInterval(() => pollOnce("audio", refreshAudio), 5000),
+    window.setInterval(() => pollOnce("arducam", refreshArducamStatus), 2000),
+    window.setInterval(updateFreshness, 1000),
   ];
 }
 
@@ -625,6 +820,7 @@ function renderLogSnapshot() {
 }
 
 async function refreshLogs(force = false) {
+  if (!force && document.body.dataset.adminView !== "logs") return;
   if ($("chk-pause-logs").checked && !force) return;
   try {
     const [runtime, events] = await Promise.all([
@@ -634,11 +830,15 @@ async function refreshLogs(force = false) {
     const guidedEvents = logFormats.events === "human";
     latestLogs = { runtime: runtime.lines, events };
     renderLogSnapshot();
+    setIssue("logs-request", null);
+    $("log-freshness").textContent = `Updated ${new Date().toLocaleTimeString()}`;
     $("runtime-log-state").textContent = runtime.available ? "Live" : "Unavailable";
     $("runtime-log-state").className = runtime.available ? "ok" : "bad";
     $("event-log-state").textContent = guidedEvents ? "Guided" : "Raw";
   } catch (error) {
+    setIssue("logs-request", { title: "Live logs unavailable", detail: "The last log snapshot may be out of date. Refresh after checking the connection.", severity: "warning", view: "logs" });
     $("runtime-log-state").textContent = "Error";
+    $("runtime-log-state").className = "bad";
     keepLogPosition($("runtime-log-view"), error.message);
   }
 }
@@ -660,41 +860,73 @@ function scheduleCameraRefresh(delayMs) {
 
 function showCameraImage(image, source) {
   return new Promise((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("camera image could not be displayed"));
+    const finish = (error) => {
+      window.clearTimeout(deadline);
+      image.onload = image.onerror = null;
+      if (error) reject(error); else resolve();
+    };
+    const deadline = window.setTimeout(() => finish(new Error("Preview decoding timed out.")), 5000);
+    image.onload = () => finish();
+    image.onerror = () => finish(new Error("Preview could not be displayed."));
     image.src = source;
   });
 }
 
+async function fetchPreview(path) {
+  const controller = new AbortController();
+  const deadline = window.setTimeout(() => controller.abort(), 8000);
+  try {
+    const requestToken = token();
+    const response = await fetch(path, { cache: "no-store", headers: authRequired ? { "X-Atlas-Admin-Token": requestToken } : {}, signal: controller.signal });
+    if (response.status === 401 && authRequired && requestToken === token()) {
+      window.sessionStorage.removeItem("atlasAdminToken");
+      setAdminLocked(true, "This token was not accepted. Try again.");
+    }
+    if (!response.ok) throw new Error("Preview unavailable.");
+    return URL.createObjectURL(await response.blob());
+  } finally { window.clearTimeout(deadline); }
+}
+
 async function refreshCamera() {
   if (!adminUnlocked) return;
+  if (document.hidden || !["main", "audio-vision"].includes(document.body.dataset.adminView)) {
+    scheduleCameraRefresh(1000);
+    return;
+  }
   if (cameraRequestInFlight) return;
   cameraRequestInFlight = true;
+  let nextUrl = null;
   try {
-    const response = await fetch(`/camera/frame.jpg?t=${Date.now()}`, {
-      cache: "no-store",
-      headers: authRequired ? { "X-Atlas-Admin-Token": token() } : {},
-    });
-    if (!response.ok) throw new Error(`camera returned ${response.status}`);
-    const nextUrl = URL.createObjectURL(await response.blob());
+    nextUrl = await fetchPreview(`/camera/frame.jpg?t=${Date.now()}`);
+    if (!adminUnlocked) return;
     const image = $("admin-camera");
     const previousUrl = cameraObjectUrl;
-    cameraObjectUrl = nextUrl;
     await showCameraImage(image, nextUrl);
+    if (!adminUnlocked) return;
+    cameraObjectUrl = nextUrl;
+    nextUrl = null;
     if (previousUrl) URL.revokeObjectURL(previousUrl);
+    image.classList.remove("hidden");
+    $("camera-empty").classList.add("hidden");
+    setIssue("camera-preview", null);
     $("camera-state").textContent = "Live";
     $("camera-state").className = "status-pill ok";
-    scheduleCameraRefresh(120);
+    scheduleCameraRefresh(250);
   } catch (_) {
     if (cameraObjectUrl) {
       URL.revokeObjectURL(cameraObjectUrl);
       cameraObjectUrl = null;
     }
     $("admin-camera").removeAttribute("src");
+    $("admin-camera").classList.add("hidden");
+    $("camera-empty").classList.remove("hidden");
+    $("camera-empty-detail").textContent = "No fresh preview. Check camera power and network. ATLAS will retry automatically.";
+    if (adminUnlocked) setIssue("camera-preview", { title: "Artwork preview unavailable", detail: "The dashboard cannot display a fresh image. Automatic retries are running.", severity: "warning", view: "audio-vision" });
     $("camera-state").textContent = "Unavailable";
     $("camera-state").className = "status-pill danger";
     scheduleCameraRefresh(1000);
   } finally {
+    if (nextUrl) URL.revokeObjectURL(nextUrl);
     cameraRequestInFlight = false;
   }
 }
@@ -706,6 +938,8 @@ function scheduleArducamRefresh(delayMs) {
 
 function renderArducamStatus(status) {
   const ready = Boolean(status.ready);
+  setIssue("arducam-request", null);
+  setIssue("arducam-status", status.enabled && (!ready || status.last_error) ? { title: "Arducam needs attention", detail: "The CSI camera is waiting or recovering. Check its connection and retry the preview.", severity: ready ? "warning" : "danger", view: "arducam" } : null);
   $("arducam-state").textContent = ready ? "Live" : (status.enabled ? "Waiting" : "Disabled");
   $("arducam-state").className = `status-pill ${ready ? "ok" : (status.enabled ? "warning" : "neutral")}`;
   $("arducam-source").textContent = status.source || "Jetson CSI / nvarguscamerasrc";
@@ -729,6 +963,7 @@ async function refreshArducamStatus() {
   try {
     renderArducamStatus(await api("/api/admin/arducam/status", {}, true));
   } catch (error) {
+    setIssue("arducam-request", { title: "Arducam status unavailable", detail: "CSI camera readiness cannot be confirmed. Check the connection.", severity: "danger", view: "arducam" });
     $("arducam-state").textContent = "Unavailable";
     $("arducam-state").className = "status-pill danger";
     $("arducam-detail").textContent = error.message;
@@ -736,46 +971,46 @@ async function refreshArducamStatus() {
 }
 
 async function refreshArducam() {
-  if (!adminUnlocked || document.body.dataset.adminView !== "arducam") {
+  if (!adminUnlocked) return;
+  if (document.hidden || document.body.dataset.adminView !== "arducam") {
     scheduleArducamRefresh(750);
     return;
   }
   if (arducamRequestInFlight) return;
   arducamRequestInFlight = true;
+  let nextUrl = null;
   try {
-    const headers = authRequired ? { "X-Atlas-Admin-Token": token() } : {};
-    const response = await fetch(`/api/admin/arducam/frame.jpg?t=${Date.now()}`, {
-      cache: "no-store",
-      headers,
-    });
-    if (!response.ok) {
-      const message = response.status === 503
-        ? "Camera disconnected."
-        : `Preview unavailable (${response.status}).`;
-      const previewError = new Error(message);
-      previewError.status = response.status;
-      throw previewError;
-    }
-    const nextUrl = URL.createObjectURL(await response.blob());
+    nextUrl = await fetchPreview(`/api/admin/arducam/frame.jpg?t=${Date.now()}`);
+    if (!adminUnlocked) return;
     const image = $("admin-arducam");
     const previousUrl = arducamObjectUrl;
-    arducamObjectUrl = nextUrl;
     await showCameraImage(image, nextUrl);
+    if (!adminUnlocked) return;
+    arducamObjectUrl = nextUrl;
+    nextUrl = null;
     if (previousUrl) URL.revokeObjectURL(previousUrl);
+    image.classList.remove("hidden");
+    $("arducam-empty").classList.add("hidden");
+    setIssue("arducam-preview", null);
     $("arducam-state").textContent = "Live";
     $("arducam-state").className = "status-pill ok";
-    scheduleArducamRefresh(120);
+    scheduleArducamRefresh(250);
   } catch (error) {
     if (arducamObjectUrl) {
       URL.revokeObjectURL(arducamObjectUrl);
       arducamObjectUrl = null;
     }
     $("admin-arducam").removeAttribute("src");
-    $("arducam-state").textContent = error.status === 503 ? "Waiting" : "Unavailable";
-    $("arducam-state").className = `status-pill ${error.status === 503 ? "warning" : "danger"}`;
-    $("arducam-detail").textContent = error.message;
+    $("admin-arducam").classList.add("hidden");
+    $("arducam-empty").classList.remove("hidden");
+    $("arducam-empty-detail").textContent = "No fresh preview. Check the CSI camera connection. Automatic retries are running.";
+    if (adminUnlocked) setIssue("arducam-preview", { title: "Arducam preview unavailable", detail: "The dashboard cannot display a fresh CSI image. Automatic retries are running.", severity: "warning", view: "arducam" });
+    $("arducam-state").textContent = "Unavailable";
+    $("arducam-state").className = "status-pill danger";
+    $("arducam-detail").textContent = "Preview unavailable. Check the CSI connection and retry.";
     scheduleArducamRefresh(1000);
   } finally {
+    if (nextUrl) URL.revokeObjectURL(nextUrl);
     arducamRequestInFlight = false;
   }
 }
@@ -798,8 +1033,18 @@ $("config-form").addEventListener("submit", async (event) => {
 });
 
 $("btn-refresh").addEventListener("click", () => Promise.all([
-  refreshStatus(), refreshHealth(), refreshLogs(true), refreshVisitorStatus(), refreshAudio(), refreshArducamStatus(),
+  pollOnce("status", refreshStatus), pollOnce("health", refreshHealth), pollOnce("logs", () => refreshLogs(true)),
+  pollOnce("visitor", refreshVisitorStatus), pollOnce("audio", refreshAudio), pollOnce("arducam", refreshArducamStatus),
 ]));
+$("btn-clear-action-error").addEventListener("click", () => setIssue("action", null));
+$("btn-show-issues").addEventListener("click", () => {
+  $("issue-board").scrollIntoView({ block: "start" });
+  $("issue-title").focus({ preventScroll: true });
+});
+$("chk-pause-logs").addEventListener("change", () => {
+  $("log-freshness").textContent = $("chk-pause-logs").checked ? "Paused · last snapshot" : "Resuming updates";
+  if (!$("chk-pause-logs").checked) refreshLogs(true);
+});
 document.querySelectorAll("[data-admin-tab]").forEach((button) => {
   button.addEventListener("click", () => setAdminView(button.dataset.adminTab));
 });
@@ -884,7 +1129,7 @@ $("btn-capture").addEventListener("click", () => api("/session/capture", { metho
 
 $("btn-ingest").addEventListener("click", () => api("/content/ingest", { method: "POST", body: JSON.stringify({ pack_id: $("content-pack").value, reset: true }) }, true).then((result) => renderObject("content-result", result)).catch((error) => notice(error.message, true)));
 $("btn-eval").addEventListener("click", () => api("/eval/rag", { method: "POST" }, true).then((result) => renderObject("content-result", result)).catch((error) => notice(error.message, true)));
-$("btn-estop").addEventListener("click", () => api("/hardware/emergency-stop", { method: "POST" }, false).then(() => Promise.all([refreshStatus(), refreshHealth()])));
+$("btn-estop").addEventListener("click", () => api("/hardware/emergency-stop", { method: "POST" }, false).then(() => { notice("Emergency stop applied."); return Promise.all([refreshStatus(), refreshHealth()]); }).catch((error) => notice(error.message, true)));
 $("btn-clear-estop").addEventListener("click", () => api("/hardware/clear-emergency-stop", { method: "POST" }, true).then(() => Promise.all([refreshStatus(), refreshHealth()])).catch((error) => notice(error.message, true)));
 $("btn-refresh-logs").addEventListener("click", () => refreshLogs(true));
 $("log-search").addEventListener("input", renderLogSnapshot);

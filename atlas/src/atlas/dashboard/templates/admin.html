@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
-  <link rel="stylesheet" href="/static/style.css?v=18">
+  <meta name="color-scheme" content="light">
+  <link rel="stylesheet" href="/static/style.css?v=19">
 </head>
 <body class="admin-page admin-locked" data-admin-view="main">
   <section id="admin-unlock-gate" class="admin-unlock-gate" aria-labelledby="admin-unlock-title">
@@ -20,6 +21,7 @@
   </section>
 
   <div id="admin-workspace" class="admin-workspace">
+  <a class="skip-link" href="#dashboard-heading">Skip to dashboard</a>
   <header class="app-header ops-header">
     <div class="brand-block">
       <span class="brand-mark" aria-hidden="true">A</span>
@@ -29,28 +31,40 @@
       <div><span>Mode</span><strong id="metric-mode">--</strong></div>
       <div><span>Session</span><strong id="metric-session">Idle</strong></div>
       <div><span>Artwork</span><strong id="metric-artwork">None</strong></div>
-      <div><span>Camera</span><strong id="metric-camera">--</strong></div>
+      <div><span>Frame status</span><strong id="metric-camera">--</strong></div>
       <div><span>Audio</span><strong id="metric-audio">--</strong></div>
       <div><span>Latency</span><strong id="metric-latency">--</strong></div>
     </div>
     <div class="header-actions">
       <span id="admin-state" class="status-pill neutral">Connecting</span>
-      <span id="local-mode" class="status-pill warning hidden">Local test mode</span>
+      <button id="btn-show-issues" type="button" class="danger compact-button hidden" aria-controls="issue-board">View issues</button>
+      <span id="local-mode" class="status-pill warning hidden">Local access · no token</span>
       <button id="btn-refresh" type="button" class="secondary compact-button">Refresh</button>
     </div>
   </header>
 
   <nav class="admin-view-nav" aria-label="Admin dashboard views">
-    <button type="button" class="active" data-admin-tab="main" aria-pressed="true">Main</button>
-    <button type="button" data-admin-tab="demo" aria-pressed="false">Demo</button>
-    <button type="button" data-admin-tab="audio-vision" aria-pressed="false">Audio / Vision</button>
-    <button type="button" data-admin-tab="arducam" aria-pressed="false">Arducam</button>
-    <button type="button" data-admin-tab="visitor" aria-pressed="false">Visitor</button>
-    <button type="button" data-admin-tab="logs" aria-pressed="false">Logs</button>
-    <button type="button" data-admin-tab="settings" aria-pressed="false">Settings</button>
+    <p class="nav-label">Workspace</p>
+    <button type="button" class="active" data-admin-tab="main" aria-pressed="true"><span class="nav-symbol" aria-hidden="true">01</span>Overview</button>
+    <button type="button" data-admin-tab="demo" aria-pressed="false"><span class="nav-symbol" aria-hidden="true">02</span>Demo controls</button>
+    <button type="button" data-admin-tab="audio-vision" aria-pressed="false"><span class="nav-symbol" aria-hidden="true">03</span>Audio &amp; vision</button>
+    <button type="button" data-admin-tab="arducam" aria-pressed="false"><span class="nav-symbol" aria-hidden="true">04</span>Arducam</button>
+    <button type="button" data-admin-tab="visitor" aria-pressed="false"><span class="nav-symbol" aria-hidden="true">05</span>Visitor monitor</button>
+    <button type="button" data-admin-tab="logs" aria-pressed="false"><span class="nav-symbol" aria-hidden="true">06</span>Activity &amp; logs</button>
+    <button type="button" data-admin-tab="settings" aria-pressed="false"><span class="nav-symbol" aria-hidden="true">07</span>Settings</button>
+    <div class="nav-footer"><span class="nav-label">Private operations</span><p>Live previews only.<br>Camera frames are not stored.</p></div>
   </nav>
 
-  <main class="ops-dashboard">
+  <div class="dashboard-intro">
+    <div><p class="eyebrow">ATLAS / Operations</p><h1 id="dashboard-heading" tabindex="-1">Live overview</h1><p id="dashboard-description">Your cameras, visitor experience and system health in one place.</p></div>
+    <div class="update-stamp"><span id="runtime-mode" class="status-pill neutral">Checking mode</span><span id="last-sync">Waiting for live status</span></div>
+  </div>
+  <section id="issue-board" class="issue-board" aria-labelledby="issue-title" data-severity="neutral">
+    <div class="issue-heading"><span id="issue-mark" class="issue-mark" aria-hidden="true">…</span><div><h2 id="issue-title" tabindex="-1" role="status" aria-live="polite">Checking system health</h2><p id="issue-summary">Readiness is not confirmed until live checks complete.</p></div><button id="btn-clear-action-error" type="button" class="secondary compact-button hidden">Dismiss action error</button></div>
+    <ul id="issue-list" class="issue-list"></ul>
+  </section>
+
+  <main class="ops-dashboard" aria-labelledby="dashboard-heading">
     <section class="ops-panel demo-panel" data-admin-views="main demo" aria-labelledby="demo-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Judge experience</p><h1 id="demo-title">Demo mode</h1></div>
@@ -78,7 +92,7 @@
         <div class="command-group compact-actions">
           <button id="btn-apply-experience" type="button">Apply</button>
           <button id="btn-start-demo" type="button">Start demo</button>
-          <button id="btn-stop" type="button" class="secondary">End</button>
+          <button id="btn-stop" type="button" class="secondary">End session</button>
         </div>
       </section>
     </section>
@@ -117,8 +131,8 @@
         </label>
         <dl class="audio-readout">
           <div><dt>Playing through</dt><dd id="audio-output-name">--</dd></div>
-          <div><dt>Microphone</dt><dd>Shokz headset</dd></div>
-          <div><dt>Fallback</dt><dd id="audio-provider">--</dd></div>
+          <div><dt>Input device</dt><dd id="audio-input-name">Not reported</dd></div>
+          <div><dt>Speech engine</dt><dd id="audio-provider">--</dd></div>
         </dl>
       </section>
     </section>
@@ -206,7 +220,7 @@
       </div>
     </section>
 
-    <section class="ops-panel settings-panel" data-admin-views="main settings" aria-labelledby="settings-title">
+    <section class="ops-panel settings-panel" data-admin-views="settings" aria-labelledby="settings-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Configuration</p><h1 id="settings-title">Settings</h1></div>
         <div class="settings-header-actions">
@@ -291,7 +305,7 @@
         <div class="camera-badges"><span id="camera-state" class="status-pill neutral">Connecting</span><span id="camera-detection" class="status-pill neutral">No artwork</span></div>
       </div>
       <div class="vision-workspace">
-        <div class="ops-camera-stage"><img id="admin-camera" alt="Live ATLAS camera feed"></div>
+        <div class="ops-camera-stage"><img id="admin-camera" alt="Live ATLAS camera feed" class="hidden"><div id="camera-empty" class="camera-empty"><span class="camera-empty-mark" aria-hidden="true">◎</span><h2>Waiting for camera</h2><p id="camera-empty-detail">The live preview will appear when a fresh frame is available.</p></div><span class="preview-label">ARTWORK CAMERA · PRIVATE PREVIEW</span></div>
         <aside class="vision-telemetry" aria-label="Live interaction telemetry">
           <div><p class="eyebrow">Interaction</p><h2>Current state</h2></div>
           <ul class="status-list telemetry-list">
@@ -324,7 +338,7 @@
         </div>
       </div>
       <div class="arducam-workspace">
-        <div class="arducam-stage"><img id="admin-arducam" alt="Live Arducam IMX477 feed"></div>
+        <div class="arducam-stage"><img id="admin-arducam" alt="Live Arducam IMX477 feed" class="hidden"><div id="arducam-empty" class="camera-empty"><span class="camera-empty-mark" aria-hidden="true">◎</span><h2>Arducam preview</h2><p id="arducam-empty-detail">Opened only in this view. No camera frames are stored.</p></div><span class="preview-label">CSI CAMERA · PRIVATE PREVIEW</span></div>
         <aside class="vision-telemetry" aria-label="Arducam telemetry">
           <div><p class="eyebrow">Camera</p><h2>Capture state</h2></div>
           <ul class="status-list telemetry-list">
@@ -346,12 +360,12 @@
       </div>
     </section>
 
-    <section class="ops-panel logs-panel" data-admin-views="main logs" aria-labelledby="logs-title">
+    <section class="ops-panel logs-panel" data-admin-views="logs" aria-labelledby="logs-title">
       <div class="ops-panel-header">
         <div><p class="eyebrow">Diagnostics</p><h1 id="logs-title">Live logs</h1></div>
         <div class="command-group log-controls">
           <label class="switch-field"><input id="chk-pause-logs" type="checkbox"><span>Pause</span></label>
-          <button id="btn-refresh-logs" type="button" class="secondary compact-button">Refresh</button>
+          <span id="log-freshness" class="metric">Waiting</span><button id="btn-refresh-logs" type="button" class="secondary compact-button">Refresh</button>
         </div>
       </div>
       <div class="log-toolbar">
@@ -413,7 +427,7 @@
   </main>
   </div>
 
-  <p id="admin-notice" class="notice hidden" role="status"></p>
-  <script src="/static/admin.js?v=17"></script>
+  <p id="admin-notice" class="notice hidden" role="status" aria-live="polite"></p>
+  <script src="/static/admin.js?v=18"></script>
 </body>
 </html>

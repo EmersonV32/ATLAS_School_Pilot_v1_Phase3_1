@@ -699,6 +699,7 @@ class DeviceRuntime:
                                     "[Activation] Visitor voice session is active"
                                 )
                             continue
+                        response_started = time.perf_counter()
                         result = runner.respond_to_transcript(
                             question,
                             expected_generation=generation,
@@ -708,6 +709,23 @@ class DeviceRuntime:
                                 self.settings.vision_center_threshold,
                             ),
                         )
+                        record_result = getattr(
+                            self._dashboard_service, "record_voice_result", None
+                        )
+                        if callable(record_result):
+                            try:
+                                record_result(
+                                    result, session_id=dashboard_session_id,
+                                    expected_generation=generation,
+                                    latency_ms=(time.perf_counter() - response_started)
+                                    * 1000.0,
+                                )
+                            except Exception as exc:
+                                # Monitoring must never interrupt visitor playback.
+                                logger.warning(
+                                    "Dashboard outcome update failed (%s)",
+                                    type(exc).__name__,
+                                )
                         if (
                             result.event == "language_changed"
                             and result.transcript is not None
