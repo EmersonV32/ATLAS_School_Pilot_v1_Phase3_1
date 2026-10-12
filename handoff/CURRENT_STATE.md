@@ -63,6 +63,22 @@ dashboard JavaScript checks, 35 browser layouts, 17 control actions and eight
 failure/recovery scenarios. A fresh visitor browser regression passed 33
 keyboard transitions at 1024×768. Physical acceptance still remains due.
 
+## October 12 readable activity — not deployed
+
+Local branch `codex/readable-live-activity` builds on the dashboard redesign
+with a plain-language activity timeline and a single shared snapshot for
+readable and technical output. It covers listening/questions/responses,
+camera context, headset button presses and failures, with the existing
+text-logging privacy switches preserved. Local FAQ response observations are
+opt-in; conversation and playback behaviour are not changed. See
+[the activity record](../atlas/docs/2026-10-12_READABLE_ACTIVITY.md) for exact
+sync bounds, privacy handling and verification. No push, `main` promotion,
+hardware deployment or SG90 integration has occurred.
+Final local checks passed: 3,246 tests with one expected skip, 62 JavaScript
+checks, 35 browser layouts, 18 control actions, nine failure/recovery scenarios
+and an actual synchronized export. Visitor QA again passed 33 keyboard
+transitions at 1024x768. Physical acceptance remains outstanding.
+
 ## Latest recorded deployment: October 4
 
 At the user's explicit request, v6 and five runtime fixes were deployed to the
