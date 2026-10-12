@@ -1,6 +1,6 @@
 # Current state
 
-Source status date: 2026-10-11. Physical observations below retain their actual
+Source status date: 2026-10-12. Physical observations below retain their actual
 dates; repository cleanup is not a hardware deployment or a fresh health check.
 
 ## Maintained version and source
@@ -48,6 +48,20 @@ motion and no visitor state stored in the browser.
 The deferred SG90 camera-pan work is retained separately on
 `codex/arducam-sg90-pan`; it is not implicitly integrated into this workflow
 branch. Hardware/controller/power choices and physical testing remain deferred.
+
+## October 12 private dashboard redesign — not deployed
+
+October 12 local source work: `codex/dashboard-redesign` builds on the workflow
+branch with a fully redesigned private operations dashboard, persistent fault
+reporting, responsive controls and privacy-safe spoken-interaction outcome
+metadata. Visitor assets and dialogue/playback behaviour remain unchanged.
+See [the dashboard record](../atlas/docs/2026-10-12_DASHBOARD_REDESIGN.md) for
+verification and physical acceptance. This branch is not pushed, promoted to
+`main` or deployed; it does not include the separate SG90 hardware feature.
+Final software checks passed: 3,159 tests with one expected skip, 49 synthetic
+dashboard JavaScript checks, 35 browser layouts, 17 control actions and eight
+failure/recovery scenarios. A fresh visitor browser regression passed 33
+keyboard transitions at 1024×768. Physical acceptance still remains due.
 
 ## Latest recorded deployment: October 4
 
