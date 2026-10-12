@@ -85,6 +85,17 @@ Follow [the validation checklist](VALIDATION_CHECKLIST.md). Do not interpret
 automated tests, branch renaming or old readiness observations as physical
 acceptance.
 
+## Deferred SG90 camera-pan work: October 11
+
+The user asked to pause the hardware task until the equipment is available.
+See [the next-session note](2026-10-11_SG90_NEXT_SESSION.md) for the requested
+sweep/dashboard override, available servo/jumper wires, and the unresolved
+direct-Jetson PWM/power option. The locally prepared
+`codex/arducam-sg90-pan` feature supports a dedicated PCA9685; it has not been
+merged into `main` or deployed. Direct PWM and Jetson-powered servo operation
+remain unimplemented/unverified. This is continuity documentation, not a
+standing instruction to deploy or modify offline devices.
+
 ## Historical evidence
 
 [August Jetson status](jetson/JETSON_RUNTIME_STATUS.md) records earlier 280-test
