@@ -231,6 +231,14 @@ body[data-admin-view="main"] .telemetry-list { display: grid; grid-template-colu
 .activity-timeline { max-height: 560px; min-height: 160px; overflow: auto; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 8px; background: #fafbfc; scroll-behavior: auto; }
 .activity-timeline:focus-visible { outline: 3px solid #b66b00; outline-offset: 3px; }
 .activity-source { position: sticky; top: 0; z-index: 1; margin: 0; padding: 10px 16px; border-bottom: 1px solid var(--border); background: #edf1f6; color: var(--ink); font-size: 12px; letter-spacing: .03em; }
+.pan-controls { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--border); }
+.pan-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.pan-caption { font-size: 12px; line-height: 1.6; color: var(--muted); overflow-wrap: anywhere; }
+.pan-angle { font-size: 22px; font-variant-numeric: tabular-nums; }
+.pan-jog { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pan-jog button { min-width: 0; touch-action: none; user-select: none; }
+.pan-target { margin: 14px 0; }
+.pan-controls > .danger { width: 100%; }
 .activity-list { list-style: none; padding: 0; margin: 0; }
 .activity-entry { padding: 14px 16px; border-bottom: 1px solid var(--border); border-left: 4px solid #bec7d2; background: #fff; }
 .activity-entry:last-child { border-bottom: 0; }

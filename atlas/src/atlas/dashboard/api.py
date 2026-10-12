@@ -10,11 +10,12 @@ environment variable configured by settings.dashboard.admin_token_env.
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from html import escape
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from atlas.app.dependency_container import Container, build_container
@@ -25,6 +26,7 @@ from atlas.dashboard.schemas import (
     AskRequest,
     AskResponse,
     AudioOutputRequest,
+    CameraPanRequest,
     DashboardConfigUpdate,
     DemoSimulateRequest,
     IngestRequest,
@@ -59,6 +61,7 @@ def create_app(
     capture_request: Callable[[], None] | None = None,
     visitor_service: VisitorService | None = None,
     session_changed: Callable[[], None] | None = None,
+    manage_camera_pan: bool = True,
 ) -> FastAPI:
     container = container or build_container()
     service = RuntimeService(
@@ -77,10 +80,26 @@ def create_app(
     else:
         require_admin = make_admin_guard(dashboard_settings.admin_token_env)
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Embedded DeviceRuntime owns pan; a standalone dashboard owns it here.
+        try:
+            if manage_camera_pan:
+                start_pan = getattr(container, "start_camera_pan", None)
+                if start_pan is not None:
+                    start_pan()
+            yield
+        finally:
+            if manage_camera_pan:
+                stop_pan = getattr(container, "stop_camera_pan", None)
+                if stop_pan is not None:
+                    stop_pan()
+
     app = FastAPI(
         title="ATLAS Operations Console",
         description="Local operator controls for ATLAS.",
         version="1.1.0",
+        lifespan=lifespan,
     )
     app.state.service = service
     # Laptop/dev mode remains mock-backed. On the Jetson, the visitor flow and
@@ -231,6 +250,24 @@ def create_app(
     @app.get("/api/admin/arducam/status", dependencies=[Depends(require_admin)])
     def arducam_status() -> dict:
         return service.arducam_status()
+
+    @app.get("/api/admin/arducam/pan/status", dependencies=[Depends(require_admin)])
+    def camera_pan_status() -> Response:
+        return JSONResponse(
+            service.camera_pan_status(), headers={"Cache-Control": "no-store"},
+        )
+
+    @app.post("/api/admin/arducam/pan/control", dependencies=[Depends(require_admin)])
+    def camera_pan_control(req: CameraPanRequest) -> Response:
+        try:
+            return JSONResponse(
+                service.camera_pan_control(req),
+                headers={"Cache-Control": "no-store"},
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.get(
         "/api/admin/arducam/frame.jpg",

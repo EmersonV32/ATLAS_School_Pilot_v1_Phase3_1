@@ -21,6 +21,7 @@ const config = {
   logging: { log_transcripts: false, log_live_stt: false, log_llm_responses: false },
 };
 const initial = {
+  pan: { enabled: true, ready: true, simulated: true, driver: "jetson_pwm", connection: "Direct Jetson PWM · J10 physical pin 32", mode: "sweep", commanded_angle: 90, min_angle: 0, max_angle: 180, emergency_stopped: false, detail: "Simulation only; no motor connected.", control_epoch: "5be90000-1000-4000-8000-100000000000" },
   status: { mode: "dev", session_active: false, demo_active: false, emergency_stopped: false, experience: { language: "en", profile: "adult_beginner", pack_id: "demo_pack", accessibility_mode: false }, artwork: { artwork_id: "mona_lisa", label: "Mona Lisa", stable: true, confidence: 0.94, source: "synthetic" }, camera: { ready: true, actual_width: 800, actual_height: 600, observed_fps: 15, last_frame_age_s: 0.1, last_error: null }, last_answer: null },
   health: { components: { stt: "MockSTT", tts: "MockTTS", vision: "MockVision", retriever: "HybridRetriever", vector_store: "ok", llm: "MockLLM", hardware: "MockHardware" } },
   audio: { route: "headset", volume_percent: 75, output_device_name: "Simulated headset output", headset_name: "Simulated microphone", headset_available: true, speaker_available: true, both_available: true, provider: "MockTTS" },
@@ -89,13 +90,25 @@ const report = { layouts: [], actions: [], failures: [], errors: [], contrastChe
         if (pathname === "/api/admin/session/stop") { state.status.session_active = state.status.demo_active = false; return json({}); }
         if (pathname === "/api/admin/audio") { Object.assign(state.audio, body); return json(state.audio); }
         if (pathname === "/api/admin/audio/test") return json({ audio: state.audio });
-        if (pathname === "/hardware/emergency-stop") state.status.emergency_stopped = true;
-        if (pathname === "/hardware/clear-emergency-stop") state.status.emergency_stopped = false;
+        if (pathname === "/api/admin/arducam/pan/control") {
+          state.pan.mode = { hold: "hold", jog: "jog", sweep: "sweep", center: "position", position: "position" }[body.action];
+          if (body.angle != null) state.pan.commanded_angle = body.angle;
+          if (body.action === "center") state.pan.commanded_angle = 90;
+          return json(state.pan);
+        }
+        if (pathname === "/hardware/emergency-stop") {
+          state.status.emergency_stopped = state.pan.emergency_stopped = true;
+          state.pan.ready = false; state.pan.mode = "emergency_stopped";
+        }
+        if (pathname === "/hardware/clear-emergency-stop") {
+          state.status.emergency_stopped = state.pan.emergency_stopped = false;
+          state.pan.ready = true; state.pan.mode = "hold";
+        }
         if (pathname.includes("/acknowledge")) state.visitor.help_request.status = "acknowledged";
         return json({ ok: true, synthetic: true });
       }
       if (pathname === "/admin/config") return json({ config, restart_required: false });
-      if (pathname === "/status") return json(state.status);
+      if (pathname === "/status") return json({ ...state.status, camera_pan: state.pan });
       if (pathname === "/health") return json(state.health);
       if (pathname === "/api/admin/audio") return json(state.audio);
       if (pathname === "/api/admin/live-status") return json(state.visitor);
@@ -107,6 +120,7 @@ const report = { layouts: [], actions: [], failures: [], errors: [], contrastChe
         return json(activitySnapshot);
       }
       if (pathname === "/api/admin/arducam/status") return json({ ready: true, enabled: true, source: "Synthetic CSI preview", configured_width: 800, configured_height: 600, configured_fps: 15, observed_fps: 15, sensor_id: 0, last_frame_age_s: 0.1, reconnect_count: 0 });
+      if (pathname === "/api/admin/arducam/pan/status") return json(state.pan);
       throw new Error(`Unexpected endpoint ${pathname}`);
     });
     const ready = () => page.waitForFunction(() => document.querySelector("#issue-board").dataset.severity === "ok");
@@ -159,6 +173,44 @@ const report = { layouts: [], actions: [], failures: [], errors: [], contrastChe
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: path.join(output, "overview.png"), fullPage: true });
     await page.screenshot({ path: path.join(output, "overview-viewport.png") });
+    await page.locator('[data-admin-tab="arducam"]').click();
+    await page.waitForFunction(() => !document.querySelector("#pan-left").disabled);
+    assert.match(await page.locator("#pan-connection").innerText(), /physical pin 32/);
+    await page.locator("#pan-left").focus();
+    await page.keyboard.down("Enter");
+    await page.waitForFunction(() => latestPan.mode === "jog");
+    await page.keyboard.up("Enter");
+    await page.waitForFunction(() => latestPan.mode === "hold");
+    await page.locator("#pan-right").hover();
+    await page.mouse.down();
+    await page.waitForFunction(() => latestPan.mode === "jog");
+    await page.locator("#pan-right").dispatchEvent("pointercancel", { pointerId: 1 });
+    await page.mouse.up();
+    await page.waitForFunction(() => latestPan.mode === "hold");
+    await page.locator("#pan-position").fill("42");
+    await page.locator("#pan-position").dispatchEvent("change");
+    await page.waitForFunction(() => latestPan.commanded_angle === 42);
+    await page.locator("#pan-center").click();
+    await page.waitForFunction(() => latestPan.commanded_angle === 90);
+    await page.locator("#pan-pause").click();
+    await page.waitForFunction(() => latestPan.mode === "hold");
+    await page.locator("#pan-sweep").click();
+    await page.waitForFunction(() => latestPan.mode === "sweep");
+    await page.evaluate(() => { document.activeElement.blur(); window.scrollTo(0, 0); });
+    await page.screenshot({ path: path.join(output, "direct-pan.png"), fullPage: true });
+    await page.locator("#pan-estop").click();
+    await page.waitForFunction(() => document.querySelector("#pan-left").disabled);
+    await page.locator('[data-admin-tab="main"]').click();
+    await page.locator("#btn-clear-estop").click();
+    await ready();
+    assert.equal(state.pan.mode, "hold", "Clear stop must not resume sweep");
+    state.pan.ready = false; state.pan.mode = "fault"; state.pan.detail = "Synthetic PWM unavailable";
+    await page.evaluate(() => refreshStatus());
+    assert.match(await page.locator("#issue-list").innerText(), /Camera movement needs attention/);
+    state.pan = clone(initial.pan);
+    await page.evaluate(() => refreshStatus());
+    await ready();
+    report.failures.push("Direct pan keyboard/pointer release, target, sweep, safety clear and global fault recovery");
     await page.locator("#sel-language").selectOption("fr");
     await page.evaluate(() => refreshStatus());
     assert.equal(await page.locator("#sel-language").inputValue(), "fr", "Polling overwrote unsaved experience");

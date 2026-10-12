@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ATLAS Admin</title>
   <meta name="color-scheme" content="light">
-  <link rel="stylesheet" href="/static/style.css?v=20">
+  <link rel="stylesheet" href="/static/style.css?v=21">
 </head>
 <body class="admin-page admin-locked" data-admin-view="main">
   <section id="admin-unlock-gate" class="admin-unlock-gate" aria-labelledby="admin-unlock-title">
@@ -350,6 +350,17 @@
             <li><span>Reconnects</span><strong id="arducam-reconnects">0</strong></li>
           </ul>
           <p id="arducam-detail" class="vision-answer">Preview inactive.</p>
+          <section class="pan-controls" aria-labelledby="pan-title">
+            <div class="pan-heading"><h2 id="pan-title">Camera movement</h2><span id="pan-state" class="status-pill neutral" role="status">Checking</span></div>
+            <p id="pan-connection" class="pan-caption">Optional SG90 mount</p>
+            <p id="pan-angle" class="pan-angle">--</p>
+            <div class="pan-jog"><button id="pan-left" type="button" class="secondary" disabled>← Hold left</button><button id="pan-right" type="button" class="secondary" disabled>Hold right →</button></div>
+            <label class="pan-target">Target angle<input id="pan-position" type="range" min="0" max="180" step="1" value="90" disabled aria-describedby="pan-detail"></label>
+            <div class="command-group"><button id="pan-center" type="button" class="secondary" disabled>Center</button><button id="pan-pause" type="button" class="secondary" disabled>Pause</button><button id="pan-sweep" type="button" disabled>Resume sweep</button></div>
+            <p id="pan-detail" class="pan-caption" role="status">Disabled until hardware setup and travel calibration are confirmed.</p>
+            <p class="pan-caption">Angles are commands, not measured positions. Release left/right to hold; resume the sweep explicitly.</p>
+            <button id="pan-estop" type="button" class="danger">Stop all motors</button>
+          </section>
         </aside>
       </div>
       <div class="camera-health-strip">
@@ -435,6 +446,6 @@
   </div>
 
   <p id="admin-notice" class="notice hidden" role="status" aria-live="polite"></p>
-  <script src="/static/admin.js?v=19"></script>
+  <script src="/static/admin.js?v=20"></script>
 </body>
 </html>

@@ -10,6 +10,7 @@ same dependency-injection pattern in later phases.
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Lock
 
 from atlas.config.loader import load_settings
 from atlas.config.settings import Settings
@@ -31,6 +32,8 @@ class Container:
         self._dialogue_engine = None
         self._camera_source = None
         self._arducam_source = None
+        self._camera_pan = None
+        self._camera_pan_lock = Lock()
         self._vision_detector = None
         self._artwork_tracker = None
         self._manual_artwork_capture = None
@@ -154,7 +157,8 @@ class Container:
                 and self.settings.mode in (RunMode.DEVICE, RunMode.DEMO)
             )
             self._dialogue_engine = DialogueEngine(
-                llm_client=self.llm_client, expect_json=use_cloud_llm,
+                llm_client=self.llm_client,
+                expect_json=use_cloud_llm,
                 artwork_titles=self._artwork_titles(),
             )
         return self._dialogue_engine
@@ -204,6 +208,45 @@ class Container:
                 name="arducam",
             )
         return self._arducam_source
+
+    @property
+    def camera_pan(self):
+        """Constructing/status checking this optional component never moves it."""
+        with self._camera_pan_lock:
+            if self._camera_pan is None:
+                from atlas.hardware.camera_pan import CameraPanController
+                from atlas.hardware.camera_pan_driver import (
+                    JetsonPWMPanDriver,
+                    MockPanDriver,
+                    PCA9685PanDriver,
+                )
+
+                simulated = self.settings.mode != RunMode.DEVICE
+                cfg = self.settings.camera_pan
+                driver = (
+                    MockPanDriver()
+                    if simulated
+                    else JetsonPWMPanDriver(cfg)
+                    if cfg.driver == "jetson_pwm"
+                    else PCA9685PanDriver(cfg)
+                )
+                self._camera_pan = CameraPanController(
+                    cfg,
+                    driver,
+                    simulated=simulated,
+                    emergency_guard=lambda: bool(
+                        getattr(self._hardware, "emergency_stopped", False)
+                    ),
+                )
+            return self._camera_pan
+
+    def start_camera_pan(self) -> None:
+        if self.settings.camera_pan.enabled:
+            self.camera_pan.start()
+
+    def stop_camera_pan(self) -> None:
+        if self._camera_pan is not None:
+            self._camera_pan.close()
 
     @property
     def vision_detector(self):
@@ -287,14 +330,11 @@ class Container:
                     sample_rate=self.settings.hardware.audio_sample_rate,
                     channels=self.settings.hardware.audio_channels,
                     beam_size=self.settings.hardware.whisper_beam_size,
-                    local_files_only=(
-                        self.settings.hardware.whisper_local_files_only
-                    ),
+                    local_files_only=(self.settings.hardware.whisper_local_files_only),
                 )
                 speech = self.settings.speech
                 use_deepgram = (
-                    speech.stt_provider == "deepgram"
-                    and speech.cloud_speech_enabled
+                    speech.stt_provider == "deepgram" and speech.cloud_speech_enabled
                 )
                 if use_deepgram:
                     from atlas.audio.deepgram_stt import DeepgramSTT
@@ -317,9 +357,7 @@ class Container:
                         pre_roll_ms=speech.silero_pre_roll_ms,
                         final_timeout_s=speech.deepgram_final_timeout_s,
                         keyterms=speech.deepgram_keyterms,
-                        log_live_transcripts=(
-                            self.settings.logging.log_live_stt
-                        ),
+                        log_live_transcripts=(self.settings.logging.log_live_stt),
                     )
                     self._stt = (
                         FallbackSTT(cloud_stt, offline_stt)
@@ -356,8 +394,7 @@ class Container:
                 )
                 speech = self.settings.speech
                 use_cartesia = (
-                    speech.tts_provider == "cartesia"
-                    and speech.cloud_speech_enabled
+                    speech.tts_provider == "cartesia" and speech.cloud_speech_enabled
                 )
                 if use_cartesia:
                     from atlas.audio.cartesia_tts import CartesiaTTS
@@ -429,14 +466,13 @@ class Container:
                 # briefly for Gemini's short complete answer.
                 stream_responses=False,
                 log_transcripts=self.settings.logging.log_transcripts,
-                log_llm_responses=(
-                    self.settings.logging.log_llm_responses
-                ),
+                log_llm_responses=(self.settings.logging.log_llm_responses),
             )
         return self._session_runner
 
     def close(self) -> None:
         """Release camera and Bluetooth resources."""
+        self.stop_camera_pan()
         if self._camera_source is not None:
             self._camera_source.stop()
         if self._arducam_source is not None:

@@ -188,6 +188,24 @@ dashboard:
   allow_demo_controls: true   # local prototype simulations; no public binding
   admin_token_env: ATLAS_ADMIN_TOKEN   # env var NAME, not the token
 
+# Camera pan is optional and off. These are placeholders, NOT a wiring/test pass.
+# See docs/CAMERA_PAN.md before connecting or enabling the SG90 on J10.
+camera_pan:
+  enabled: false
+  driver: jetson_pwm
+  jetson_board_pin: 32
+  pinmux_confirmed: false
+  power_confirmed: false
+  calibration_confirmed: false
+  startup_mode: sweep
+  min_angle: 0
+  max_angle: 180
+  center_angle: 90
+  min_pulse_us: 1000
+  max_pulse_us: 2000
+  sweep_speed_deg_s: 5
+  manual_speed_deg_s: 15
+
 privacy:
   # School-pilot defaults. Changing these requires a documented reason.
   store_raw_audio: false

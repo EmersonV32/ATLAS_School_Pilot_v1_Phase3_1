@@ -16,6 +16,16 @@ let cameraObjectUrl = null;
 let arducamTimer = null;
 let arducamRequestInFlight = false;
 let arducamObjectUrl = null;
+let latestPan = null;
+let panSequence = 0;
+let panJogDirection = 0;
+let panJogTimer = null;
+let panJogRequestInFlight = false;
+let panStatusInFlight = false;
+let panGeneration = 0;
+// Per-page ID, supported on local HTTP; never persisted.
+const panClientId = "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+  (Number(c) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(c) / 4)))).toString(16));
 let audioVolumeTimer = null;
 const logFormats = { runtime: "human", events: "human" };
 let latestStatus = null;
@@ -141,6 +151,12 @@ function token() {
 
 function setAdminLocked(locked, message = "") {
   if (locked) {
+    stopPanJog();
+    panGeneration++;
+    latestPan = null;
+    disablePanControls();
+    $("pan-state").textContent = "Locked";
+    $("pan-angle").textContent = "--";
     adminUnlocked = false;
     logRefreshGeneration++;
     lastLogSync = 0;
@@ -186,15 +202,22 @@ async function requestApi(path, options = {}, protectedRoute = true) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (protectedRoute && authRequired) headers["X-Atlas-Admin-Token"] = token();
   const controller = new AbortController();
-  const deadline = window.setTimeout(() => controller.abort(), options.method && options.method !== "GET" ? 60000 : 10000);
+  const { timeoutMs, signal: callerSignal, ...fetchOptions } = options;
+  const cancel = () => controller.abort();
+  if (callerSignal?.aborted) controller.abort();
+  else callerSignal?.addEventListener("abort", cancel, { once: true });
+  const deadline = window.setTimeout(cancel, timeoutMs || (options.method && options.method !== "GET" ? 60000 : 10000));
   let response;
   let body = null;
   try {
-    response = await fetch(path, { ...options, headers, signal: controller.signal });
+    response = await fetch(path, { ...fetchOptions, headers, signal: controller.signal });
     try { body = await response.json(); } catch (_) { /* no response body */ }
   } catch (_) {
     throw new Error(controller.signal.aborted ? "Request timed out. Check the connection and retry." : "Cannot reach ATLAS. Check the connection and retry.");
-  } finally { window.clearTimeout(deadline); }
+  } finally {
+    window.clearTimeout(deadline);
+    callerSignal?.removeEventListener("abort", cancel);
+  }
   if (!response.ok) {
     const detail = body && body.detail ? body.detail : response.statusText;
     if (protectedRoute && response.status === 401 && authRequired && headers["X-Atlas-Admin-Token"] === token()) {
@@ -430,6 +453,7 @@ function renderOperationalDetails() {
 function setAdminView(view, { persist = true } = {}) {
   const supported = new Set(["main", "demo", "audio-vision", "arducam", "visitor", "logs", "settings"]);
   const nextView = supported.has(view) ? view : "main";
+  if (nextView !== "arducam") stopPanJog();
   document.body.dataset.adminView = nextView;
   $("dashboard-heading").textContent = viewCopy[nextView][0];
   $("dashboard-description").textContent = viewCopy[nextView][1];
@@ -450,6 +474,7 @@ function setAdminView(view, { persist = true } = {}) {
   if (nextView === "arducam" && adminUnlocked) {
     refreshArducamStatus();
     refreshArducam();
+    refreshPanStatus();
   }
 }
 
@@ -524,6 +549,7 @@ async function refreshStatus() {
     updateFreshness();
     const simulated = status.mode !== "device";
     $("runtime-mode").textContent = simulated ? "Simulated runtime" : "Device runtime";
+    if (status.camera_pan) updatePanIssue(status.camera_pan);
     $("runtime-mode").className = `status-pill ${simulated ? "warning" : "neutral"}`;
     replaceIssues("runtime-", [
       ...(status.emergency_stopped ? [["stop", { title: "Emergency stop is active", detail: "Motion is stopped. Only clear the stop once the equipment is safe.", severity: "danger", view: "audio-vision" }]] : []),
@@ -720,6 +746,7 @@ function startRefreshLoops() {
     window.setInterval(() => pollOnce("visitor", refreshVisitorStatus), 1000),
     window.setInterval(() => pollOnce("audio", refreshAudio), 5000),
     window.setInterval(() => pollOnce("arducam", refreshArducamStatus), 2000),
+    window.setInterval(refreshPanStatus, 500),
     window.setInterval(updateFreshness, 1000),
   ];
 }
@@ -1011,6 +1038,138 @@ async function refreshCamera() {
     cameraRequestInFlight = false;
   }
 }
+
+function disablePanControls() {
+  ["pan-left", "pan-right", "pan-center", "pan-position", "pan-pause", "pan-sweep"]
+    .forEach(id => { $(id).disabled = true; });
+}
+
+function updatePanIssue(status) {
+  setIssue("pan-status", status.enabled && !status.ready ? {
+    title: "Camera movement needs attention", detail: status.detail,
+    severity: status.mode === "fault" || status.emergency_stopped ? "danger" : "warning", view: "arducam",
+  } : null);
+}
+
+function renderPanStatus(status) {
+  latestPan = status;
+  $("pan-state").textContent = `${status.simulated ? "Simulation · " : ""}${titleCase(status.mode)}`;
+  $("pan-state").className = `status-pill ${status.mode === "fault" || status.emergency_stopped ? "danger" : status.ready ? "ok" : status.enabled ? "warning" : "neutral"}`;
+  $("pan-angle").textContent = `${Number(status.commanded_angle).toFixed(1)}° commanded`;
+  $("pan-connection").textContent = status.connection;
+  if ($("pan-detail").textContent !== status.detail) $("pan-detail").textContent = status.detail;
+  ["pan-left", "pan-right", "pan-center", "pan-position", "pan-pause", "pan-sweep"]
+    .forEach(id => { $(id).disabled = !status.ready; });
+  const slider = $("pan-position");
+  slider.min = status.min_angle;
+  slider.max = status.max_angle;
+  if (document.activeElement !== slider) slider.value = status.commanded_angle;
+  setIssue("pan-request", null);
+  updatePanIssue(status);
+  if (!status.ready) stopPanJog();
+}
+
+async function refreshPanStatus() {
+  if (!adminUnlocked || document.hidden || document.body.dataset.adminView !== "arducam" || panStatusInFlight) return;
+  panStatusInFlight = true;
+  const generation = panGeneration;
+  const requestToken = token();
+  const sequence = panSequence;
+  try {
+    const status = await requestApi("/api/admin/arducam/pan/status", { cache: "no-store", timeoutMs: 1200 });
+    if (adminUnlocked && generation === panGeneration && requestToken === token() && sequence === panSequence) renderPanStatus(status);
+  } catch (_) {
+    if (adminUnlocked && generation === panGeneration && requestToken === token() && sequence === panSequence) {
+      stopPanJog();
+      latestPan = null;
+      disablePanControls();
+      $("pan-state").textContent = "Unavailable";
+      $("pan-state").className = "status-pill danger";
+      $("pan-detail").textContent = "Connection lost. Held left/right movement expires automatically. Sweep or target motion may continue; cut servo power if needed.";
+      setIssue("pan-request", { title: "Camera controls unavailable", detail: $("pan-detail").textContent, severity: "danger", view: "arducam" });
+    }
+  } finally { panStatusInFlight = false; }
+}
+
+async function sendPanCommand(action, fields = {}) {
+  if (!adminUnlocked || !latestPan) return;
+  const sequence = ++panSequence;
+  const generation = panGeneration;
+  const requestToken = token();
+  try {
+    // Release must be able to overtake a delayed renewal: no generic mutation lock.
+    const status = await requestApi("/api/admin/arducam/pan/control", {
+      method: "POST", cache: "no-store", timeoutMs: 1200,
+      body: JSON.stringify({ action, client_id: panClientId, sequence,
+        control_epoch: latestPan.control_epoch, ...fields }),
+    });
+    if (adminUnlocked && generation === panGeneration && requestToken === token() && sequence === panSequence) renderPanStatus(status);
+  } catch (error) {
+    if (adminUnlocked && generation === panGeneration && requestToken === token() && sequence === panSequence) {
+      if (action === "jog") stopPanJog();
+      notice(error.message, true);
+    }
+  }
+}
+
+function stopPanJog() {
+  window.clearInterval(panJogTimer);
+  panJogTimer = null;
+  if (!panJogDirection) return;
+  panJogDirection = 0;
+  sendPanCommand("hold");
+}
+
+function startPanJog(direction) {
+  if (!adminUnlocked || !latestPan?.ready || document.hidden || document.body.dataset.adminView !== "arducam" || panJogDirection === direction) return;
+  stopPanJog();
+  panJogDirection = direction;
+  const renew = async () => {
+    if (panJogRequestInFlight || !panJogDirection) return;
+    panJogRequestInFlight = true;
+    try { await sendPanCommand("jog", { direction: panJogDirection }); }
+    finally { panJogRequestInFlight = false; }
+  };
+  renew();
+  panJogTimer = window.setInterval(renew, 200);
+}
+
+for (const [id, direction] of [["pan-left", -1], ["pan-right", 1]]) {
+  const button = $(id);
+  button.addEventListener("pointerdown", event => {
+    if (event.button !== 0 || button.disabled) return;
+    event.preventDefault();
+    button.setPointerCapture(event.pointerId);
+    startPanJog(direction);
+  });
+  ["pointerup", "pointercancel", "lostpointercapture", "blur"].forEach(name => button.addEventListener(name, stopPanJog));
+  button.addEventListener("keydown", event => {
+    if ([" ", "Enter"].includes(event.key)) { event.preventDefault(); startPanJog(direction); }
+  });
+  button.addEventListener("keyup", event => {
+    if ([" ", "Enter"].includes(event.key)) { event.preventDefault(); stopPanJog(); }
+  });
+}
+window.addEventListener("blur", stopPanJog);
+window.addEventListener("pagehide", stopPanJog);
+document.addEventListener("visibilitychange", () => { if (document.hidden) stopPanJog(); });
+for (const [id, action] of [["pan-center", "center"], ["pan-pause", "hold"], ["pan-sweep", "sweep"]]) {
+  $(id).addEventListener("click", () => { stopPanJog(); sendPanCommand(action); });
+}
+$("pan-position").addEventListener("change", () => {
+  stopPanJog();
+  sendPanCommand("position", { angle: Number($("pan-position").value) });
+});
+$("pan-estop").addEventListener("click", async () => {
+  stopPanJog();
+  panGeneration++;
+  disablePanControls();
+  try {
+    await requestApi("/hardware/emergency-stop", { method: "POST", timeoutMs: 1200 }, false);
+    await refreshPanStatus();
+    notice("Safety stop requested. Clear safety in Operations, then resume explicitly.");
+  } catch (_) { notice("Stop unconfirmed. Cut servo power if motion continues.", true); }
+});
 
 function scheduleArducamRefresh(delayMs) {
   window.clearTimeout(arducamTimer);

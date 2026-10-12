@@ -10,6 +10,7 @@ const assert = require("node:assert/strict");
 const source = fs.readFileSync(path.join(__dirname, "../src/atlas/dashboard/static/admin.js"), "utf8");
 class Element {
   constructor() {
+    this.listeners = new Map();
     this.textContent = ""; this.value = ""; this.children = []; this.dataset = {}; this.attrs = {}; this.checked = false;
     this.clientHeight = this.scrollHeight = this.scrollTop = 0;
     const classes = new Set();
@@ -22,10 +23,11 @@ class Element {
   }
   setAttribute(name, value) { this.attrs[name] = value; }
   removeAttribute(name) { delete this.attrs[name]; }
-  addEventListener() {}
+  addEventListener(name, fn) { this.listeners.set(name, fn); }
+  setPointerCapture() {}
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
-  focus() {}
+    focus() {}
   querySelectorAll() { return []; }
   contains() { return false; }
 }
@@ -35,17 +37,20 @@ let timerId = 0;
 const storage = new Map();
 const sandbox = {
   document: {
+    addEventListener: () => {},
     body: new Element(), hidden: false,
     getElementById: id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); },
     createElement: () => new Element(), createDocumentFragment: () => new Element(), activeElement: null,
     querySelectorAll: () => [], querySelector: () => new Element(),
   },
   window: {
+    addEventListener: () => {},
     scrollTo: () => {},
     setTimeout: fn => { timers.set(++timerId, fn); return timerId; }, clearTimeout: id => timers.delete(id),
     setInterval: fn => { timers.set(++timerId, fn); return timerId; }, clearInterval: id => timers.delete(id),
     sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
   },
+  crypto: require("node:crypto").webcrypto, Uint8Array,
   Date, Map, Set, Promise, JSON, Boolean, String, Number, Error, AbortController, URL, Blob,
   fetch: async () => { throw new Error("Synthetic network unavailable"); },
 };
@@ -179,5 +184,53 @@ function check(script, expected) { assert.deepEqual(JSON.parse(JSON.stringify(ev
   releaseLog({ok: true, json: async () => activity}); await lateLog;
   check('latestLogs.runtime.length', 0);
   check('$("runtime-log-view").textContent', "Unlock to view logs.");
+  const panStatus = { enabled: true, simulated: true, ready: true, mode: "sweep", commanded_angle: 90, min_angle: 0, max_angle: 180, detail: "Simulation only", connection: "Direct Jetson PWM · J10 physical pin 32", control_epoch: "synthetic-epoch" };
+  sandbox.panTestStatus = panStatus;
+  evaluate('authRequired = false; adminUnlocked = true; document.body.dataset.adminView = "arducam"; renderPanStatus(panTestStatus);');
+  check('$("pan-left").disabled', false);
+  check('$("pan-state").textContent', "Simulation · Sweep");
+  check('$("pan-connection").textContent', panStatus.connection);
+  const panRequests = [];
+  const responses = [];
+  sandbox.fetch = (url, options) => {
+    if (options.body) panRequests.push(JSON.parse(options.body));
+    return new Promise(resolve => responses.push(resolve));
+  };
+  evaluate('startPanJog(-1);');
+  check('panJogDirection', -1);
+  assert.equal(panRequests[0].action, "jog"); checks++;
+  evaluate('stopPanJog();');
+  check('panJogDirection', 0);
+  assert.equal(panRequests[1].action, "hold", "Release must overtake a pending jog"); checks++;
+  assert(panRequests[1].sequence > panRequests[0].sequence); checks++;
+  responses[1]({ok: true, json: async () => ({...panStatus, mode: "hold"})});
+  await new Promise(resolve => setImmediate(resolve));
+  responses[0]({ok: true, json: async () => ({...panStatus, mode: "jog"})});
+  await new Promise(resolve => setImmediate(resolve));
+  check('latestPan.mode', "hold");
+  check('panJogRequestInFlight', false);
+  const latePan = evaluate('refreshPanStatus()');
+  evaluate('setAdminLocked(true);');
+  responses[2]({ok: true, json: async () => panStatus});
+  await latePan;
+  check('latestPan', null);
+  check('$("pan-left").disabled', true);
+  check('$("pan-state").textContent', "Locked");
+  evaluate('adminUnlocked = true; renderPanStatus(panTestStatus);');
+  sandbox.fetch = async () => { throw new Error("Synthetic pan offline"); };
+  await evaluate('refreshPanStatus()');
+  check('latestPan', null);
+  check('$("pan-right").disabled', true);
+  check('issues.has("pan-request")', true);
+  assert.match(evaluate('$("pan-detail").textContent'), /Sweep or target motion may continue/); checks++;
+  sandbox.fetch = async () => ({ok: true, json: async () => panStatus});
+  await evaluate('refreshPanStatus()');
+  check('issues.has("pan-request")', false);
+  const aborter = new AbortController();
+  sandbox.callerSignal = aborter.signal;
+  sandbox.fetch = (_, options) => new Promise((resolve, reject) => options.signal.addEventListener("abort", () => reject(new Error("Aborted"))));
+  const cancelled = evaluate('requestApi("/status", {signal: callerSignal, timeoutMs: 1200})');
+  aborter.abort();
+  await assert.rejects(cancelled, /timed out/); checks++;
   console.log(`${checks} dashboard JavaScript checks passed (synthetic, no live services).`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

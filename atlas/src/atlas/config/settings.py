@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from atlas.models.enums import RunMode
 
@@ -159,6 +159,43 @@ class HardwareSettings(BaseModel):
     ev3_status_led_enabled: bool = False
 
 
+class CameraPanSettings(BaseModel):
+    """Optional positional SG90; hardware setup is never changed by ATLAS."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    enabled: bool = False
+    calibration_confirmed: bool = False
+    driver: Literal["pca9685", "jetson_pwm"] = "pca9685"
+    # BOARD numbers, not BCM: verified reComputer Super J401 routing only.
+    jetson_board_pin: Literal[15, 32] = 32
+    pinmux_confirmed: bool = False
+    power_confirmed: bool = False
+    startup_mode: Literal["sweep", "hold"] = "sweep"
+    i2c_bus: int | None = Field(default=None, ge=0, le=255)
+    i2c_address: int = Field(default=0x40, ge=0x40, le=0x6F)
+    channel: int = Field(default=0, ge=0, le=15)
+    oscillator_hz: int = Field(default=25_000_000, ge=20_000_000, le=30_000_000)
+    min_angle: float = Field(default=0.0, ge=0, le=180)
+    max_angle: float = Field(default=180.0, ge=0, le=180)
+    center_angle: float = Field(default=90.0, ge=0, le=180)
+    # Conservative placeholders, NOT proof of a physical 180-degree range.
+    min_pulse_us: int = Field(default=1000, ge=500, le=2500)
+    max_pulse_us: int = Field(default=2000, ge=500, le=2500)
+    sweep_speed_deg_s: float = Field(default=5.0, ge=0.5, le=15)
+    manual_speed_deg_s: float = Field(default=15.0, ge=0.5, le=30)
+
+    @model_validator(mode="after")
+    def validate_travel(self) -> CameraPanSettings:
+        if not self.min_angle < self.max_angle:
+            raise ValueError("camera pan requires min_angle < max_angle")
+        if not self.min_angle <= self.center_angle <= self.max_angle:
+            raise ValueError("camera pan center must be within the travel limits")
+        if not self.min_pulse_us < self.max_pulse_us:
+            raise ValueError("camera pan requires min_pulse_us < max_pulse_us")
+        return self
+
+
 class SpeechSettings(BaseModel):
     """Speech providers and privacy-conscious streaming controls."""
 
@@ -241,6 +278,7 @@ class Settings(BaseModel):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     hardware: HardwareSettings = Field(default_factory=HardwareSettings)
+    camera_pan: CameraPanSettings = Field(default_factory=CameraPanSettings)
     speech: SpeechSettings = Field(default_factory=SpeechSettings)
     dashboard: DashboardSettings = Field(default_factory=DashboardSettings)
     privacy: PrivacySettings = Field(default_factory=PrivacySettings)

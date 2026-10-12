@@ -1052,12 +1052,29 @@ class RuntimeService:
         return self.dashboard_config()
 
     # -- hardware ---------------------------------------------------------------
+    def camera_pan_status(self) -> dict[str, Any]:
+        return self.container.camera_pan.status()
+
+    def camera_pan_control(self, req) -> dict[str, Any]:
+        return self.container.camera_pan.command(
+            req.action, client_id=str(req.client_id), sequence=req.sequence,
+            control_epoch=str(req.control_epoch),
+            angle=req.angle, direction=req.direction,
+        )
+
     def emergency_stop(self) -> dict[str, Any]:
+        # Pan must stop even if the independent exhibit stop fails.
+        pan = getattr(self.container, "camera_pan", None)
+        if pan is not None:
+            pan.emergency_stop()
         self.container.hardware.emergency_stop()
         return {"emergency_stopped": True}
 
     def clear_emergency_stop(self) -> dict[str, Any]:
         self.container.hardware.clear_emergency_stop()
+        pan = getattr(self.container, "camera_pan", None)
+        if pan is not None:
+            pan.clear_emergency_stop()
         return {"emergency_stopped": False}
 
     # -- demo controls -------------------------------------------------------
@@ -1132,6 +1149,8 @@ class RuntimeService:
                 "last_frame_age_s": None,
                 "last_error": f"{type(exc).__name__}: {exc}",
             }
+        pan = getattr(self.container, "camera_pan", None)
+        pan_status = pan.status() if pan is not None else None
         last = None
         if self.last_answer:
             last = {
@@ -1153,6 +1172,7 @@ class RuntimeService:
             "experience": self.experience_settings(),
             "artwork": self.artwork_status(),
             "camera": camera_status,
+            "camera_pan": pan_status,
             "last_answer": last,
             "last_interaction": interaction,
             "demo_flags": sorted(self.demo_flags),

@@ -314,6 +314,7 @@ class DeviceRuntime:
             self.container,
             capture_request=self.request_manual_capture,
             session_changed=self._session_changed,
+            manage_camera_pan=False,
         )
         self._dashboard_service = app.state.service
         config = uvicorn.Config(
@@ -545,6 +546,9 @@ class DeviceRuntime:
         active_session_id: str | None = None
 
         try:
+            start_pan = getattr(self.container, "start_camera_pan", None)
+            if start_pan is not None:
+                start_pan()
             while max_interactions <= 0 or completed < max_interactions:
                 frame, last_frame_number = camera.wait_for_new_frame(
                     after_number=last_frame_number,
