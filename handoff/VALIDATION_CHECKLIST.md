@@ -1,5 +1,12 @@
 # Validation checklist
 
+For the integrated October 11–12 candidate, start with the
+[combined release audit and detailed online checklist](../atlas/docs/2026-10-12_COMBINED_RELEASE_AUDIT.md).
+Its known camera firmware defect and pending hardware/cloud tests are not
+waived by a passing laptop gate. Keep pan disabled until separate supervised
+commissioning. Do not use an old model/firmware deployment bundle blindly for
+a workflow-only update.
+
 ## Repository gate
 
 - [ ] `git status --short` contains only intended changes.
@@ -22,6 +29,7 @@ python -m pip check
 python scripts/check_no_secrets.py
 python scripts/verify_recovery_bundle.py
 python scripts/verify_repository_layout.py
+node scripts/verify_admin_logic.cjs
 ```
 
 - [ ] Every command exits successfully.
@@ -30,6 +38,9 @@ python scripts/verify_repository_layout.py
       safety, and visitor-profile tests pass.
 - [ ] Visitor flow works at 1024x768 landscape, with reduced motion and keyboard
       navigation, without missing assets or console errors.
+- [ ] When a local Playwright/Chrome environment is available, run
+      `node scripts/verify_admin_browser.cjs <new-QA-output-directory> <Chrome-executable>`
+      with intercepted synthetic APIs; validate layouts, controls and recovery.
 
 Use the test wrapper above rather than loading a live installation's `.env`.
 It allows synthetic per-test fixtures while blocking real dotenv discovery.

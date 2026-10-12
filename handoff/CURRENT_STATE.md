@@ -30,6 +30,34 @@ retrieval and general Gemini fallback, configurable local/cloud speech,
 multilingual visitor setup, staff controls, headset-button handling and
 readiness/session/event storage. See [system architecture](architecture/SYSTEM_ARCHITECTURE.md).
 
+## October 12 combined release audit — not deployed
+
+The latest local candidate is `codex/combined-release-audit`, based on
+`codex/jetson-direct-camera-pan` at `fcfbd02`. It combines all October 11–12
+workflow, dashboard, readable activity and direct-pan work below, with audit
+fixes for stale typed artwork/current-view context, stale camera frames,
+incomplete speech reported as successful, activity-write failures, late
+protected dashboard responses, visit-stop speech cancellation and the fixed
+30-second local-playback cutoff for long answers. The new
+listening limits are now visible/validated in protected settings.
+The reviewed implementation/regression commit is `da8dbca` (local).
+
+Final combined gate: 3,345 passed, one opt-in real-YOLO skip and the existing
+non-failing TestClient deprecation warning. Focused voice tests: 31 passed;
+JavaScript: 97 checks; headless Chrome: 35 layouts, 30 control checks, 10
+failure/recovery scenarios, 2,725 contrast checks and no unexpected errors.
+Visitor browser regression: 33 keyboard transitions at 1024x768 with reduced
+motion and no visitor browser storage/cookies. Lint, compile, dependencies,
+secrets, recovery, repository navigation and whitespace gates passed.
+
+Read the [combined audit and online acceptance checklist](../atlas/docs/2026-10-12_COMBINED_RELEASE_AUDIT.md)
+first when the devices return. It records software evidence, safe source-only
+deployment boundaries and all remaining real-device/cloud tests. This is not
+a claim of a flawless physical installation: the existing XIAO watchdog timing
+defect remains open and requires separately approved firmware work. Pan remains
+off; motor commissioning is deferred. No push, merge to `main`, deployment,
+package, firmware or live service/configuration change occurred.
+
 ## October 11 conversation/listening work — not deployed
 
 `main` remains the maintained baseline. The local feature branch
