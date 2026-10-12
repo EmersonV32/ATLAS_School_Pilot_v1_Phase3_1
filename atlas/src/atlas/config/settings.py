@@ -178,11 +178,14 @@ class SpeechSettings(BaseModel):
     deepgram_final_timeout_s: float = 3.0
     deepgram_keyterms: list[str] = Field(default_factory=list)
     listen_duration_s: float = 8.0
+    # Waiting for first speech and recording an utterance are separate limits.
+    max_utterance_s: float = Field(default=45.0, ge=5, le=120, allow_inf_nan=False)
 
     silero_threshold: float = 0.5
     silero_model_path: str = "models/silero_vad.onnx"
     silero_min_speech_ms: int = 250
-    silero_min_silence_ms: int = 1200
+    silero_min_silence_ms: int = 2000
+    silero_hesitation_silence_ms: int = Field(default=4000, ge=200, le=10000)
     silero_pre_roll_ms: int = 250
 
     cartesia_api_key_env: str = "CARTESIA_API_KEY"

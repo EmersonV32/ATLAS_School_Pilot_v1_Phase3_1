@@ -154,7 +154,8 @@ class Container:
                 and self.settings.mode in (RunMode.DEVICE, RunMode.DEMO)
             )
             self._dialogue_engine = DialogueEngine(
-                llm_client=self.llm_client, expect_json=use_cloud_llm
+                llm_client=self.llm_client, expect_json=use_cloud_llm,
+                artwork_titles=self._artwork_titles(),
             )
         return self._dialogue_engine
 
@@ -311,6 +312,8 @@ class Container:
                         silero_model_path=speech.silero_model_path,
                         min_speech_ms=speech.silero_min_speech_ms,
                         min_silence_ms=speech.silero_min_silence_ms,
+                        hesitation_silence_ms=speech.silero_hesitation_silence_ms,
+                        max_utterance_s=speech.max_utterance_s,
                         pre_roll_ms=speech.silero_pre_roll_ms,
                         final_timeout_s=speech.deepgram_final_timeout_s,
                         keyterms=speech.deepgram_keyterms,

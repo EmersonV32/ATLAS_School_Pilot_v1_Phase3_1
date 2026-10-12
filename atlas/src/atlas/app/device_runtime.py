@@ -22,6 +22,24 @@ logger = logging.getLogger(__name__)
 DEMO_VISION_HOLD_SECONDS = 5.0
 
 
+def select_question_detection(
+    active: ArtworkDetection | None,
+    current: ArtworkDetection | None,
+    center_threshold: float,
+) -> ArtworkDetection | None:
+    """A confirmed new view/manual override outranks an old conversation latch."""
+    if current is not None:
+        if current.source == "manual_override":
+            return current
+        if (
+            current.stable and current.source != "last_stable"
+            and current.center_score is not None
+            and current.center_score >= center_threshold
+        ):
+            return current
+    return active or (current if current is not None and current.stable else None)
+
+
 class VisionHold:
     """Accumulate a centered gaze while tolerating brief detector flicker."""
 
@@ -110,6 +128,9 @@ class ContinuousQuestionListener:
             self._generation += 1
             self._active.clear()
             self._discard_questions()
+            cancel = getattr(self._runner, "cancel_listening", None)
+            if callable(cancel):
+                cancel()
 
     def _discard_questions(self) -> None:
         self._active.clear()
@@ -149,6 +170,9 @@ class ContinuousQuestionListener:
         self._stop.set()
         self._active.set()
         self._response_finished.set()
+        cancel = getattr(self._runner, "cancel_listening", None)
+        if callable(cancel):
+            cancel()
         if self._thread.is_alive():
             self._thread.join(timeout=6.0)
 
@@ -679,13 +703,9 @@ class DeviceRuntime:
                             question,
                             expected_generation=generation,
                             frame=frame,
-                            detection=(
-                                active_detection
-                                or (
-                                    detection
-                                    if detection is not None and detection.stable
-                                    else None
-                                )
+                            detection=select_question_detection(
+                                active_detection, detection,
+                                self.settings.vision_center_threshold,
                             ),
                         )
                         if (

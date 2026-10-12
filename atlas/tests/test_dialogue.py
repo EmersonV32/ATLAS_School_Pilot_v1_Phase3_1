@@ -216,7 +216,7 @@ class TestPromptBuilder:
         assert "CURRENT ARTWORK: starry_night" in messages[1]["content"]
         assert "authoritative live camera identification" in messages[1]["content"]
 
-    def test_conversation_memory_is_limited_to_three_completed_turns(self):
+    def test_conversation_memory_keeps_more_than_three_completed_turns(self):
         from atlas.dialogue.dialogue_engine import DialogueEngine
 
         class RecordingLLM:
@@ -234,8 +234,7 @@ class TestPromptBuilder:
         engine.respond("follow up", [])
 
         final_prompt = str(llm.calls[-1])
-        assert "question 1" not in final_prompt
-        for number in range(2, 5):
+        for number in range(1, 5):
             assert f"question {number}" in final_prompt
 
     def test_prompt_personalizes_and_steers_without_an_extra_llm_call(self):
@@ -420,7 +419,10 @@ class TestDialogueEngine:
         } in second_prompt
         assert {
             "role": "user",
-            "content": "Who created the Mona Lisa?",
+            "content": (
+                "HISTORICAL DISCUSSION ARTWORK: mona_lisa\n"
+                "Who created the Mona Lisa?"
+            ),
         } in second_prompt
 
         engine.reset_conversation()

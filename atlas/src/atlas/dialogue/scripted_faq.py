@@ -830,12 +830,39 @@ def match_scripted_intent(question: str, language: str) -> str | None:
     return None
 
 
-def _named_artwork(question: str) -> str | None:
+def named_artwork_ids(
+    question: str, artwork_titles: dict[str, str] | None = None
+) -> tuple[str, ...]:
+    """Resolve explicit catalogue names, with word boundaries and no fuzzy guesses."""
     normalized = _normalize(question)
-    for artwork_id, record in _ARTWORKS.items():
-        if any(_normalize(alias) in normalized for alias in record["aliases"]):
-            return artwork_id
-    return None
+    aliases = {
+        key: tuple(record["aliases"]) + tuple(record["title"].values())
+        for key, record in _ARTWORKS.items()
+    }
+    for key, title in (artwork_titles or {}).items():
+        aliases[key] = aliases.get(key, ()) + (title, key.replace("_", " "))
+    matches = []
+    for artwork_id, names in aliases.items():
+        positions = []
+        for alias in names:
+            name = _normalize(alias)
+            if not name:
+                continue
+            # Chinese titles have no space-separated word boundaries.
+            pattern = re.escape(name)
+            if not re.search(r"[\u3400-\u9fff]", name):
+                pattern = rf"(?<!\w){pattern}(?!\w)"
+            match = re.search(pattern, normalized)
+            if match:
+                positions.append(match.start())
+        if positions:
+            matches.append((min(positions), artwork_id))
+    return tuple(key for _position, key in sorted(matches))
+
+
+def _named_artwork(question: str) -> str | None:
+    matches = named_artwork_ids(question)
+    return matches[0] if len(matches) == 1 else None
 
 
 def _basic_answer(intent: str, record: dict, facts: dict[str, str], lang: str) -> str:
@@ -887,13 +914,28 @@ def resolve_scripted_faq(
     language: str,
     profile: str,
     accessibility: Iterable[str] = (),
+    resolved_subject: bool = False,
 ) -> ScriptedFaqAnswer | None:
     """Return a local FAQ answer or ``None`` for the deeper RAG/LLM path."""
     lang = normalize_language_code(language)
+    from atlas.safety.prompt_injection_filter import PromptInjectionFilter
+
+    if PromptInjectionFilter().is_injection(question):
+        return None
+    if len(named_artwork_ids(question)) > 1:
+        return None
+    # A canned single-intent answer must not silently ignore the rest of a request.
+    if re.search(
+        r"\b(?:and|et|y|e)\s+(?:why|how|when|where|who|what|pourquoi|comment|"
+        r"quand|qui|que|como|cuando|donde|quien|perche|come|quando|chi|cosa)\b|"
+        r"(?:以及|還有|还有|而且).*(?:為什麼|为什么|怎麼|怎么|何時|何时|誰|谁)",
+        _normalize(question),
+    ):
+        return None
     intent = match_scripted_intent(question, lang)
     if intent is None:
         return None
-    selected_artwork = _named_artwork(question) or artwork_id
+    selected_artwork = artwork_id if resolved_subject else (_named_artwork(question) or artwork_id)
     if selected_artwork not in _ARTWORKS:
         return ScriptedFaqAnswer(
             response=_CLARIFY_ARTWORK[lang],

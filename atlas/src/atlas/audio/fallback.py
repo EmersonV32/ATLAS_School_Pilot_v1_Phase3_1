@@ -108,6 +108,10 @@ class FallbackSTT(BaseSTT):
         self.primary.set_language(language)
         self.fallback.set_language(language)
 
+    def cancel_listen(self) -> None:
+        self.primary.cancel_listen()
+        self.fallback.cancel_listen()
+
     def prepare_listen(self) -> None:
         should_try_primary = self.primary_ready or self._primary_retry_due()
         if should_try_primary:

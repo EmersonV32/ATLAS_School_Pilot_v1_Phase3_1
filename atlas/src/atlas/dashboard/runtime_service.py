@@ -27,6 +27,7 @@ from atlas.dashboard.visitor_activation import (
     local_greeting,
     wake_phrase_matches,
 )
+from atlas.dialogue.conversation_memory import interleave_context
 from atlas.dialogue.scripted_faq import resolve_scripted_faq
 from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.languages import OUTPUT_LANGUAGE_NAMES, normalize_language_code
@@ -462,9 +463,13 @@ class RuntimeService:
         known = self._artwork_map()
         if known and artwork_id not in known:
             raise ValueError(f"unknown artwork_id: {artwork_id}")
-        self.container.artwork_tracker.set_manual_override(
-            artwork_id, label=known.get(artwork_id)
-        )
+        with self._session_lock:
+            self.container.artwork_tracker.set_manual_override(
+                artwork_id, label=known.get(artwork_id)
+            )
+            self.container.dialogue_engine.prepare_turn(
+                "", artwork_id, force_camera=True
+            )
         return self.container.artwork_tracker.status()
 
     def clear_manual_artwork(self) -> dict[str, Any]:
@@ -476,6 +481,11 @@ class RuntimeService:
         if self._capture_request is not None:
             self._capture_request()
             return {"requested": True, "capture_source": "device_runtime"}
+
+        with self._session_lock:
+            generation = self._session_generation
+            engine = self.container.dialogue_engine
+            engine_generation = engine.conversation_generation
 
         capture = self.container.manual_artwork_capture
         if capture is None:
@@ -490,9 +500,23 @@ class RuntimeService:
         detection = capture.identify(frame)
         if detection is None:
             raise LookupError("the centered artwork was not recognized")
-        self.container.artwork_tracker.set_manual_override(
-            detection.artwork_id, detection.label
-        )
+        with self._session_lock:
+            if (
+                generation != self._session_generation
+                or engine_generation != engine.conversation_generation
+            ):
+                raise RuntimeError(
+                    "Session changed while identifying; capture cancelled"
+                )
+            self.container.artwork_tracker.set_manual_override(
+                detection.artwork_id, detection.label
+            )
+            engine.prepare_turn(
+                "",
+                detection.artwork_id,
+                expected_generation=engine_generation,
+                force_camera=True,
+            )
         status = self.container.artwork_tracker.status()
         status["capture_source"] = "manual_center_crop"
         return status
@@ -652,14 +676,22 @@ class RuntimeService:
             logger.info("[Typed question] %s", question)
         artwork = self.artwork_status()
         artwork_id = artwork.get("artwork_id")
+        engine = self.container.dialogue_engine
+        focus = engine.prepare_turn(
+            question, artwork_id, expected_generation=engine_generation
+        )
+        if focus is None:
+            return {"error": "session_cancelled"}
+        retrieval_id = focus.retrieval_artwork_id
 
         with Timer() as scripted_timer:
             scripted = resolve_scripted_faq(
                 question,
-                artwork_id=artwork_id,
+                artwork_id=retrieval_id,
                 language=lang.value,
                 profile=level.value,
                 accessibility=self._visitor_accessibility,
+                resolved_subject=True,
             )
         if scripted is not None:
             remember = getattr(
@@ -669,7 +701,10 @@ class RuntimeService:
             )
             if callable(remember):
                 remember(
-                    question, scripted.response, expected_generation=engine_generation
+                    question,
+                    scripted.response,
+                    expected_generation=engine_generation,
+                    focus=focus,
                 )
             answer = {
                 "answer": scripted.response,
@@ -720,15 +755,22 @@ class RuntimeService:
             }
 
         with Timer() as total:
-            result = self.container.retriever.retrieve(
-                RetrievalQuery(
-                    text=question,
-                    artwork_id=artwork_id,
-                    language=lang,
-                    educational_level=level,
+            groups = []
+            retrieval_latency_ms = 0.0
+            for identifier in focus.retrieval_artwork_ids:
+                result = self.container.retriever.retrieve(
+                    RetrievalQuery(
+                        text=question,
+                        artwork_id=identifier,
+                        language=lang,
+                        educational_level=level,
+                    )
                 )
-            )
-            chunks = [{"text": c.text, "chunk_id": c.chunk_id} for c in result.chunks]
+                groups.append(
+                    [{"text": c.text, "chunk_id": c.chunk_id} for c in result.chunks]
+                )
+                retrieval_latency_ms += result.total_latency_ms or 0.0
+            chunks = interleave_context(groups)
             dialogue = self.container.dialogue_engine.respond(
                 question=question,
                 artwork_chunks=chunks,
@@ -736,6 +778,7 @@ class RuntimeService:
                 profile=level.value,
                 artwork_id=artwork_id,
                 expected_generation=engine_generation,
+                focus=focus,
             )
 
         answer = {
@@ -746,8 +789,8 @@ class RuntimeService:
             "filtered": dialogue.filtered,
             "confidence": dialogue.confidence,
             "used_chunk_ids": dialogue.used_chunk_ids,
-            "artwork_id": artwork_id,
-            "retrieval_latency_ms": result.total_latency_ms,
+            "artwork_id": focus.artwork_id,
+            "retrieval_latency_ms": retrieval_latency_ms,
             "total_latency_ms": total.elapsed_ms,
             "error": dialogue.error,
         }
@@ -764,8 +807,8 @@ class RuntimeService:
             "[retrieval_ms=%s grounded=%s fallback=%s error=%s]",
             total.elapsed_ms,
             (
-                f"{result.total_latency_ms:.0f}"
-                if result.total_latency_ms is not None
+                f"{retrieval_latency_ms:.0f}"
+                if retrieval_latency_ms is not None
                 else "n/a"
             ),
             dialogue.grounded,
@@ -776,7 +819,7 @@ class RuntimeService:
         log_fields: dict[str, Any] = {
             "language": lang.value,
             "artwork_id": artwork_id,
-            "retrieval_latency_ms": result.total_latency_ms,
+            "retrieval_latency_ms": retrieval_latency_ms,
             "fallback_used": dialogue.fallback_used,
         }
         if settings.logging.log_transcripts:

@@ -144,7 +144,10 @@ speech:
   deepgram_language: multi
   deepgram_endpointing_ms: 400
   deepgram_final_timeout_s: 3.0
+  # This is the first-speech wait, not a cutoff for an ongoing request.
   listen_duration_s: 8.0
+  # Deepgram capture limit measured from speech onset.
+  max_utterance_s: 45.0
   deepgram_keyterms:
     - ATLAS
     - Mona Lisa
@@ -167,7 +170,8 @@ speech:
   silero_threshold: 0.5
   silero_model_path: models/silero_vad.onnx
   silero_min_speech_ms: 250
-  silero_min_silence_ms: 1200
+  silero_min_silence_ms: 2000
+  silero_hesitation_silence_ms: 4000
   silero_pre_roll_ms: 250
   cartesia_api_key_env: CARTESIA_API_KEY
   cartesia_model: sonic-3.5

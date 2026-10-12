@@ -33,6 +33,7 @@ import threading
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
+from atlas.dialogue.conversation_memory import ArtworkFocus, ConversationMemory
 from atlas.dialogue.grounding_validator import GroundingValidator
 from atlas.dialogue.personalization import SessionPersonalization
 from atlas.dialogue.prompt_builder import (
@@ -121,7 +122,12 @@ class DialogueEngine:
     GeminiClient for device/demo modes.
     """
 
-    def __init__(self, llm_client, expect_json: bool = False) -> None:
+    def __init__(
+        self,
+        llm_client,
+        expect_json: bool = False,
+        artwork_titles: dict[str, str] | None = None,
+    ) -> None:
         self._llm = llm_client
         self._expect_json = expect_json  # True for real LLMs (Gemini)
         self._prompt_builder = PromptBuilder()
@@ -129,6 +135,7 @@ class DialogueEngine:
         self._safety = SafetyFilter()
         self._injection = PromptInjectionFilter()
         self._conversation_turns: list[tuple[str, str]] = []
+        self._memory = ConversationMemory(artwork_titles)
         self._personalization = SessionPersonalization()
         self._state_lock = threading.RLock()
         self._conversation_generation = 0
@@ -148,29 +155,73 @@ class DialogueEngine:
             error="session_cancelled",
         )
 
-    def _context(self, *, expected_generation: int | None, **kwargs):
+    def prepare_turn(
+        self,
+        question: str,
+        artwork_id: str | None,
+        *,
+        expected_generation: int | None = None,
+        force_camera: bool = False,
+    ) -> ArtworkFocus | None:
+        """Resolve one shared subject before either local FAQ or RAG selection."""
+        with self._state_lock:
+            generation = self._conversation_generation
+            if expected_generation is not None and generation != expected_generation:
+                return None
+            safe_question = "" if self._injection.is_injection(question) else question
+            return self._memory.focus(
+                safe_question, artwork_id, generation, force_camera=force_camera
+            )
+
+    def _context(
+        self,
+        *,
+        expected_generation: int | None,
+        focus: ArtworkFocus | None = None,
+        **kwargs,
+    ):
         """Snapshot one session without holding a lock during cloud calls."""
         with self._state_lock:
             generation = self._conversation_generation
             if expected_generation is not None and generation != expected_generation:
+                return generation, None
+            focus = focus or self._memory.focus(
+                ""
+                if self._injection.is_injection(kwargs["question"])
+                else kwargs["question"],
+                kwargs.get("artwork_id"),
+                generation,
+            )
+            if focus.generation != generation:
                 return generation, None
             self._personalization.observe(kwargs["question"])
             interests, styles = self._personalization.prompt_lines()
             return generation, DialogueContext(
                 **kwargs,
                 conversation_turns=list(self._conversation_turns),
+                conversation_artwork_ids=[t.artwork_id for t in self._memory.recent],
+                topic_artwork_id=focus.artwork_id,
+                named_artwork_ids=focus.named_ids,
+                artwork_transition=focus.transition,
+                earlier_conversation=self._memory.earlier_context(focus),
                 visitor_interests=interests,
                 explanation_preferences=styles,
                 ask_preference_question=self._personalization.should_ask_preference_question(),
             )
 
     def _commit_turn(
-        self, generation: int, question: str, result: DialogueResult, ask: bool
+        self,
+        generation: int,
+        question: str,
+        result: DialogueResult,
+        ask: bool,
+        artwork_id: str | None = None,
     ):
         with self._state_lock:
             if generation != self._conversation_generation:
                 return self._cancelled(result.language)
-            self._remember(question, result.response)
+            if not result.error and not result.filtered:
+                self._remember(question, result.response, artwork_id)
             self._personalization.complete_turn(preference_question_requested=ask)
             return result
 
@@ -179,6 +230,7 @@ class DialogueEngine:
         with self._state_lock:
             self._conversation_generation += 1
             self._conversation_turns.clear()
+            self._memory.reset()
             self._personalization.reset()
 
     def configure_personalization(
@@ -196,22 +248,35 @@ class DialogueEngine:
                 expertise=expertise,
             )
 
-    def _remember(self, question: str, answer: str) -> None:
-        self._conversation_turns.append((question[:500], answer[:1000]))
-        self._conversation_turns = self._conversation_turns[-3:]
+    def _remember(
+        self, question: str, answer: str, artwork_id: str | None = None
+    ) -> None:
+        self._memory.remember(question, answer, artwork_id)
+        self._conversation_turns = [(t.question, t.answer) for t in self._memory.recent]
 
     def remember_local_response(
-        self, question: str, answer: str, *, expected_generation: int | None = None
+        self,
+        question: str,
+        answer: str,
+        *,
+        expected_generation: int | None = None,
+        artwork_id: str | None = None,
+        focus: ArtworkFocus | None = None,
     ) -> bool:
-        """Keep a deterministic local answer in the same three-turn context."""
+        """Keep a deterministic local answer in the same visit-only memory."""
         with self._state_lock:
             if (
                 expected_generation is not None
                 and expected_generation != self._conversation_generation
             ):
                 return False
+            focus = focus or self._memory.focus(
+                question, artwork_id, self._conversation_generation
+            )
+            if focus.generation != self._conversation_generation:
+                return False
             self._personalization.observe(question)
-            self._remember(question, answer)
+            self._remember(question, answer, focus.artwork_id)
             self._personalization.complete_turn(preference_question_requested=False)
             return True
 
@@ -224,9 +289,11 @@ class DialogueEngine:
         profile: str | None = None,
         artwork_id: str | None = None,
         expected_generation: int | None = None,
+        focus: ArtworkFocus | None = None,
     ) -> DialogueResult:
         generation, ctx = self._context(
             expected_generation=expected_generation,
+            focus=focus,
             question=question,
             artwork_chunks=artwork_chunks,
             visitor_age=visitor_age,
@@ -326,7 +393,11 @@ class DialogueEngine:
             fallback_used=fallback_used,
         )
         return self._commit_turn(
-            generation, question, result, ctx.ask_preference_question
+            generation,
+            question,
+            result,
+            ctx.ask_preference_question,
+            ctx.topic_artwork_id,
         )
 
     def respond_stream(
@@ -339,6 +410,7 @@ class DialogueEngine:
         profile: str | None = None,
         artwork_id: str | None = None,
         expected_generation: int | None = None,
+        focus: ArtworkFocus | None = None,
     ) -> DialogueResult:
         """Generate and validate in one thread while TTS consumes sentences.
 
@@ -348,6 +420,7 @@ class DialogueEngine:
         """
         generation, ctx = self._context(
             expected_generation=expected_generation,
+            focus=focus,
             question=question,
             artwork_chunks=artwork_chunks,
             visitor_age=visitor_age,
@@ -464,7 +537,11 @@ class DialogueEngine:
                 (
                     "done",
                     self._commit_turn(
-                        generation, question, result, ctx.ask_preference_question
+                        generation,
+                        question,
+                        result,
+                        ctx.ask_preference_question,
+                        ctx.topic_artwork_id,
                     ),
                 )
             )

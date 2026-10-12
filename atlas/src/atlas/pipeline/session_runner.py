@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 import unicodedata
 from collections.abc import Callable
@@ -24,6 +25,7 @@ from typing import Any
 
 from atlas.audio.stt import BaseSTT, TranscriptResult
 from atlas.audio.tts import BaseTTS
+from atlas.dialogue.conversation_memory import interleave_context
 from atlas.dialogue.dialogue_engine import DialogueEngine, DialogueResult
 from atlas.dialogue.scripted_faq import resolve_scripted_faq
 from atlas.hardware.base import BaseHardware
@@ -374,6 +376,8 @@ class SessionRunner:
         self._preferred_language = "en"
         self._preferred_profile = "adult_beginner"
         self._preferred_accessibility: tuple[str, ...] = ()
+        self._listen_lock = threading.Lock()
+        self._listen_generation = 0
 
     def set_preferred_language(self, language: str) -> None:
         normalized = normalize_language_code(language)
@@ -414,6 +418,8 @@ class SessionRunner:
         return self._preferred_profile
 
     def _listen(self, *, play_cue: bool = True) -> TranscriptResult | None:
+        with self._listen_lock:
+            generation = self._listen_generation
         listen_started = time.perf_counter()
         logger.info(
             "[STT] Preparing to listen [language=%s timeout=%.1fs]",
@@ -430,12 +436,16 @@ class SessionRunner:
                 "[STT] Preparation failed; attempting listen anyway: %s",
                 exc,
             )
+        if self._listen_cancelled(generation):
+            return None
         if play_cue:
             try:
                 if not self._tts.cue():
                     logger.warning("Listening cue unavailable; recording anyway")
             except Exception as exc:
                 logger.warning("[TTS] Listening cue error: %s", exc)
+        if self._listen_cancelled(generation):
+            return None
         try:
             transcript = self._stt.listen(duration_s=self._listen_s)
         except Exception as exc:
@@ -444,6 +454,8 @@ class SessionRunner:
                 "[Timing] STT failed after %.0f ms",
                 (time.perf_counter() - listen_started) * 1000.0,
             )
+            return None
+        if self._listen_cancelled(generation):
             return None
         if transcript is not None:
             switch_target = requested_language(transcript.text)
@@ -485,6 +497,18 @@ class SessionRunner:
     def listen_once(self, *, play_cue: bool = False) -> TranscriptResult | None:
         """Capture one utterance without coupling it to artwork detection."""
         return self._listen(play_cue=play_cue)
+
+    def cancel_listening(self) -> None:
+        """Interrupt a supported capture at a visit boundary or runtime shutdown."""
+        with self._listen_lock:
+            self._listen_generation += 1
+        cancel = getattr(self._stt, "cancel_listen", None)
+        if callable(cancel):
+            cancel()
+
+    def _listen_cancelled(self, generation: int) -> bool:
+        with self._listen_lock:
+            return generation != self._listen_generation
 
     def _speak_capture_message(
         self,
@@ -562,6 +586,32 @@ class SessionRunner:
             isinstance(generation, int)
             and generation != self._engine.conversation_generation
         )
+
+    def _prepare_focus(self, question, artwork_id, generation, *, force_camera=False):
+        prepare = getattr(self._engine, "prepare_turn", None)
+        if not callable(prepare):
+            return artwork_id, {}
+        options = self._generation_options(generation)
+        if force_camera:
+            options["force_camera"] = True
+        focus = prepare(question, artwork_id, **options)
+        if focus is None:
+            return artwork_id, {}
+        return focus.retrieval_artwork_id, {"focus": focus}
+
+    def _retrieve_context(self, retrieval_id, focus_options, transcript):
+        focus = focus_options.get("focus")
+        identifiers = focus.retrieval_artwork_ids if focus else (retrieval_id,)
+        groups = []
+        for identifier in identifiers:
+            try:
+                chunks = self._retriever(
+                    identifier, transcript.text, transcript.language
+                )
+            except TypeError:
+                chunks = self._retriever(identifier, transcript.text)
+            groups.append(chunks)
+        return interleave_context(groups)
 
     def _cancelled_result(self, detection, transcript) -> SessionResult:
         self._tts.abort_utterance()
@@ -662,13 +712,11 @@ class SessionRunner:
             self._last_language = transcript.language
 
         # Step 3: retrieve context (Phase 2 bridge)
+        retrieval_id, focus_options = self._prepare_focus(
+            transcript.text, detection.artwork_id, generation
+        )
         retrieval_started = time.perf_counter()
-        try:
-            chunks = self._retriever(
-                detection.artwork_id, transcript.text, transcript.language
-            )
-        except TypeError:
-            chunks = self._retriever(detection.artwork_id, transcript.text)
+        chunks = self._retrieve_context(retrieval_id, focus_options, transcript)
         if not chunks:
             logger.warning(
                 "Retriever returned no chunks for artwork_id=%s",
@@ -769,6 +817,7 @@ class SessionRunner:
                     profile=self._preferred_profile,
                     artwork_id=detection.artwork_id,
                     **self._generation_options(generation),
+                    **focus_options,
                 )
             except Exception:
                 if continuous_tts:
@@ -783,6 +832,7 @@ class SessionRunner:
                 profile=self._preferred_profile,
                 artwork_id=detection.artwork_id,
                 **self._generation_options(generation),
+                **focus_options,
             )
 
         if (
@@ -868,8 +918,11 @@ class SessionRunner:
         announce: bool = True,
     ) -> SessionResult:
         """Identify an artwork without starting another microphone capture."""
+        generation = getattr(self._engine, "conversation_generation", None)
         language = language or self._last_language
         detection = self._identify_manually(frame)
+        if self._generation_changed(generation):
+            return self._cancelled_result(None, None)
         if detection is None:
             if announce:
                 self._speak_capture_message(None, language)
@@ -879,6 +932,7 @@ class SessionRunner:
                 dialogue=None,
                 error="manual_capture_unknown",
             )
+        self._prepare_focus("", detection.artwork_id, generation, force_camera=True)
         self._hw.focus_artwork(detection.artwork_id)
         if announce:
             self._speak_capture_message(detection, language)
@@ -941,6 +995,11 @@ class SessionRunner:
             return self.capture_context(frame, transcript.language)
 
         artwork_id = detection.artwork_id if detection is not None else None
+        retrieval_id, focus_options = self._prepare_focus(
+            transcript.text, artwork_id, generation
+        )
+        if self._generation_changed(generation):
+            return self._cancelled_result(detection, transcript)
         if detection is not None:
             logger.info(
                 "[Vision] Context %s [artwork_id=%s confidence=%.0f%%]",
@@ -955,10 +1014,11 @@ class SessionRunner:
 
         scripted = resolve_scripted_faq(
             transcript.text,
-            artwork_id=artwork_id,
+            artwork_id=retrieval_id,
             language=transcript.language,
             profile=self._preferred_profile,
             accessibility=self._preferred_accessibility,
+            resolved_subject="focus" in focus_options,
         )
         if scripted is not None:
             remember = getattr(self._engine, "remember_local_response", None)
@@ -967,6 +1027,7 @@ class SessionRunner:
                     transcript.text,
                     scripted.response,
                     **self._generation_options(generation),
+                    **focus_options,
                 )
             if self._generation_changed(generation):
                 return self._cancelled_result(detection, transcript)
@@ -1011,10 +1072,7 @@ class SessionRunner:
             )
 
         retrieval_started = time.perf_counter()
-        try:
-            chunks = self._retriever(artwork_id, transcript.text, transcript.language)
-        except TypeError:
-            chunks = self._retriever(artwork_id, transcript.text)
+        chunks = self._retrieve_context(retrieval_id, focus_options, transcript)
         if not chunks:
             logger.warning(
                 "Retriever returned no chunks for artwork_id=%s",
@@ -1114,6 +1172,7 @@ class SessionRunner:
                     profile=self._preferred_profile,
                     artwork_id=artwork_id,
                     **self._generation_options(generation),
+                    **focus_options,
                 )
             except Exception:
                 if continuous_tts:
@@ -1128,6 +1187,7 @@ class SessionRunner:
                 profile=self._preferred_profile,
                 artwork_id=artwork_id,
                 **self._generation_options(generation),
+                **focus_options,
             )
 
         if (

@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import queue
+import re
 import threading
 import time
 from collections import deque
@@ -34,6 +35,109 @@ class DeepgramResult:
     is_final: bool
     speech_final: bool
     from_finalize: bool
+
+
+class QuestionTranscript:
+    """Concatenate final segments and retain an unfinished tail until flush."""
+
+    def __init__(self, language: str) -> None:
+        self.parts: list[str] = []
+        self.confidences: list[float] = []
+        self.language = language
+        self.interim = ""
+        self.interim_end = 0.0
+        self.final_end = 0.0
+        self.spans: set[tuple[float, float, str]] = set()
+
+    @property
+    def text(self) -> str:
+        return " ".join([*self.parts, self.interim]).strip()
+
+    def consume(self, payload: dict[str, Any]) -> bool:
+        if payload.get("type") == "_error":
+            raise DeepgramError("stream connection failed")
+        if payload.get("type") == "Metadata":
+            return True
+        result = parse_deepgram_result(payload, default_language=self.language)
+        if result is None:
+            return False
+        if result.text:
+            self.language = result.language or self.language
+            start = float(payload.get("start", 0.0))
+            duration = float(payload.get("duration", 0.0))
+            end = start + duration
+            timed = "start" in payload and "duration" in payload
+            if result.is_final:
+                span = (start, duration, result.text)
+                if not timed or span not in self.spans:
+                    self.parts.append(result.text)
+                    self.confidences.append(result.confidence)
+                    if timed:
+                        self.spans.add(span)
+                self.final_end = max(self.final_end, end)
+                if not timed or self.interim_end <= end:
+                    self.interim = ""
+            elif not timed or end > self.final_end:
+                self.interim = result.text
+                self.interim_end = end
+        # speech_final marks a Deepgram segment, not the application's user turn.
+        return result.from_finalize
+
+
+def question_needs_more_speech(text: str) -> bool:
+    """Conservative grace for short openings, fillers and trailing connectors."""
+    words = re.findall(r"[^\W\d_]+", text.casefold())
+    if not words:
+        return True
+    return words[-1] in {
+        "um",
+        "uh",
+        "erm",
+        "euh",
+        "and",
+        "or",
+        "because",
+        "about",
+        "the",
+        "a",
+        "an",
+        "to",
+        "is",
+        "was",
+        "of",
+        "with",
+        "why",
+        "what",
+        "who",
+        "et",
+        "ou",
+        "car",
+        "de",
+        "du",
+        "des",
+        "le",
+        "la",
+        "les",
+        "un",
+        "une",
+        "pour",
+        "que",
+        "qui",
+        "est",
+        "e",
+        "o",
+        "y",
+        "porque",
+        "el",
+        "il",
+        "di",
+        "che",
+        "per",
+        "嗯",
+        "呃",
+        "因為",
+        "因为",
+    } or " ".join(words[-3:]) in {"who painted", "qui a peint", "chi ha dipinto"}
 
 
 def build_deepgram_url(
@@ -106,7 +210,9 @@ class DeepgramSTT(BaseSTT):
         endpointing_ms: int = 400,
         vad_threshold: float = 0.5,
         min_speech_ms: int = 250,
-        min_silence_ms: int = 650,
+        min_silence_ms: int = 2000,
+        hesitation_silence_ms: int = 4000,
+        max_utterance_s: float = 45.0,
         pre_roll_ms: int = 250,
         final_timeout_s: float = 3.0,
         silero_model_path: str = "models/silero_vad.onnx",
@@ -123,6 +229,8 @@ class DeepgramSTT(BaseSTT):
         self._endpointing_ms = endpointing_ms
         self._min_speech_ms = min_speech_ms
         self._min_silence_ms = min_silence_ms
+        self._hesitation_silence_ms = max(min_silence_ms, hesitation_silence_ms)
+        self._max_utterance_s = max(1.0, max_utterance_s)
         self._pre_roll_ms = pre_roll_ms
         self._final_timeout_s = final_timeout_s
         self._keyterms = list(keyterms or [])
@@ -136,6 +244,17 @@ class DeepgramSTT(BaseSTT):
         self._ready = False
         self._prepared_connection = None
         self.last_audio_pcm = b""
+        self._capture_lock = threading.Lock()
+        self._capture_generation = 0
+
+    def cancel_listen(self) -> None:
+        """Invalidate the current capture without interfering with audio playback."""
+        with self._capture_lock:
+            self._capture_generation += 1
+
+    def _capture_cancelled(self, generation: int) -> bool:
+        with self._capture_lock:
+            return generation != self._capture_generation
 
     def warm_up(self) -> None:
         if self._ready:
@@ -255,6 +374,8 @@ class DeepgramSTT(BaseSTT):
             messages.put({"type": "_error", "message": str(exc)})
 
     def listen(self, duration_s: float = 5.0) -> TranscriptResult | None:
+        with self._capture_lock:
+            generation = self._capture_generation
         if not self._ready:
             self.warm_up()
 
@@ -273,6 +394,18 @@ class DeepgramSTT(BaseSTT):
         speech_started = False
         speech_started_at = 0.0
         last_voice_at = 0.0
+        speech_deadline = 0.0
+        transcript = QuestionTranscript(
+            self._language if self._language != "multi" else "en"
+        )
+
+        def receive_available() -> None:
+            while True:
+                try:
+                    payload = messages.get_nowait()
+                except queue.Empty:
+                    return
+                transcript.consume(payload)
 
         try:
             connection = self._prepared_connection or self._connect()
@@ -298,6 +431,7 @@ class DeepgramSTT(BaseSTT):
             )
 
             deadline = time.monotonic() + duration_s
+            last_keepalive_at = time.monotonic()
             with sd.RawInputStream(
                 samplerate=self._sample_rate,
                 blocksize=self._FRAME_SAMPLES,
@@ -305,20 +439,29 @@ class DeepgramSTT(BaseSTT):
                 dtype="int16",
                 device=self._input_device,
             ) as stream:
-                while time.monotonic() < deadline:
+                while time.monotonic() < (
+                    speech_deadline if speech_started else deadline
+                ):
+                    if self._capture_cancelled(generation):
+                        return None
                     raw, overflowed = stream.read(self._FRAME_SAMPLES)
                     if overflowed:
                         logger.debug("Microphone input overflow during question")
                     pcm = bytes(raw)
                     probability = self._vad.probability(pcm)
                     now = time.monotonic()
+                    receive_available()
 
                     if not speech_started:
                         pre_roll.append(pcm)
                         if probability < self._vad.threshold:
+                            if now - last_keepalive_at >= 3.0:
+                                connection.send(json.dumps({"type": "KeepAlive"}))
+                                last_keepalive_at = now
                             continue
                         speech_started = True
                         speech_started_at = now
+                        speech_deadline = now + self._max_utterance_s
                         last_voice_at = now
                         logger.info(
                             "[Silero VAD] Speech started "
@@ -327,81 +470,77 @@ class DeepgramSTT(BaseSTT):
                             self._vad.threshold,
                         )
                         for buffered in pre_roll:
-                            connection.send(buffered)
                             sent_frames.append(buffered)
+                            connection.send(buffered)
                         pre_roll.clear()
                         continue
 
-                    connection.send(pcm)
                     sent_frames.append(pcm)
+                    connection.send(pcm)
                     if probability >= self._vad.threshold:
                         last_voice_at = now
 
                     speech_ms = (now - speech_started_at) * 1000.0
                     silence_ms = (now - last_voice_at) * 1000.0
-                    if (
-                        speech_ms >= self._min_speech_ms
-                        and silence_ms >= self._min_silence_ms
+                    silence_limit = self._min_silence_ms
+                    if silence_limit > 0 and question_needs_more_speech(
+                        transcript.text
                     ):
+                        silence_limit = self._hesitation_silence_ms
+                    if speech_ms >= self._min_speech_ms and silence_ms >= silence_limit:
                         break
 
             self.last_audio_pcm = b"".join(sent_frames)
+            if self._capture_cancelled(generation):
+                return None
             if not speech_started:
                 connection.send(json.dumps({"type": "CloseStream"}))
                 logger.info("[Silero VAD] No speech detected before timeout")
                 return None
 
             connection.send(json.dumps({"type": "Finalize"}))
-            final_parts: list[str] = []
-            interim_text = ""
-            confidences: list[float] = []
-            detected_language = "en"
             final_deadline = time.monotonic() + self._final_timeout_s
             while time.monotonic() < final_deadline:
+                if self._capture_cancelled(generation):
+                    return None
                 try:
                     payload = messages.get(timeout=0.2)
                 except queue.Empty:
                     continue
-                if payload.get("type") == "_error":
-                    raise DeepgramError(str(payload.get("message", "socket error")))
-                result = parse_deepgram_result(
-                    payload,
-                    default_language=default_language,
-                )
-                if result is None:
-                    continue
-                if result.text:
-                    interim_text = result.text
-                    detected_language = result.language or detected_language
-                if result.is_final and result.text:
-                    if not final_parts or final_parts[-1] != result.text:
-                        final_parts.append(result.text)
-                        confidences.append(result.confidence)
-                if result.from_finalize:
+                if transcript.consume(payload):
                     break
 
-            text = " ".join(final_parts).strip() or interim_text.strip()
+            text = transcript.text
             if not text:
                 logger.info(
                     "[Deepgram] No transcript returned; treating capture as noise"
                 )
                 return None
             confidence = (
-                sum(confidences) / len(confidences) if confidences else 0.0
+                sum(transcript.confidences) / len(transcript.confidences)
+                if transcript.confidences
+                else 0.0
             )
             return TranscriptResult(
                 text=text,
-                language=detected_language,
+                language=transcript.language,
                 confidence=confidence,
                 duration_ms=(time.perf_counter() - started) * 1000.0,
             )
         except DeepgramError as exc:
+            if self._capture_cancelled(generation):
+                return None
             logger.error("[Deepgram] Transcription failed: %s", exc)
             raise
         except Exception as exc:
+            if self._capture_cancelled(generation):
+                return None
             logger.error("[Deepgram] Capture or connection failed: %s", exc)
             raise DeepgramError(str(exc)) from exc
         finally:
+            self.last_audio_pcm = (
+                b"" if self._capture_cancelled(generation) else b"".join(sent_frames)
+            )
             if connection is not None:
                 try:
                     connection.close()
@@ -411,6 +550,7 @@ class DeepgramSTT(BaseSTT):
                 receiver.join(timeout=0.5)
 
     def close(self) -> None:
+        self.cancel_listen()
         if self._prepared_connection is not None:
             try:
                 self._prepared_connection.close()

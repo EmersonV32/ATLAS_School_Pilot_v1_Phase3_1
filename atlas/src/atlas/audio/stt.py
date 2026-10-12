@@ -31,10 +31,16 @@ class BaseSTT(ABC):
         """Prefer one ISO-639-1 language for the next listening cycle."""
         return None
 
+    def cancel_listen(self) -> None:
+        """Interrupt a supported recording; unsupported adapters remain bounded."""
+        return None
+
     @abstractmethod
     def listen(self, duration_s: float = 5.0) -> TranscriptResult | None:
         """
-        Record up to duration_s seconds and return a transcript.
+        Wait up to duration_s for a question and return a transcript.
+        Streaming adapters use a separate bounded limit once speech starts;
+        fixed-window offline adapters may also cap the recording at duration_s.
         Returns None if nothing captured or recognition failed.
         """
         ...
