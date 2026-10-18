@@ -23,6 +23,7 @@
 #include "camera_index.h"
 #include "board_config.h"
 #include "camera_profile.h"
+#include "camera_timing_policy.h"
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_ARDUHAL_ESP_LOG)
 #include "esp32-hal-log.h"
@@ -36,16 +37,31 @@ int led_duty = 0;
 
 #endif
 
-volatile bool isStreaming = false;
-volatile uint32_t lastStreamFrameAtMs = 0;
+static portMUX_TYPE streamStateMux = portMUX_INITIALIZER_UNLOCKED;
+static bool isStreaming = false;
+static uint32_t lastStreamFrameAtMs = 0;
+
+static void setStreamState(bool active, uint32_t frameAtMs) {
+  portENTER_CRITICAL(&streamStateMux);
+  isStreaming = active;
+  lastStreamFrameAtMs = frameAtMs;
+  portEXIT_CRITICAL(&streamStateMux);
+}
 
 bool cameraStreamActive() {
-  return isStreaming;
+  portENTER_CRITICAL(&streamStateMux);
+  const bool active = isStreaming;
+  portEXIT_CRITICAL(&streamStateMux);
+  return active;
 }
 
 bool cameraStreamStalled(uint32_t nowMs, uint32_t timeoutMs) {
-  return isStreaming && lastStreamFrameAtMs != 0 &&
-         static_cast<uint32_t>(nowMs - lastStreamFrameAtMs) >= timeoutMs;
+  portENTER_CRITICAL(&streamStateMux);
+  const bool active = isStreaming;
+  const uint32_t lastFrameMs = lastStreamFrameAtMs;
+  portEXIT_CRITICAL(&streamStateMux);
+  // nowMs may have been sampled just before a newer frame was sent.
+  return cameraStreamStalledPolicy(active, nowMs, lastFrameMs, timeoutMs);
 }
 
 typedef struct {
@@ -104,7 +120,7 @@ static int ra_filter_run(ra_filter_t *filter, int value) {
 #if defined(LED_GPIO_NUM)
 void enable_led(bool en) {  // Turn LED On or Off
   int duty = en ? led_duty : 0;
-  if (en && isStreaming && (led_duty > CONFIG_LED_MAX_INTENSITY)) {
+  if (en && cameraStreamActive() && (led_duty > CONFIG_LED_MAX_INTENSITY)) {
     duty = CONFIG_LED_MAX_INTENSITY;
   }
   ledcWrite(LED_GPIO_NUM, duty);
@@ -243,8 +259,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
   httpd_resp_set_hdr(req, "Cache-Control", "no-store, no-cache, must-revalidate");
   httpd_resp_set_hdr(req, "X-Framerate", kAtlasTargetFpsHeader);
 
-  isStreaming = true;
-  lastStreamFrameAtMs = millis();
+  setStreamState(true, millis());
 #if defined(LED_GPIO_NUM)
   enable_led(true);
 #endif
@@ -292,7 +307,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
       log_e("Send frame failed");
       break;
     }
-    lastStreamFrameAtMs = millis();
+    setStreamState(true, millis());
     int64_t fr_end = esp_timer_get_time();
     const int64_t frame_due = last_frame + kAtlasFrameIntervalUs;
     if (fr_end < frame_due) {
@@ -314,8 +329,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     );
   }
 
-  isStreaming = false;
-  lastStreamFrameAtMs = 0;
+  setStreamState(false, 0);
 #if defined(LED_GPIO_NUM)
   enable_led(false);
 #endif
@@ -418,7 +432,7 @@ static esp_err_t cmd_handler(httpd_req_t *req) {
 #if defined(LED_GPIO_NUM)
   else if (!strcmp(variable, "led_intensity")) {
     led_duty = val;
-    if (isStreaming) {
+    if (cameraStreamActive()) {
       enable_led(true);
     }
   }

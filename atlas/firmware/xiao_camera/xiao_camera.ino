@@ -5,6 +5,8 @@
 
 #include "board_config.h"
 #include "camera_profile.h"
+#include "camera_timing_policy.h"
+#include "personal_wifi.h"
 #include "school_wifi.h"
 #include "wifi_secrets.h"
 
@@ -16,7 +18,8 @@ constexpr uint32_t kWifiReconnectIntervalMs = 3000;
 constexpr uint32_t kWifiReconnectTimeoutMs = 30000;
 constexpr uint32_t kStreamStallRestartMs = 5000;
 uint32_t wifiLostAtMs = 0;
-uint32_t nextWifiReconnectAtMs = 0;
+uint32_t lastWifiReconnectAtMs = 0;
+bool wifiRecoveryActive = false;
 
 void setStatusLed(bool on) {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -28,6 +31,11 @@ bool connectWifi() {
   WiFi.setSleep(false);
   WiFi.setAutoReconnect(true);
   WiFi.setHostname(kHostname);
+  if (connectPersonalWifi(setStatusLed, kWifiConnectTimeoutMs)) {
+    Serial.print("[WiFi] IP: ");
+    Serial.println(WiFi.localIP());
+    return true;
+  }
   if (connectSchoolWifi(setStatusLed, kWifiConnectTimeoutMs)) {
     Serial.print("[WiFi] IP: ");
     Serial.println(WiFi.localIP());
@@ -58,28 +66,30 @@ bool connectWifi() {
 
 void maintainWifi() {
   if (WiFi.status() == WL_CONNECTED) {
-    if (wifiLostAtMs != 0) {
+    if (wifiRecoveryActive) {
       Serial.println("[WiFi] Reconnected without restarting camera.");
     }
     wifiLostAtMs = 0;
-    nextWifiReconnectAtMs = 0;
+    lastWifiReconnectAtMs = 0;
+    wifiRecoveryActive = false;
     setStatusLed(false);
     return;
   }
 
   const uint32_t now = millis();
-  if (wifiLostAtMs == 0) {
+  if (!wifiRecoveryActive) {
+    wifiRecoveryActive = true;
     wifiLostAtMs = now;
-    nextWifiReconnectAtMs = now;
+    lastWifiReconnectAtMs = now - kWifiReconnectIntervalMs;
     Serial.println("[WiFi] Disconnected; attempting recovery.");
   }
-  if (now >= nextWifiReconnectAtMs) {
+  if (cameraIntervalElapsed(now, lastWifiReconnectAtMs, kWifiReconnectIntervalMs)) {
     WiFi.reconnect();
-    nextWifiReconnectAtMs = now + kWifiReconnectIntervalMs;
+    lastWifiReconnectAtMs = now;
     Serial.println("[WiFi] Reconnect requested.");
   }
   setStatusLed((now / 250) % 2 == 0);
-  if (now - wifiLostAtMs >= kWifiReconnectTimeoutMs) {
+  if (cameraIntervalElapsed(now, wifiLostAtMs, kWifiReconnectTimeoutMs)) {
     Serial.println("[WiFi] Recovery timed out; restarting camera.");
     delay(500);
     ESP.restart();
