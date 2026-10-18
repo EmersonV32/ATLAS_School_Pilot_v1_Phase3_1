@@ -1,5 +1,11 @@
 # Combined release audit — October 12, 2026
 
+October 18 update: the watchdog source defect below is now fixed and the
+combined release has personal-network preparation and source-only deployment
+tools. See the [onsite runbook](2026-10-18_ONSITE_DEPLOYMENT.md). This dated
+record retains its original results; actual flashing/physical acceptance
+remains pending until the devices arrive.
+
 ## Release decision
 
 The local candidate is `codex/combined-release-audit`, based on `fcfbd02` on

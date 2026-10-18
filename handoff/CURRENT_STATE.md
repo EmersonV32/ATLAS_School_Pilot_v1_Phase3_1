@@ -1,6 +1,6 @@
 # Current state
 
-Source status date: 2026-10-12. Physical observations below retain their actual
+Source status date: 2026-10-18. Physical observations below retain their actual
 dates; repository cleanup is not a hardware deployment or a fresh health check.
 
 ## Maintained version and source
@@ -29,6 +29,37 @@ The runtime includes artwork capture, bounded conversational context, museum
 retrieval and general Gemini fallback, configurable local/cloud speech,
 multilingual visitor setup, staff controls, headset-button handling and
 readiness/session/event storage. See [system architecture](architecture/SYSTEM_ARCHITECTURE.md).
+
+## October 18 onsite preparation — devices not yet deployed
+
+Latest local candidate: `codex/onsite-deployment-ready`, based on the combined
+audit at `9c50f87`. The owner supplied personal Wi-Fi details; a new ignored
+camera header and private transferable Jetson profile were prepared via hidden
+input. No actual credentials are in Git or the source archive. Old profiles are
+preserved. Personal network is preferred before the previous fallbacks.
+Public implementation/regression commit: `f91f828` (local, not pushed).
+
+The XIAO false-stall watchdog race and reconnect clock-wrap handling are fixed
+in source. Five synthetic ESP32 3.3.11 firmware variants compiled. Actual Wi-Fi
+band/security/client isolation, flash and hardware acceptance remain pending.
+Direct-pan controls are included but motor activation remains disabled until
+separate physical commissioning. Main and installed hardware are unchanged.
+
+Final software gate: 3,466 passed, two expected skips (Windows symlink privilege
+and opt-in real CPU inference), with the existing TestClient and intentional
+duplicate-ZIP fixture warnings. All lint, dependency, compilation, secret,
+recovery, navigation and whitespace gates pass; dashboard JavaScript: 97 checks.
+The private camera build is cached for verified UploadOnly; no device flashed.
+The public 195-file source archive is prepared outside Git under
+`ATLAS/deployment-packages/2026-10-18/ATLAS-onsite-source.zip`, SHA-256
+`0fb1625e230170394db1e0e17cd6acd58002672620cd7c4064434ec86fe854d7`.
+Its exact staged validation also passed independently; physical readiness is
+still pending and must not be inferred from an HTTP 200 or a software pass.
+
+Use the [October 18 arrival/deployment runbook](../atlas/docs/2026-10-18_ONSITE_DEPLOYMENT.md)
+for the private cached camera upload, strict source-only archive/update,
+rollback, approved pause/camera-endpoint settings migration and live test order.
+Do not run the old model/firmware/unit-changing uploader for this update.
 
 ## October 12 combined release audit — not deployed
 
@@ -182,9 +213,9 @@ ignored private storage. Use [school setup](../atlas/docs/SCHOOL_WIFI_SETUP.md).
 
 ## Open physical risks and acceptance
 
-- Camera live-stream timeouts/restarts were reported. The separately diagnosed
-  stream-watchdog timing race remains unpatched; repository cleanup does not
-  claim to fix it.
+- Camera live-stream timeouts/restarts were reported. The diagnosed watchdog
+  timing race is fixed in the October 18 source, not yet flashed or physically
+  verified. Repository cleanup alone did not fix it; live soak is still due.
 - Fresh seven-class camera evaluation, false-alarm review, live voice/headset
   flow, sustained thermal/FPS and end-to-end timing remain due.
 - School authentication and device-to-device traffic must be tested at school.

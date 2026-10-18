@@ -6,6 +6,7 @@ proof of today's physical device health.
 
 | Document | Purpose |
 | --- | --- |
+| [October 18 onsite deployment](2026-10-18_ONSITE_DEPLOYMENT.md) | Personal Wi-Fi preparation, private cached camera upload, source-only rollback-safe update, narrow settings migration and arrival test order. |
 | [Combined release audit](2026-10-12_COMBINED_RELEASE_AUDIT.md) | Latest integrated verification, reproduced fixes, known camera firmware blocker, safe deployment preflight and complete pending hardware/cloud checklist. |
 | [SG90 direct camera pan](CAMERA_PAN.md) | Direct reComputer Super hardware PWM, private dashboard controls, safe setup/wiring, optional PCA9685 compatibility and remaining physical acceptance. |
 | [Readable live activity](2026-10-12_READABLE_ACTIVITY.md) | Plain-language conversation, camera and button activity paired with technical logs, privacy flags, sync/pause guarantees and offline acceptance. |

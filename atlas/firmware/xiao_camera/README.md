@@ -34,6 +34,46 @@ the camera into a wearable case.
 `app_httpd.cpp`, `camera_index.h`, and `camera_pins.h` are based on Espressif's
 Arduino ESP32 `CameraWebServer` example.
 
+## Optional primary personal network (prepared 2026-10-18)
+
+For the current release, follow [the onsite runbook](../../docs/2026-10-18_ONSITE_DEPLOYMENT.md).
+`build_and_flash.ps1 -BuildOnly` prepares an ignored private cached firmware
+without contacting a device. `-UploadOnly -Port COM3` uploads only after checking
+source/header/core/binary provenance; substitute the verified actual port.
+Do not share the private cache, build manifests, diagnostics or firmware binaries.
+
+`scripts/configure_personal_wifi.py` prepares the new SSID/password network
+without replacing the old hotspot or enterprise headers. The optional ignored
+`wifi_personal_secrets.h` uses `WIFI_PERSONAL_CONFIGURED`,
+`WIFI_PERSONAL_WPA3_ONLY`, `WIFI_PERSONAL_SSID`, and `WIFI_PERSONAL_PASSWORD`.
+The public example is disabled and contains no real credentials.
+
+Boot preference is **new personal network, then configured school enterprise,
+then original hotspot**. Each optional profile is tried only when a compatible
+SSID is visible; each visible optional profile has a bounded 30-second attempt.
+If the active connection is lost, normal reconnection is attempted for 30
+seconds, then the existing reboot path repeats that preference. An already
+working fallback is not interrupted just because a preferred AP appears later.
+Two devices select independently: they must actually join the same reachable
+LAN for the Jetson to read the camera. Hidden SSIDs are not supported by this
+visible-network selection.
+
+The XIAO ESP32-S3 radio is **2.4 GHz only**, not 5/6 GHz. Auto/WPA2 mode requires
+at least WPA2 personal and also permits WPA3; WPA3-only mode requires SAE and
+protected management frames. SAE hunting-and-pecking and hash-to-element are
+enabled in the installed ESP32 3.3.11 core. Open/WEP/WPA1/enterprise APs are not
+accepted by this personal profile. This does not bypass captive portals,
+client isolation, or institutional access rules. Real AP authentication and
+peer traffic must be tested onsite; a compile is not proof of WPA3 negotiation.
+
+The 2026-10-18 firmware fixes the audited false-stall race: stream state is
+snapshotted together under an ESP32 critical section, and a newer frame
+timestamp cannot underflow into a false five-second timeout. Genuine stalls,
+including `millis()` wrap, still trigger recovery. Wi-Fi reconnect intervals
+are now wrap-safe and do not use zero as an uninitialized timestamp. These are
+covered by deterministic C++ policy assertions compiled with the real sketch.
+Hardware streaming and reconnect soak checks remain required after flashing.
+
 ## Optional school enterprise profile (prepared 2026-10-05)
 
 School support assumes **WPA2-Enterprise PEAP/MSCHAPv2**, not a browser portal,
@@ -43,7 +83,8 @@ authentication has been tested. See `../../docs/SCHOOL_WIFI_SETUP.md`.
 `scripts/configure_school_wifi.py --target camera` is run locally by the
 operator to create the ignored `wifi_school_secrets.h`. It never reads or
 replaces the existing hotspot header. Without this optional header, the
-previous hotspot behavior remains. At boot, a configured school profile is
+previous school/hotspot behavior remains. After the optional personal primary,
+a configured school profile is
 tried only if its 2.4 GHz WPA2-Enterprise SSID is visible. If it fails, EAP is
 disabled and the original hotspot is used. After a prolonged connection loss,
 the existing reboot/reconnection path repeats this selection.
@@ -54,9 +95,9 @@ certificate time checks as a connectivity workaround. Unverified-server mode
 is OFF by default and requires both an explicit command option and a typed
 local risk acknowledgement. It can expose the account to a fake school AP.
 
-`scripts/verify_school_firmware.ps1` compiles hotspot-only, unverified-school,
-and verified-school variants with synthetic values and compile-time policy
+`scripts/verify_school_firmware.ps1` compiles hotspot-only, personal-auto,
+personal-WPA3-with-school-fallback, unverified-school, and verified-school
+variants with synthetic values and compile-time policy
 regressions. It never reads private headers or uploads firmware. Actual school
 authentication, fallback behavior on hardware, peer connectivity, and sustained
-streaming still require physical tests. The separately diagnosed stream-watchdog
-timing issue is not changed by this school-network addition.
+streaming still require physical tests. It never copies existing private headers.

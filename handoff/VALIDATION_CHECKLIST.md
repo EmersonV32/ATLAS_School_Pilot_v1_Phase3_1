@@ -1,9 +1,10 @@
 # Validation checklist
 
-For the integrated October 11–12 candidate, start with the
-[combined release audit and detailed online checklist](../atlas/docs/2026-10-12_COMBINED_RELEASE_AUDIT.md).
-Its known camera firmware defect and pending hardware/cloud tests are not
-waived by a passing laptop gate. Keep pan disabled until separate supervised
+For the current prepared candidate, start with the
+[October 18 onsite runbook](../atlas/docs/2026-10-18_ONSITE_DEPLOYMENT.md) and the
+[combined detailed online checklist](../atlas/docs/2026-10-12_COMBINED_RELEASE_AUDIT.md).
+The watchdog now has a source fix, but actual flash/soak and pending hardware/cloud
+tests are not waived by a passing laptop gate. Keep pan disabled until supervised
 commissioning. Do not use an old model/firmware deployment bundle blindly for
 a workflow-only update.
 

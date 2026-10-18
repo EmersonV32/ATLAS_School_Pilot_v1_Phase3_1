@@ -9,8 +9,8 @@ or send data; use only for an explicitly requested operation.
 | --- | --- |
 | Safe laptop regression | `run_deployment_pytest.py`, `check_no_secrets.py`, `verify_recovery_bundle.py`, `verify_repository_layout.py` |
 | Jetson installation/startup | `bootstrap_jetson.sh`, `install_user_service.sh`, `start_device.sh`, `atlas.service`; see [rebuild manual](../../handoff/jetson/REBUILD_FROM_FRESH_FLASH.md) |
-| Transactional deployment | [DEPLOY_ATLAS.ps1](../DEPLOY_ATLAS.ps1), `deploy/DEPLOY_ATLAS_VISITOR_IMPROVEMENTS.ps1`, `deploy/apply_visitor_patch.sh` |
-| Network and credentials | `configure_school_wifi.py`, `verify_school_firmware.ps1`, `configure_cloud_keys.sh`; see [school guide](../docs/SCHOOL_WIFI_SETUP.md) |
+| Current source-only deployment | `deploy/source_release.py`, `prepare_onsite_settings.py`; see [onsite runbook](../docs/2026-10-18_ONSITE_DEPLOYMENT.md). Earlier `DEPLOY_ATLAS.ps1`/visitor transaction also changes models/firmware/unit; do not use blindly for this update. |
+| Network and credentials | `configure_personal_wifi.py`, `configure_school_wifi.py`, `verify_school_firmware.ps1`, `configure_cloud_keys.sh`; see [onsite runbook](../docs/2026-10-18_ONSITE_DEPLOYMENT.md) and [school guide](../docs/SCHOOL_WIFI_SETUP.md) |
 | Device readiness | `preflight_device.sh`, `check_arducam.sh` |
 | Model recovery/export | `restore_models.sh`, `verify_yolo_checkpoint.py`, `export_tensorrt.py`, `promote_staged_engine.py`; see [model guide](../models/README.md) |
 | Model evaluation | `smoke_yolo_runtime.py`, `benchmark_yolo_backends.py`, `inspect_yolo_results.py`, `validate_artwork_release.py` |
