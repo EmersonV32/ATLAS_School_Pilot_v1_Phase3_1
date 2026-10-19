@@ -30,7 +30,26 @@ retrieval and general Gemini fallback, configurable local/cloud speech,
 multilingual visitor setup, staff controls, headset-button handling and
 readiness/session/event storage. See [system architecture](architecture/SYSTEM_ARCHITECTURE.md).
 
-## October 18 onsite preparation — devices not yet deployed
+## October 18 onsite Jetson deployment — camera paused
+
+The owner brought the Jetson online and authorized immediate deployment.
+The prepared `f91f828` source-only release is now installed in the existing
+application and user service. The narrow listening migration was applied with
+YAML backups and pan disabled. Native expanded regressions: **465 passed**;
+187 installed source files match the release; both unchanged v6 backends passed
+real GPU inference on public references/blank input. Service is active with no
+unexpected restarts; actual dashboard assets and LAN/auth checks pass.
+
+School personal-profile files were transferred privately, but local sudo import
+and enabling future autoconnect remain pending the owner. The AP is not visible
+here. Camera work is explicitly paused awaiting a USB data cable; no flash
+occurred. Shokz is absent from the current Jetson audio devices. Thus live
+camera, actual voice/cloud/context, school fallback and combined physical
+acceptance remain outstanding. See the [deployment record](../atlas/docs/2026-10-18_JETSON_ONSITE_DEPLOYMENT.md)
+for exact evidence, both rollback backups and the owner's local Wi-Fi commands.
+Main is unchanged; no push occurred.
+
+### Earlier October 18 preparation evidence
 
 Latest local candidate: `codex/onsite-deployment-ready`, based on the combined
 audit at `9c50f87`. The owner supplied personal Wi-Fi details; a new ignored
@@ -172,7 +191,7 @@ No push, `main` promotion or deployment occurred. The servo waveform, safe
 power, full physical travel, mount/cable strain and voice/preview under motor
 load must be supervised on the real offline hardware before enabling pan.
 
-## Latest recorded deployment: October 4
+## Previous recorded deployment: October 4
 
 At the user's explicit request, v6 and five runtime fixes were deployed to the
 Jetson on 2026-10-04 at 18:38 EDT. The service was active in device mode with a
