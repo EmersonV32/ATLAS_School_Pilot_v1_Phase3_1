@@ -30,7 +30,7 @@ retrieval and general Gemini fallback, configurable local/cloud speech,
 multilingual visitor setup, staff controls, headset-button handling and
 readiness/session/event storage. See [system architecture](architecture/SYSTEM_ARCHITECTURE.md).
 
-## October 18 onsite Jetson deployment — camera paused
+## October 18 onsite Jetson deployment — camera flashed, network pending
 
 The owner brought the Jetson online and authorized immediate deployment.
 The prepared `f91f828` source-only release is now installed in the existing
@@ -42,8 +42,11 @@ unexpected restarts; actual dashboard assets and LAN/auth checks pass.
 
 School personal-profile files were transferred privately, but local sudo import
 and enabling future autoconnect remain pending the owner. The AP is not visible
-here. Camera work is explicitly paused awaiting a USB data cable; no flash
-occurred. Shokz is absent from the current Jetson audio devices. Thus live
+here. After the owner supplied a data cable, verified UploadOnly successfully
+flashed the camera at COM3. Serial confirms camera initialization and the new
+network-selection logic, but no reachable saved Wi-Fi/IP or stream yet. Shokz
+now appears in readiness and its local cue player succeeded; audible confirmation
+and actual microphone/cloud speech remain pending. Thus live
 camera, actual voice/cloud/context, school fallback and combined physical
 acceptance remain outstanding. See the [deployment record](../atlas/docs/2026-10-18_JETSON_ONSITE_DEPLOYMENT.md)
 for exact evidence, both rollback backups and the owner's local Wi-Fi commands.

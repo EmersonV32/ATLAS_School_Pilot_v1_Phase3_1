@@ -1,8 +1,9 @@
 # October 18 onsite release and arrival runbook
 
-Update: the Jetson source deployment and narrow settings migration have now
-completed. Camera work is paused at the owner's request; headset and school
-network acceptance remain pending. Read the [actual deployment record](2026-10-18_JETSON_ONSITE_DEPLOYMENT.md)
+Update: the Jetson source deployment, narrow settings migration and verified
+camera firmware upload have now completed. The camera still needs a reachable
+network, and real headset/cloud and school-network acceptance remain pending.
+Read the [actual deployment record](2026-10-18_JETSON_ONSITE_DEPLOYMENT.md)
 for observed results and rollback locations. The preparation statements below
 describe the state before device arrival, not the latest installed state.
 

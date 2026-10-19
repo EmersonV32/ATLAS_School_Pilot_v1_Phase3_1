@@ -1,4 +1,30 @@
-# October 18 Jetson source deployment — camera paused
+# October 18 Jetson source and camera deployment
+
+## Later arrival update: camera flashed, headset detected
+
+The owner returned with a USB data cable and resumed camera work. Arduino
+discovery identified the ESP32 USB device on COM3. Verified UploadOnly completed
+successfully using the prepared private build; no rebuild, credential readback
+or compiler/upload log inspection occurred. Serial operational status confirms
+the new personal-network selection logic and camera initialization at 800x600,
+JPEG quality 14, target 15 fps. Neither the personal school AP nor the prior
+enterprise AP was visible here, and the original fallback timed out. No camera
+IP or live stream has therefore been verified. The owner was asked to enable
+the previously configured hotspot or choose another current test network.
+The owner then clarified that only home Wi-Fi is available. Home credentials
+have not been provisioned into this camera; adding that network requires private
+operator input and must preserve the existing school/hotspot profiles.
+
+The Shokz USB input/output now appears in live visitor readiness. Pulse input,
+Pulse output and ALSA output discovery all pass. A short synthetic local cue at
+50% software volume completed successfully through the named Shokz output;
+audible confirmation is pending the owner. No microphone recording, cloud
+round trip or live spoken conversation has been tested in this continuation.
+The owner reported not checking the cue, so it is not an audible pass.
+
+The school profile's local sudo import remains pending. The earlier arrival
+observations below are retained as dated deployment evidence; camera pause and
+headset absence no longer describe the latest physical state.
 
 The owner authorized immediate deployment and testing with the Jetson online.
 SSH reached the existing `super-alex@super.local` host at `10.0.0.238`, preserving
@@ -102,13 +128,13 @@ fallback and camera-to-Jetson traffic still require the real school network.
 Retain the intentional protected recovery copy; remove any temporary transfer
 copy only after root installation has been verified. Do not print the profile.
 
-## Physical blockers and next tests
+## Earlier physical blockers and remaining next tests
 
-- **Camera explicitly paused by the owner.** Its repaired wiring was reported,
+- **Earlier camera pause (subsequently resumed; see update above).** Its repaired wiring was reported,
   but the USB cable has no data capability. No COM port was detected; no firmware
   upload occurred. The verified private build remains ready for UploadOnly once
   the owner supplies a data cable and explicitly resumes camera work.
-- **Shokz absent from the Jetson's current audio devices.** PulseAudio and ALSA
+- **Earlier Shokz absence (subsequently detected; see update above).** PulseAudio and ALSA
   expose onboard/HDMI audio only. Live readiness correctly reports headset and
   camera unavailable, plus visitor language pending. Connect the Shokz USB
   adapter/headset before actual microphone, cue, long-answer, voice continuity,
