@@ -108,7 +108,7 @@ def test_build_only_then_cached_upload_never_compiles_again(camera_builder):
     assert (firmware / "wifi_personal_secrets.h").read_text().startswith("// synthetic")
 
 
-@pytest.mark.parametrize("change", ["source", "personal", "binary", "missing"])
+@pytest.mark.parametrize("change", ["source", "personal", "home", "binary", "missing"])
 def test_cached_upload_refuses_stale_or_tampered_build(camera_builder, change):
     firmware, tools, cache, invoke = camera_builder
     built = invoke("-BuildOnly")
@@ -118,6 +118,8 @@ def test_cached_upload_refuses_stale_or_tampered_build(camera_builder, change):
         (firmware / "xiao_camera.ino").write_text("changed public fixture")
     elif change == "personal":
         (firmware / "wifi_personal_secrets.h").write_text("changed synthetic fixture")
+    elif change == "home":
+        (firmware / "wifi_home_secrets.h").write_text("changed synthetic home fixture")
     else:
         binary = cache / selected / "build/xiao_camera.ino.bin"
         if change == "binary":

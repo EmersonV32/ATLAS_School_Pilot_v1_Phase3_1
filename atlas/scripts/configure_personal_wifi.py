@@ -2,6 +2,7 @@
 
 prepare: create the camera header and a private transferable Jetson profile.
 camera: create only the new primary camera header; old profiles stay untouched.
+camera-home: add an optional home fallback without replacing any old profile.
 jetson: stage a root-only profile; activate only with explicit local-console flags.
 """
 
@@ -55,19 +56,24 @@ def validate(config: PersonalConfig) -> None:
     uuid.UUID(config.profile_uuid)
 
 
-def render_camera_header(config: PersonalConfig) -> str:
+def render_camera_header(config: PersonalConfig, *, home: bool = False) -> str:
     validate(config)
+    prefix = "WIFI_HOME" if home else "WIFI_PERSONAL"
     return (
         "#pragma once\n"
         "// PRIVATE: generated locally; never commit, print or share.\n"
-        "constexpr bool WIFI_PERSONAL_CONFIGURED = true;\n"
-        "constexpr bool WIFI_PERSONAL_WPA3_ONLY = "
+        f"constexpr bool {prefix}_CONFIGURED = true;\n"
+        f"constexpr bool {prefix}_WPA3_ONLY = "
         f"{str(config.security == 'wpa3').lower()};\n"
-        "constexpr char WIFI_PERSONAL_SSID[] = "
+        f"constexpr char {prefix}_SSID[] = "
         f"{json.dumps(config.ssid, ensure_ascii=False)};\n"
-        "constexpr char WIFI_PERSONAL_PASSWORD[] = "
+        f"constexpr char {prefix}_PASSWORD[] = "
         f"{json.dumps(config.password, ensure_ascii=False)};\n"
     )
+
+
+def render_home_header(config: PersonalConfig) -> str:
+    return render_camera_header(config, home=True)
 
 
 def keyfile_string(value: str) -> str:
@@ -280,7 +286,9 @@ def hidden_input(prompt: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--target", choices=("prepare", "camera", "jetson"), required=True
+        "--target",
+        choices=("prepare", "camera", "camera-home", "jetson"),
+        required=True,
     )
     parser.add_argument("--security", choices=("auto", "wpa3"), default="auto")
     parser.add_argument("--import-profile", type=Path)
@@ -335,11 +343,13 @@ def main() -> int:
             else:
                 print("Auto-connect is OFF. No active link was switched.")
         else:
+            home = args.target == "camera-home"
             entries = {
                 ROOT
-                / "firmware/xiao_camera/wifi_personal_secrets.h": render_camera_header(
-                    config
-                ),
+                / "firmware/xiao_camera"
+                / (
+                    "wifi_home_secrets.h" if home else "wifi_personal_secrets.h"
+                ): render_home_header(config) if home else render_camera_header(config),
             }
             if args.target == "prepare":
                 private = ROOT / ".private-network"

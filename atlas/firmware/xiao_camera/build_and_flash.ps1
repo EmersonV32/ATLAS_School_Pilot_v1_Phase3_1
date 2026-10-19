@@ -18,9 +18,9 @@ $publicFiles = @(
     "camera_pins.h", "camera_profile.h", "school_wifi.h", "school_wifi.cpp",
     "school_wifi_policy.h", "wifi_secrets.h.example", "wifi_school_secrets.h.example",
     "personal_wifi.h", "personal_wifi.cpp", "personal_wifi_policy.h",
-    "wifi_personal_secrets.h.example", "camera_timing_policy.h"
+    "wifi_personal_secrets.h.example", "wifi_home_secrets.h.example", "camera_timing_policy.h"
 )
-$privateFiles = @("wifi_secrets.h", "wifi_school_secrets.h", "wifi_personal_secrets.h")
+$privateFiles = @("wifi_secrets.h", "wifi_school_secrets.h", "wifi_personal_secrets.h", "wifi_home_secrets.h")
 
 if ($BuildOnly -and $UploadOnly) { throw "Choose BuildOnly or UploadOnly, not both." }
 

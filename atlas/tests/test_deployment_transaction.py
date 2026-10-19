@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import shutil
 import subprocess
 import tarfile
@@ -166,7 +167,9 @@ sleep() { return 0; }
         [bash_executable(), rendered.as_posix()],
         text=True,
         capture_output=True,
-        timeout=20,
+        # Git Bash process startup/rollback copying is slower under Windows
+        # compiler/antivirus load. This is a test deadline, not runtime policy.
+        timeout=60 if os.name == "nt" else 20,
     )
     if failure == "none":
         assert result.returncode == 0, result.stdout + result.stderr

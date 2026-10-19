@@ -20,12 +20,15 @@ The build uses the `XIAO_ESP32S3` board definition, OPI PSRAM, the 8 MB maximum
 application partition, two PSRAM frame buffers, and latest-frame capture.
 
 The default balanced profile is 800x600 SVGA JPEG at quality 14 and a maximum
-of 15 streamed frames per second. The stream sends only fresh frames, disables
-browser caching, and enables Wi-Fi power saving whenever no stream client is
-connected. Quality 14 retains the 800x600 artwork detail while avoiding the
-motion-heavy frame stalls measured at quality 10. A five-second stream
-watchdog restarts the camera automatically if a client connection wedges while
-partial frame bytes are being transmitted.
+of 15 streamed frames per second. The stream sends only fresh frames and disables
+browser caching. The October 18 arrival build keeps Wi-Fi power saving OFF,
+including while idle, to avoid radio-mode transitions during first-frame
+transmission. This can increase idle battery consumption; battery/thermal
+acceptance is still required. Quality 14 retains the 800x600 artwork detail.
+HTTP send/receive waits are bounded to two seconds, below the five-second
+stream-stall recovery deadline. A genuine stalled stream can still restart the
+camera. These mitigations do not prove sustained streaming reliability: see
+the dated onsite deployment record for actual hardware results.
 
 After flashing, leave the camera streaming for 20 minutes and record the
 observed FPS and enclosure temperature from the admin dashboard before sealing
@@ -48,8 +51,8 @@ without replacing the old hotspot or enterprise headers. The optional ignored
 `WIFI_PERSONAL_WPA3_ONLY`, `WIFI_PERSONAL_SSID`, and `WIFI_PERSONAL_PASSWORD`.
 The public example is disabled and contains no real credentials.
 
-Boot preference is **new personal network, then configured school enterprise,
-then original hotspot**. Each optional profile is tried only when a compatible
+Boot preference is **new personal network, configured school enterprise,
+optional home fallback, then original hotspot**. Each optional profile is tried only when a compatible
 SSID is visible; each visible optional profile has a bounded 30-second attempt.
 If the active connection is lost, normal reconnection is attempted for 30
 seconds, then the existing reboot path repeats that preference. An already
@@ -74,6 +77,22 @@ are now wrap-safe and do not use zero as an uninitialized timestamp. These are
 covered by deterministic C++ policy assertions compiled with the real sketch.
 Hardware streaming and reconnect soak checks remain required after flashing.
 
+### Optional home fallback
+
+From `atlas/`, run `.venv/Scripts/python.exe scripts/configure_personal_wifi.py
+--target camera-home` in a real local terminal. SSID and password prompts are
+hidden. This creates only the ignored `wifi_home_secrets.h`, with the same
+WPA2/WPA3 validation and encoding as the primary personal profile. It does not
+replace the personal school network, enterprise network, original hotspot or
+Jetson profiles. Repeat setup needs explicit `--replace` and retains a private
+backup. Never print or share the header or its build artifacts.
+
+Rebuild with `-BuildOnly`, then use verified `-UploadOnly` on the actual port.
+Home selection is skipped when unconfigured, out of range or incompatible;
+visible authentication has the same 30-second bound. The previous five firmware
+variants and a sixth `home-with-personal-school` synthetic variant check that
+adding home support does not require private headers or remove earlier profiles.
+
 ## Optional school enterprise profile (prepared 2026-10-05)
 
 School support assumes **WPA2-Enterprise PEAP/MSCHAPv2**, not a browser portal,
@@ -86,7 +105,8 @@ replaces the existing hotspot header. Without this optional header, the
 previous school/hotspot behavior remains. After the optional personal primary,
 a configured school profile is
 tried only if its 2.4 GHz WPA2-Enterprise SSID is visible. If it fails, EAP is
-disabled and the original hotspot is used. After a prolonged connection loss,
+disabled and the optional home network, then original hotspot, are tried.
+After a prolonged connection loss,
 the existing reboot/reconnection path repeats this selection.
 
 Verified-server mode needs the IT-supplied public CA and exact server name,

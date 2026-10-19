@@ -7,6 +7,9 @@
 **/wifi_personal_secrets.h
 **/wifi_personal_secrets.h.backup-*
 **/.wifi_personal_secrets.h.pending-*
+**/wifi_home_secrets.h
+**/wifi_home_secrets.h.backup-*
+**/.wifi_home_secrets.h.pending-*
 **/.private-network/
 **/*.nmconnection
 **/*.pem

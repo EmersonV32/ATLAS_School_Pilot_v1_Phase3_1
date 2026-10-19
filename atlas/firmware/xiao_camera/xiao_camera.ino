@@ -16,7 +16,7 @@ constexpr char kHostname[] = "atlas-camera";
 constexpr uint32_t kWifiConnectTimeoutMs = 30000;
 constexpr uint32_t kWifiReconnectIntervalMs = 3000;
 constexpr uint32_t kWifiReconnectTimeoutMs = 30000;
-constexpr uint32_t kStreamStallRestartMs = 5000;
+constexpr uint32_t kStreamStallRestartMs = kAtlasStreamStallRestartMs;
 uint32_t wifiLostAtMs = 0;
 uint32_t lastWifiReconnectAtMs = 0;
 bool wifiRecoveryActive = false;
@@ -37,6 +37,11 @@ bool connectWifi() {
     return true;
   }
   if (connectSchoolWifi(setStatusLed, kWifiConnectTimeoutMs)) {
+    Serial.print("[WiFi] IP: ");
+    Serial.println(WiFi.localIP());
+    return true;
+  }
+  if (connectHomeWifi(setStatusLed, kWifiConnectTimeoutMs)) {
     Serial.print("[WiFi] IP: ");
     Serial.println(WiFi.localIP());
     return true;
@@ -197,7 +202,7 @@ void loop() {
     ESP.restart();
   }
   static bool wifiSleepEnabled = false;
-  const bool shouldSleep = !cameraStreamActive();
+  const bool shouldSleep = kAtlasIdleWifiPowerSave && !cameraStreamActive();
   if (wifiSleepEnabled != shouldSleep) {
     WiFi.setSleep(shouldSleep);
     wifiSleepEnabled = shouldSleep;

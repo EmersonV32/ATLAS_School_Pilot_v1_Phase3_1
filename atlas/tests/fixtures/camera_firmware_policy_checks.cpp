@@ -1,6 +1,11 @@
 #include "camera_timing_policy.h"
 #include "personal_wifi_policy.h"
 
+static_assert(kAtlasHttpWaitTimeoutS * 1000 < kAtlasStreamStallRestartMs,
+              "Client timeout cannot race full-camera recovery");
+static_assert(!kAtlasIdleWifiPowerSave,
+              "The stability profile must not toggle radio sleep on stream start");
+
 static_assert(!cameraStreamStalledPolicy(false, 10000, 1, 5000),
               "An idle stream cannot stall");
 static_assert(!cameraStreamStalledPolicy(true, 10000, 9999, 5000),

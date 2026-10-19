@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("all", "hotspot-only", "personal-auto", "personal-wpa3-with-school", "school-unverified", "school-verified")]
+    [ValidateSet("all", "hotspot-only", "personal-auto", "personal-wpa3-with-school", "school-unverified", "school-verified", "home-with-personal-school")]
     [string]$Variant = "all"
 )
 
@@ -17,10 +17,10 @@ $publicFiles = @(
     "camera_pins.h", "camera_profile.h", "school_wifi.h", "school_wifi.cpp",
     "school_wifi_policy.h", "wifi_school_secrets.h.example",
     "personal_wifi.h", "personal_wifi.cpp", "personal_wifi_policy.h",
-    "wifi_personal_secrets.h.example", "camera_timing_policy.h"
+    "wifi_personal_secrets.h.example", "wifi_home_secrets.h.example", "camera_timing_policy.h"
 )
 $variants = if ($Variant -eq "all") {
-    @("hotspot-only", "personal-auto", "personal-wpa3-with-school", "school-unverified", "school-verified")
+    @("hotspot-only", "personal-auto", "personal-wpa3-with-school", "school-unverified", "school-verified", "home-with-personal-school")
 } else { @($Variant) }
 foreach ($variant in $variants) {
     $sketch = Join-Path $staging "$variant\xiao_camera"
@@ -31,13 +31,16 @@ foreach ($variant in $variants) {
     Copy-Item -LiteralPath (Join-Path $source "wifi_secrets.h.example") -Destination (Join-Path $sketch "wifi_secrets.h")
     Copy-Item -LiteralPath (Join-Path $fixtures "school_wifi_policy_checks.cpp") -Destination (Join-Path $sketch "policy_checks.cpp")
     Copy-Item -LiteralPath (Join-Path $fixtures "camera_firmware_policy_checks.cpp") -Destination (Join-Path $sketch "camera_policy_checks.cpp")
-    if ($variant -in @("personal-auto", "personal-wpa3-with-school")) {
-        $fixture = if ($variant -eq "personal-auto") { "wifi_personal_synthetic.h" } else { "wifi_personal_wpa3_synthetic.h" }
+    if ($variant -in @("personal-auto", "personal-wpa3-with-school", "home-with-personal-school")) {
+        $fixture = if ($variant -eq "personal-wpa3-with-school") { "wifi_personal_wpa3_synthetic.h" } else { "wifi_personal_synthetic.h" }
         Copy-Item -LiteralPath (Join-Path $fixtures $fixture) -Destination (Join-Path $sketch "wifi_personal_secrets.h")
     }
-    if ($variant -in @("school-unverified", "school-verified", "personal-wpa3-with-school")) {
+    if ($variant -in @("school-unverified", "school-verified", "personal-wpa3-with-school", "home-with-personal-school")) {
         $fixture = if ($variant -eq "school-unverified") { "wifi_school_unverified.h" } else { "wifi_school_verified.h" }
         Copy-Item -LiteralPath (Join-Path $fixtures $fixture) -Destination (Join-Path $sketch "wifi_school_secrets.h")
+    }
+    if ($variant -eq "home-with-personal-school") {
+        Copy-Item -LiteralPath (Join-Path $fixtures "wifi_home_synthetic.h") -Destination (Join-Path $sketch "wifi_home_secrets.h")
     }
     Write-Host "Compiling synthetic variant: $variant"
     & $cli compile --config-file $config --fqbn "esp32:esp32:XIAO_ESP32S3:PSRAM=opi,PartitionScheme=max_app_8MB" --build-path (Join-Path $staging "$variant\build") $sketch

@@ -51,6 +51,7 @@ PRIVATE_OR_GENERATED = (
     "firmware/xiao_camera/wifi_secrets.h",
     "firmware/xiao_camera/wifi_school_secrets.h",
     "firmware/xiao_camera/wifi_personal_secrets.h",
+    "firmware/xiao_camera/wifi_home_secrets.h",
     "models/atlas_yolo.engine",
     "models/atlas_yolo.onnx",
     "models/silero_vad.onnx",

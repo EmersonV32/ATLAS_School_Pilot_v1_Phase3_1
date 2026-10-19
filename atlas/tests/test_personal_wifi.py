@@ -280,3 +280,50 @@ def test_new_personal_credentials_are_ignored_and_recovery_excluded():
     assert "**/wifi_personal_secrets.h" in ignore
     assert "**/.private-network/" in ignore
     assert "**/*.nmconnection" in ignore
+    assert "**/wifi_home_secrets.h" in ignore
+    assert "**/wifi_home_secrets.h.backup-*" in ignore
+    assert "**/.wifi_home_secrets.h.pending-*" in ignore
+
+
+@pytest.mark.parametrize("security", ["auto", "wpa3"])
+def test_home_header_preserves_the_same_safe_encoding(config, security):
+    text = setup.render_home_header(replace(config, security=security))
+    assert "WIFI_PERSONAL_" not in text
+    for key, value in [("SSID", config.ssid), ("PASSWORD", config.password)]:
+        line = next(line for line in text.splitlines() if f"HOME_{key}[]" in line)
+        assert json.loads(line.split(" = ", 1)[1].removesuffix(";")) == value
+
+
+def test_home_declaration_names_never_rewrite_credential_values():
+    config = setup.PersonalConfig(
+        "WIFI_PERSONAL_fixture", "WIFI_PERSONAL_private-fixture"
+    )
+    text = setup.render_home_header(config)
+    for key, value in [("SSID", config.ssid), ("PASSWORD", config.password)]:
+        line = next(line for line in text.splitlines() if f"HOME_{key}[]" in line)
+        assert json.loads(line.split(" = ", 1)[1].removesuffix(";")) == value
+
+
+def test_home_setup_preserves_all_three_existing_profiles(
+    config, tmp_path, monkeypatch, capsys
+):
+    camera_dir = tmp_path / "firmware/xiao_camera"
+    camera_dir.mkdir(parents=True)
+    originals = ("wifi_secrets.h", "wifi_school_secrets.h", "wifi_personal_secrets.h")
+    for filename in originals:
+        (camera_dir / filename).write_text("synthetic unchanged")
+    monkeypatch.setattr(setup, "ROOT", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["setup", "--target", "camera-home"])
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    values = iter([config.ssid, config.password, config.password])
+    monkeypatch.setattr(setup, "hidden_input", lambda _prompt: next(values))
+    assert setup.main() == 0
+    output = capsys.readouterr().out
+    assert config.password not in output and config.ssid not in output
+    assert (
+        "WIFI_HOME_CONFIGURED = true"
+        in (camera_dir / "wifi_home_secrets.h").read_text()
+    )
+    assert not (tmp_path / ".private-network").exists()
+    for filename in originals:
+        assert (camera_dir / filename).read_text() == "synthetic unchanged"
