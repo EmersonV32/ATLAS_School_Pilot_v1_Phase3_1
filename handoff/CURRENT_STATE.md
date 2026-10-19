@@ -12,7 +12,7 @@ but real school authentication and LAN traffic cannot be verified at home.
 ## Maintained version and source
 
 - Maintained baseline: `main`; current deployment-work checkout:
-  `codex/onsite-deployment-ready` (not pushed/promoted). The one active
+  `codex/onsite-deployment-ready` (published to GitHub; not promoted to `main`). The one active
   implementation is [atlas/](../atlas/).
 - Package: ATLAS School Pilot v1, Python package version `0.1.0`; the repository
   name retains Phase3_1, but the runtime includes later integrated work.
@@ -75,7 +75,8 @@ remain due; no audio routes or provider/voice IDs were changed.
 Final local software gate: **3,472 passed, two expected skips**,
 plus lint/compile/dependency/secret/recovery checks. Pan remains disabled;
 mechanical commissioning is paused. See the [deployment record](../atlas/docs/2026-10-18_JETSON_ONSITE_DEPLOYMENT.md)
-for exact evidence and both rollback backups. Main is unchanged; no push occurred.
+for exact evidence and both rollback backups. Main is unchanged. At the owner's
+final request, the deployment branch and teammate handoff were pushed to GitHub.
 
 ### Earlier October 18 preparation evidence
 

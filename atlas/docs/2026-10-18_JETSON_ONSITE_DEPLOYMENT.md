@@ -229,4 +229,7 @@ copy only after root installation has been verified. Do not print the profile.
 
 The source deployment succeeded and the owner started a live demo; full
 school-network and sustained physical acceptance are **not** yet complete.
-No Git push or promotion to `main` occurred.
+At the owner's final request, `codex/onsite-deployment-ready`, including the
+teammate handoff and all reviewed source history, was pushed to GitHub. No
+promotion to `main` occurred. The existing service was left running; no further
+device/network mutations were made after the final failed voice test.

@@ -10,6 +10,8 @@ record, NOT a claim that every hardware/cloud scenario passed.
 - Pull/check out **`codex/onsite-deployment-ready`**. `main` was not promoted.
   This branch includes the combined voice/context/listening/dashboard/activity
   work and disabled direct SG90 implementation. Do not deploy archive copies.
+  The branch and this handoff were successfully pushed to GitHub at the owner's
+  final request; use the latest remote tip rather than an earlier local snapshot.
 - Jetson installed application:
   `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`.
 - Existing interpreter:
