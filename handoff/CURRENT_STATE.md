@@ -5,7 +5,9 @@ dates; repository cleanup is not a hardware deployment or a fresh health check.
 
 ## Maintained version and source
 
-- Branch: `main`. The one active implementation is [atlas/](../atlas/).
+- Maintained baseline: `main`; current deployment-work checkout:
+  `codex/onsite-deployment-ready` (not pushed/promoted). The one active
+  implementation is [atlas/](../atlas/).
 - Package: ATLAS School Pilot v1, Python package version `0.1.0`; the repository
   name retains Phase3_1, but the runtime includes later integrated work.
 - Active detector: seven-class YOLO26 Nano **v6**, checkpoint SHA-256
@@ -30,7 +32,7 @@ retrieval and general Gemini fallback, configurable local/cloud speech,
 multilingual visitor setup, staff controls, headset-button handling and
 readiness/session/event storage. See [system architecture](architecture/SYSTEM_ARCHITECTURE.md).
 
-## October 18 onsite Jetson deployment — camera flashed, network pending
+## October 18 onsite deployment — demo started, school acceptance pending
 
 The owner brought the Jetson online and authorized immediate deployment.
 The prepared `f91f828` source-only release is now installed in the existing
@@ -40,17 +42,34 @@ YAML backups and pan disabled. Native expanded regressions: **465 passed**;
 real GPU inference on public references/blank input. Service is active with no
 unexpected restarts; actual dashboard assets and LAN/auth checks pass.
 
-School personal-profile files were transferred privately, but local sudo import
-and enabling future autoconnect remain pending the owner. The AP is not visible
-here. After the owner supplied a data cable, verified UploadOnly successfully
-flashed the camera at COM3. Serial confirms camera initialization and the new
-network-selection logic, but no reachable saved Wi-Fi/IP or stream yet. Shokz
-now appears in readiness and its local cue player succeeded; audible confirmation
-and actual microphone/cloud speech remain pending. Thus live
-camera, actual voice/cloud/context, school fallback and combined physical
-acceptance remain outstanding. See the [deployment record](../atlas/docs/2026-10-18_JETSON_ONSITE_DEPLOYMENT.md)
-for exact evidence, both rollback backups and the owner's local Wi-Fi commands.
-Main is unchanged; no push occurred.
+The owner completed the privileged school personal-profile import. Metadata
+confirms `ATLAS-personal`, autoconnect **yes**, priority **200**; old networks and
+the active home link remain. Opaque checks confirm matching primary camera
+network settings. The school AP is not visible here, so authentication,
+fallback and school inter-device/provider traffic remain untested.
+
+The owner privately configured optional camera home Wi-Fi. The actual combined
+private firmware compiled and flashed at COM3, preserving school/hotspot
+profiles. Home boot IP was `10.0.0.25`; the installed Jetson still uses mDNS.
+Commit `1535bfa` adds the home fallback and bounded HTTP timeouts, and disables
+idle Wi-Fi power saving (battery/thermal measurement due). Earlier live camera
+stalls and a blocked demo occurred; subsequent recovery passed **25/25** fresh
+frame checks over 49.1 seconds. Three additional windows passed 25/25, 25/25
+and 24/25: **99/100 total**, with one brief unavailable sample recovering at
+the next two-second check. Final probe again shows camera ready. The owner
+reports camera video and a successfully started demo; the brief recurrence
+means sustained camera stability remains open.
+
+Shokz audible repeated-tone output and a RAM-only spoken microphone-level test
+passed. The owner subsequently confirmed a complete live spoken answer and
+correct context for same-artwork follow-ups and an artwork switch. Last-used
+provider metadata confirms Deepgram and Cartesia exercised. Extended
+long-answer/hesitation/cancellation, A→B→A, button and cold-boot acceptance
+remain due; no audio routes or provider/voice IDs were changed.
+Final local software gate: **3,472 passed, two expected skips**,
+plus lint/compile/dependency/secret/recovery checks. Pan remains disabled;
+mechanical commissioning is paused. See the [deployment record](../atlas/docs/2026-10-18_JETSON_ONSITE_DEPLOYMENT.md)
+for exact evidence and both rollback backups. Main is unchanged; no push occurred.
 
 ### Earlier October 18 preparation evidence
 
@@ -235,9 +254,11 @@ ignored private storage. Use [school setup](../atlas/docs/SCHOOL_WIFI_SETUP.md).
 
 ## Open physical risks and acceptance
 
-- Camera live-stream timeouts/restarts were reported. The diagnosed watchdog
-  timing race is fixed in the October 18 source, not yet flashed or physically
-  verified. Repository cleanup alone did not fix it; live soak is still due.
+- Camera live-stream timeouts/restarts occurred during October 18 arrival.
+  The watchdog race fix and bounded-HTTP/radio mitigations are now flashed;
+  subsequent short fresh-frame checks and owner demo start passed. A longer
+  controlled soak/reset/reconnect check is still due; root-cause elimination
+  and battery/thermal performance are not established by the short pass.
 - Fresh seven-class camera evaluation, false-alarm review, live voice/headset
   flow, sustained thermal/FPS and end-to-end timing remain due.
 - School authentication and device-to-device traffic must be tested at school.

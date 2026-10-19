@@ -1,6 +1,71 @@
 # October 18 Jetson source and camera deployment
 
-## Later arrival update: camera flashed, headset detected
+## Latest acceptance update (October 18 evening)
+
+- **Jetson school Wi-Fi installed:** the owner completed the local privileged
+  import. Metadata independently verifies `ATLAS-personal`, autoconnect **yes**,
+  priority **200**, and the supplied personal SSID. Existing profiles and the
+  active home connection remain intact. Opaque validation confirms that the
+  camera's primary network header matches the private imported profile; no
+  credential values were displayed. The actual school AP is absent here, so
+  school authentication, fallback and inter-device routing are NOT accepted yet.
+- **Camera home fallback added and flashed:** the owner privately entered home
+  details. The optional home header preserves all three earlier headers. The
+  actual combined private ESP32 3.3.11 build compiled and passed UploadOnly
+  provenance checks, then flashed successfully on COM3. Boot confirmed home
+  Wi-Fi and `10.0.0.25`. The installed Jetson still uses `atlas-camera.local`,
+  not that temporary DHCP address.
+- **Streaming recovered, short acceptance passed:** earlier isolated stream and
+  still-image requests timed out; an earlier readiness sample passed only 12/25
+  checks, and the owner's first demo attempt correctly failed readiness. The
+  owner subsequently reported working camera video and successful demo start.
+  The latest 49.1-second sample passed **25/25** fresh-camera checks, with
+  headset/content ready throughout. Three additional approximately 49-second
+  samples passed **25/25, 25/25 and 24/25** respectively. The one unavailable
+  sample recovered at the next two-second check. Across these four windows,
+  fresh-camera readiness was **99/100**; headset/content stayed ready in all
+  samples. A later final probe again showed camera ready. The brief recurrence
+  means camera stability is NOT defect-free or fully accepted. No readiness
+  bypass or speculative snapshot transport was installed.
+- **Targeted firmware mitigations:** HTTP send/receive waits are two seconds,
+  below the genuine five-second stream watchdog. Idle Wi-Fi power saving is
+  disabled to avoid first-frame radio transitions. Genuine stall recovery stays
+  enabled; idle battery life and temperature must be measured. The earlier
+  shared-state watchdog race fix remains included. Commit: `1535bfa`.
+- **Shokz basic I/O confirmed:** the owner heard a deliberate longer repeated
+  tone. A subsequent six-second, RAM-only microphone level check while the
+  owner spoke produced peak 20,079 and RMS 787.8 (non-silent). Early short cues
+  were not heard; early quiet captures occurred before the owner was speaking.
+  No raw audio was saved and no device routing/volume was changed. The owner
+  then confirmed hearing a complete answer in the actual running demo. A final
+  health probe reported last STT **DeepgramSTT** and last TTS **CartesiaTTS**;
+  the live speech path was exercised, not just initialized.
+- **Final software gate:** **3,472 passed, two expected skips, two non-failing
+  warnings**, 506.88 seconds. Ruff, compilation, dependencies, secret/recovery
+  and whitespace checks pass. Seven fake-CLI camera workflow tests pass,
+  including stale home-header rejection. The final actual private build passed;
+  do not describe the interrupted six-variant synthetic compile batch as a
+  completed six-variant pass. The earlier five-variant compile is dated evidence.
+- **Preservation rechecked:** all 187 installed managed files still match
+  `f91f828`; service active/running with zero unexpected restarts; linked assets
+  load and protected routes return 401 without authentication. The existing
+  unit, models, venv, museum data, databases, privacy/provider/voice choices and
+  `.env` were not replaced. Motor commissioning remains paused and pan OFF.
+
+The owner also confirmed correct context for the same-artwork follow-up and
+after switching to another artwork and asking who painted it. These basic
+spoken/context checks pass by owner observation; no private dialogue/logs were
+read. This does not establish every accent/language, hesitation, long-answer,
+provider failure or cancellation scenario. Button recovery, cold boot,
+sustained whole-answer voice consistency and the longer combined soak remain
+acceptance items. No restart was made during the live demo. School LAN
+acceptance still requires the school AP, 2.4 GHz support, appropriate personal
+security, no portal/client isolation and permitted provider HTTPS access.
+
+The sections below retain earlier arrival observations and rollback details;
+this latest update takes precedence over their previously pending statuses.
+
+## Earlier arrival update: camera flashed, headset detected
 
 The owner returned with a USB data cable and resumed camera work. Arduino
 discovery identified the ESP32 USB device on COM3. Verified UploadOnly completed
@@ -98,17 +163,19 @@ restarting; never restart a partial restore.
   Deepgram/Whisper and Cartesia/Piper initialized. Provider readiness does not
   prove cloud billing, a spoken answer or real acoustic quality.
 
-## School network: transferred, local privileged import still pending
+## School network: initial transfer and subsequently completed local import
 
 The supplied personal school-network profile and public import helper were
 transferred into the owner-only directory
 `/home/super-alex/atlas/onsite-20261018` (0700; private keyfile 0600).
 No credential contents were read or printed. Existing network profiles remain.
 The Jetson currently uses the working home network; the new school AP was not
-visible in the scan. Noninteractive sudo requires the owner's password, so no
-root profile installation or live Wi-Fi switch was attempted.
+visible in the scan. Initially noninteractive sudo required the owner's
+password, so no root installation or live Wi-Fi switch was attempted remotely.
+The owner subsequently completed both commands below. Metadata now confirms
+autoconnect yes and priority 200; the active home connection was not switched.
 
-The owner was asked to run these locally on the Jetson:
+The owner successfully ran these locally on the Jetson:
 
 ```bash
 sudo python3 /home/super-alex/atlas/onsite-20261018/configure_personal_wifi.py --target jetson --import-profile /home/super-alex/atlas/onsite-20261018/atlas-personal.nmconnection
@@ -117,7 +184,7 @@ sudo nmcli connection modify ATLAS-personal connection.autoconnect yes
 
 The second command enables future automatic selection; it does not explicitly
 disconnect the working connection now. Verify the saved policy with metadata
-only before calling school setup complete:
+only (completed with the expected result):
 
 ```bash
 nmcli -f connection.id,connection.autoconnect,connection.autoconnect-priority connection show ATLAS-personal
@@ -142,12 +209,14 @@ copy only after root installation has been verified. Do not print the profile.
 - Motor feature stays disabled. No PWM, pinmux, power or mechanical
   commissioning occurred. The disabled motion/EV3 adapter's `MockHardware`
   health label does not mean the device-mode retrieval or YOLO are mocked.
-- Still required: local Wi-Fi import/policy verification; school authentication
-  and fallback; camera flash/stream/reset/reconnect and fresh YOLO frames;
-  headset and real cloud voice/context/artwork A→B→A exercises; dashboard live
+- Still required: actual school authentication and fallback; a sustained camera
+  stream/reset/reconnect test and fresh-camera YOLO evaluation; longer voice,
+  hesitation, cancellation and artwork A→B→A exercises beyond the confirmed
+  complete live answer/same-artwork follow-up/artwork switch; dashboard live
   faults/activity/button synchronization; cold boot and controlled 30–60-minute
   combined soak; separate motor commissioning. Use the [arrival runbook](2026-10-18_ONSITE_DEPLOYMENT.md)
   and [combined acceptance checklist](2026-10-12_COMBINED_RELEASE_AUDIT.md).
 
-The source deployment succeeded; the complete physical installation is **not**
-yet accepted. No Git push or promotion to `main` occurred.
+The source deployment succeeded and the owner started a live demo; full
+school-network and sustained physical acceptance are **not** yet complete.
+No Git push or promotion to `main` occurred.

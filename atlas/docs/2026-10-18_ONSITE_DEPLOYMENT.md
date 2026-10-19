@@ -1,8 +1,14 @@
 # October 18 onsite release and arrival runbook
 
-Update: the Jetson source deployment, narrow settings migration and verified
-camera firmware upload have now completed. The camera still needs a reachable
-network, and real headset/cloud and school-network acceptance remain pending.
+Update: the Jetson source deployment, narrow settings migration, root-only
+school Wi-Fi profile installation (autoconnect yes, priority 200), optional
+camera home fallback and verified firmware upload have completed. The owner
+reports live camera video, successful demo start, a complete spoken answer and
+correct same-artwork/artwork-switch context. Deepgram and Cartesia use is
+confirmed by health metadata. Four short fresh-frame windows passed 99/100
+checks, with the one unavailable sample recovering by the next check. Earlier
+camera stalls did occur: long-run stability, extended voice/context scenarios
+and school-network acceptance remain pending.
 Read the [actual deployment record](2026-10-18_JETSON_ONSITE_DEPLOYMENT.md)
 for observed results and rollback locations. The preparation statements below
 describe the state before device arrival, not the latest installed state.
@@ -31,7 +37,7 @@ but remains disabled until separate PWM/power/travel commissioning.
 
 - Optional new personal SSID/password primary: no username, enterprise EAP or
   certificate assumptions. Camera preference is personal, then the existing
-  optional school profile, then the original hotspot. Each visible optional
+  optional school profile, optional home fallback, then the original hotspot. Each visible optional
   profile has a bounded authentication attempt; no endless preferred retry.
 - Jetson profile `ATLAS-personal` is initially staged with autoconnect OFF and
   priority 200. Explicit local-console activation enables autoconnect only
@@ -268,5 +274,10 @@ or unverified power connection is automatically enabled by this release.
   repository navigation and whitespace checks passed. The existing dashboard
   JavaScript logic gate passed 97 checks; its interface source was unchanged.
 
-Physical AP authentication, actual flashing and hardware/cloud acceptance remain
+The verification list above describes the original preparation. Latest arrival
+source/firmware changes passed **3,472 tests, two expected skips**, and the
+actual private combined firmware compiled and flashed. See the deployment
+record for 465 additional native Jetson regressions, GPU checks, confirmed
+Shokz I/O, live spoken/context checks and the recovered short camera checks.
+Physical school AP authentication, longer stability and complete extended acceptance remain
 pending. Private build artifacts are intentionally not linked or shared here.
