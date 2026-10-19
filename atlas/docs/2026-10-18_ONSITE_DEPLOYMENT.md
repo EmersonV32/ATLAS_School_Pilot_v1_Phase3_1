@@ -1,5 +1,10 @@
 # October 18 onsite release and arrival runbook
 
+**Latest:** a longer live answer reproduced a voice change, and intermittent
+camera freshness is still open. Start with the
+[school demo teammate handoff](../../handoff/2026-10-18_SCHOOL_DEMO_HANDOFF.md).
+Basic demo success below is not full acceptance.
+
 Update: the Jetson source deployment, narrow settings migration, root-only
 school Wi-Fi profile installation (autoconnect yes, priority 200), optional
 camera home fallback and verified firmware upload have completed. The owner

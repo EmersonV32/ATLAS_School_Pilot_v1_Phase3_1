@@ -2,6 +2,16 @@
 
 ## Latest acceptance update (October 18 evening)
 
+**Final correction:** the owner subsequently reported that a longer answer
+continued in a different voice. This live voice-consistency test FAILED. A
+later camera probe again reported unavailable. Neither issue is fully fixed;
+do not infer full acceptance from the earlier successful short-answer/context
+checks. Read the [teammate handoff](../../handoff/2026-10-18_SCHOOL_DEMO_HANDOFF.md)
+for all reproduced issues, remaining tests and recovery. After the voice
+report, last-used metadata still showed Cartesia; installed code already uses
+one whole-answer request and a fixed voice ID. Root cause is unconfirmed. No
+speculative last-minute voice/provider change or service restart was made.
+
 - **Jetson school Wi-Fi installed:** the owner completed the local privileged
   import. Metadata independently verifies `ATLAS-personal`, autoconnect **yes**,
   priority **200**, and the supplied personal SSID. Existing profiles and the

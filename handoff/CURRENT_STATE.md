@@ -3,6 +3,12 @@
 Source status date: 2026-10-18. Physical observations below retain their actual
 dates; repository cleanup is not a hardware deployment or a fresh health check.
 
+**Read [school director demo / teammate handoff](2026-10-18_SCHOOL_DEMO_HANDOFF.md)
+first.** The final longer-answer test reproduced a voice change, and a later
+camera probe again reported unavailable. Those two issues remain OPEN despite
+successful basic demo/context checks. School Wi-Fi is saved on both devices,
+but real school authentication and LAN traffic cannot be verified at home.
+
 ## Maintained version and source
 
 - Maintained baseline: `main`; current deployment-work checkout:
