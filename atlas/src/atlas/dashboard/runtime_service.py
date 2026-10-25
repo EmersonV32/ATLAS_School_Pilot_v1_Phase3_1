@@ -33,7 +33,6 @@ from atlas.dashboard.activity import (
 )
 from atlas.dashboard.visitor_activation import (
     clean_greeting_name,
-    local_greeting,
     session_introduction,
     wake_phrase_matches,
 )
@@ -331,6 +330,12 @@ class RuntimeService:
         """Return privacy-bounded accessibility choices for the live runner."""
         return tuple(self._visitor_accessibility)
 
+    @property
+    def greeting_pending(self) -> bool:
+        """A deferred legacy-wake introduction waits for a real request."""
+        with self._session_lock:
+            return bool(self.session_id and self._greeting_pending)
+
     def speak_pending_greeting(self) -> bool:
         """Consume one new-session greeting on the device runtime thread.
 
@@ -375,35 +380,25 @@ class RuntimeService:
         return spoken
 
     def activate_from_wake(self, transcript: str) -> bool:
-        """Accept the local wake phrase and play a private local greeting."""
-        if not self.wake_pending:
-            return True
-        if not wake_phrase_matches(transcript, self.language):
-            return False
-        name = self._greeting_name
-        generation = self._session_generation
-        greeting = local_greeting(self.language, name)
-        if name:
-            spoken = bool(
-                self.container.tts.speak_private_local(greeting, self.language)
-            )
-        else:
-            spoken = bool(self.container.tts.speak(greeting, self.language))
-        if name and not spoken:
-            logger.error(
-                "[Activation] Private local greeting failed; wake gate remains active"
-            )
-            return False
+        """Open a legacy wake gate silently; never talk over a wake-only pause.
+
+        The speech-owning device thread consumes the pending introduction only
+        when a substantive request arrives. Normal demo/session starts still
+        introduce ATLAS once before listening, as before.
+        """
         with self._session_lock:
-            if generation != self._session_generation:
+            if not self.wake_pending:
+                return bool(self.session_id)
+            if not wake_phrase_matches(transcript, self.language):
+                return False
+            if bool(getattr(self.container.hardware, "emergency_stopped", False)):
                 return False
             self._wake_activated = True
-            self._greeting_name = None
+            self._greeting_pending = True
         logger.info(
-            "[Activation] Wake phrase accepted; local greeting completed "
-            "[language=%s audio_played=%s]",
+            "[Activation] Wake phrase accepted; waiting for visitor request "
+            "[language=%s]",
             self.language,
-            spoken,
         )
         return True
 

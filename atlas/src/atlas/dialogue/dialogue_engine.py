@@ -43,6 +43,7 @@ from atlas.dialogue.prompt_builder import (
 )
 from atlas.dialogue.safety_filter import SafetyFilter
 from atlas.dialogue.sentence_stream import SentenceAssembler
+from atlas.dialogue.vocabulary import asks_word_meaning
 from atlas.safety.prompt_injection_filter import PromptInjectionFilter
 
 logger = logging.getLogger(__name__)
@@ -206,7 +207,10 @@ class DialogueEngine:
                 earlier_conversation=self._memory.earlier_context(focus),
                 visitor_interests=interests,
                 explanation_preferences=styles,
-                ask_preference_question=self._personalization.should_ask_preference_question(),
+                ask_preference_question=(
+                    not asks_word_meaning(kwargs["question"])
+                    and self._personalization.should_ask_preference_question()
+                ),
             )
 
     def _commit_turn(

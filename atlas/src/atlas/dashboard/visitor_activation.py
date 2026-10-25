@@ -111,6 +111,11 @@ _WAKE_PHRASES = {
     "zh": ("你好 atlas", "你好atlas", "哈囉 atlas", "哈啰 atlas"),
 }
 
+# A familiar short address also works when the selected answer language is not
+# English. Other language-specific wake phrases retain their existing rules.
+_COMMON_WAKE_PHRASES = ("hey atlas",)
+_HESITATIONS = {"uh", "um", "erm", "er", "euh", "heu", "hmm", "hum", "eh"}
+
 _GREETINGS = {
     "en": ("Hi {name}, I'm ATLAS.", "Hello, I'm ATLAS."),
     "fr": ("Bonjour {name}, je suis ATLAS.", "Bonjour, je suis ATLAS."),
@@ -141,12 +146,34 @@ def _normalize_phrase(text: str) -> str:
 
 def wake_phrase_matches(transcript: str, language: str) -> bool:
     """Match a selected-language wake phrase without an LLM or network call."""
-    normalized = _normalize_phrase(transcript)
-    for phrase in _WAKE_PHRASES[_language_root(language)]:
-        candidate = _normalize_phrase(phrase)
-        if normalized == candidate or normalized.startswith(candidate + " "):
-            return True
-    return False
+    return wake_phrase_remainder(transcript, language) is not None
+
+
+def is_hesitation_only(text: str) -> bool:
+    """A pause/filler is not a visitor question or a request to start speaking."""
+    words = _normalize_phrase(text).split()
+    return not words or all(word in _HESITATIONS for word in words)
+
+
+def wake_phrase_remainder(transcript: str, language: str) -> str | None:
+    """Return the request after an opening address, empty for an address alone.
+
+    None means no wake phrase was present. Keep the original question's accents
+    and wording: normalization must not turn a French question into ASCII or
+    drop a question spoken in the same breath as "Hey Atlas".
+    """
+    text = unicodedata.normalize("NFKC", str(transcript))
+    root = _language_root(language)
+    for phrase in (*_WAKE_PHRASES[root], *_COMMON_WAKE_PHRASES):
+        prefix = r"[\W_]+".join(re.escape(word) for word in phrase.split())
+        # Chinese can continue immediately after the Latin wake name.
+        boundary = r"(?![A-Za-z0-9_])" if root == "zh" else r"(?!\w)"
+        match = re.match(r"^\s*" + prefix + boundary, text, re.IGNORECASE)
+        if match is None:
+            continue
+        remainder = text[match.end():].lstrip(" \t\r\n,.:;!?…—-，。！？：；、")
+        return "" if is_hesitation_only(remainder) else remainder.strip()
+    return None
 
 
 def clean_greeting_name(value: str | None) -> str | None:

@@ -306,9 +306,14 @@ class TestSession:
         assert service.status()["demo_active"] is False
 
     def test_private_wake_greeting_is_local_ephemeral_and_not_logged(
-        self, client, caplog
+        self, client, caplog, monkeypatch
     ):
         service = client.app.state.service
+        spoken = []
+        monkeypatch.setattr(
+            service.container.tts, "speak_private_local",
+            lambda text, language: spoken.append((text, language)) or True,
+        )
         service.set_profile(
             language="en",
             interests=["history"],
@@ -327,10 +332,17 @@ class TestSession:
         assert service.wake_pending is True
         assert service.activate_from_wake("Hello ATLAS") is True
         assert service.wake_pending is False
+        assert spoken == [], "A wake-only pause must stay silent"
+        assert service.greeting_pending is True
+        # The device thread consumes this only after the actual request arrives.
+        assert service.speak_pending_greeting() is True
+        assert len(spoken) == 1
+        assert "Emerson" in spoken[0][0]
         assert service._greeting_name is None
+        assert service.speak_pending_greeting() is False
         assert "Emerson" not in caplog.text
 
-    def test_failed_private_greeting_keeps_the_wake_gate_closed(
+    def test_failed_deferred_private_greeting_never_retries_or_uses_cloud(
         self, client, monkeypatch
     ):
         service = client.app.state.service
@@ -340,10 +352,16 @@ class TestSession:
             lambda text, language: False,
         )
         service.start_session(wake_required=True, greeting_name="Emerson")
-
-        assert service.activate_from_wake("Hello ATLAS") is False
-        assert service.wake_pending is True
-        assert service._greeting_name == "Emerson"
+        monkeypatch.setattr(
+            service.container.tts, "speak",
+            lambda *args: pytest.fail("A private name must never use cloud speech"),
+        )
+        assert service.activate_from_wake("Hello ATLAS") is True
+        assert service.wake_pending is False
+        assert service.speak_pending_greeting() is False
+        assert service._greeting_name is None
+        assert service.greeting_pending is False
+        assert service.speak_pending_greeting() is False
 
     def test_profile_update(self, client):
         res = client.post(

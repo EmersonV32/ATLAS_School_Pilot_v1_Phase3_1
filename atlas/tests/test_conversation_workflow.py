@@ -56,6 +56,30 @@ def make_runner():
     return runner, engine, llm, retrievals
 
 
+@pytest.mark.parametrize("profile", ["early_child", "child", "teen",
+                                    "adult_beginner", "expert", "simple_language"])
+def test_word_question_keeps_the_previous_answer_and_artwork_context(profile):
+    runner, _engine, llm, _retrievals = make_runner()
+    runner.set_preferred_profile(profile)
+    first = runner.respond_to_transcript(
+        TranscriptResult("How was the Mona Lisa made?"),
+        detection=detection("mona_lisa"),
+    )
+    assert first.success
+    answer = runner.respond_to_transcript(
+        TranscriptResult("What does the word sfumato mean?"),
+        detection=detection("starry_night"),
+    )
+    assert answer.success
+    assert answer.event != "scripted_faq"
+    messages = llm.calls[-1]
+    assert first.dialogue.response in str(messages)
+    assert "HISTORICAL DISCUSSION ARTWORK: mona_lisa" in str(messages)
+    assert "CURRENT ARTWORK: starry_night" in messages[-1]["content"]
+    assert "PERSONALIZATION QUESTION: NOT REQUESTED" in messages[-1]["content"]
+    assert "earlier artwork" in messages[0]["content"]
+
+
 def detection(artwork_id):
     return ArtworkDetection(
         artwork_id=artwork_id,

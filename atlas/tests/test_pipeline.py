@@ -226,7 +226,7 @@ def test_scripted_faq_bypasses_retrieval_and_enters_three_turn_memory():
     assert result.dialogue.grounding_reason == "scripted_faq:artist"
     assert "src_ml_louvre_gallery" in result.dialogue.used_chunk_ids
     assert "Leonardo da Vinci" in result.dialogue.response
-    assert "Watch the smile" in result.dialogue.response
+    assert "Look at her smile" in result.dialogue.response
     assert engine._conversation_turns == [
         ("Who painted this?", result.dialogue.response)
     ]

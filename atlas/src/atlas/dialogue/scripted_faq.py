@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from functools import lru_cache
 
+from atlas.dialogue.plain_faq import plain_facts
+from atlas.dialogue.vocabulary import asks_word_meaning
 from atlas.models.languages import normalize_language_code
 
 PUBLIC_SCRIPTED_LANGUAGES = ("en", "fr", "es", "it", "zh")
@@ -792,7 +794,7 @@ def _phrase_index(language: str) -> tuple[tuple[str, str, tuple[str, ...]], ...]
 def match_scripted_intent(question: str, language: str) -> str | None:
     """Match a common question, including close paraphrases, without a model."""
     lang = normalize_language_code(language)
-    if lang not in PUBLIC_SCRIPTED_LANGUAGES:
+    if lang not in PUBLIC_SCRIPTED_LANGUAGES or asks_word_meaning(question):
         return None
     normalized = _normalize(question)
     if not normalized:
@@ -865,7 +867,9 @@ def _named_artwork(question: str) -> str | None:
     return matches[0] if len(matches) == 1 else None
 
 
-def _basic_answer(intent: str, record: dict, facts: dict[str, str], lang: str) -> str:
+def _basic_answer(
+    intent: str, record: dict, facts: dict[str, str], lang: str, *, plain: bool = False,
+) -> str:
     title_value = record["title"]
     artist_value = record["artist"]
     date_value = record["date"]
@@ -902,6 +906,15 @@ def _basic_answer(intent: str, record: dict, facts: dict[str, str], lang: str) -
             "artist": f"{artist} made this work.",
             "date": f"This work was made {date}.",
         }
+    if plain:
+        # No change to proper names or dates; only the surrounding vocabulary.
+        templates.update({
+            "en": {"artist": f"{artist} made it.", "date": f"It was made {date}."},
+            "fr": {"artist": f"C'est {artist} qui l'a fait.", "date": f"Cela a été fait {date}."},
+            "es": {"artist": f"Lo hizo {artist}.", "date": f"Se hizo {date}."},
+            "it": {"artist": f"Lo ha fatto {artist}.", "date": f"È stato fatto {date}."},
+            "zh": {"artist": f"這是{artist}做的。", "date": f"它是在{date}做的。"},
+        }[lang])
     if intent in templates:
         return templates[intent]
     return facts[_INTENT_FIELD[intent]]
@@ -943,20 +956,34 @@ def resolve_scripted_faq(
             artwork_id=None,
         )
     record = _ARTWORKS[selected_artwork]
-    facts = record["facts"][lang]
-    response = _basic_answer(intent, record, facts, lang)
-    if profile == "expert":
+    accessibility = set(accessibility)
+    plain = profile in {"early_child", "child", "simple_language"} or (
+        "simple_language" in accessibility
+    )
+    facts = plain_facts(selected_artwork, lang) if plain else record["facts"][lang]
+    response = _basic_answer(intent, record, facts, lang, plain=plain)
+    if profile == "expert" and not plain:
         response = f"{response} {facts['expert_note']}"
     visual_description = profile == "visual_impairment" or (
-        "audio_description" in set(accessibility)
+        "audio_description" in accessibility
     )
     if visual_description and intent not in {"detail", "subject"}:
         response = f"{response} {facts['detail']}"
     if profile != "expert":
         follow_ups = (
-            _EARLY_CHILD_FOLLOW_UPS if profile == "early_child" else _FOLLOW_UPS
+            _EARLY_CHILD_FOLLOW_UPS
+            if profile in {"early_child", "child"} else _FOLLOW_UPS
         )
-        response = f"{response} {follow_ups[lang][intent]}"
+        follow_up = follow_ups[lang][intent]
+        if plain and profile not in {"early_child", "child"}:
+            follow_up = {
+                "en": "Would you like an easy example?",
+                "fr": "Voulez-vous un exemple simple ?",
+                "es": "¿Quieres un ejemplo sencillo?",
+                "it": "Vuoi un esempio semplice?",
+                "zh": "想聽一個簡單的例子嗎？",
+            }[lang]
+        response = f"{response} {follow_up}"
     if lang == "zh":
         response = response.translate(_TO_TRADITIONAL)
     return ScriptedFaqAnswer(

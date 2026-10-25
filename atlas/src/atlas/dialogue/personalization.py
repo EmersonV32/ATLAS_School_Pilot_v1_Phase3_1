@@ -10,6 +10,8 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 
+from atlas.dialogue.vocabulary import asks_word_meaning
+
 INTEREST_LABELS = {
     "stories": "stories and narratives",
     "technique": "artistic technique and materials",
@@ -257,6 +259,11 @@ class SessionPersonalization:
 
     def observe(self, utterance: str) -> None:
         """Extract allow-listed preferences locally without another LLM call."""
+        if asks_word_meaning(utterance):
+            # Asking what "technical" means is not a preference for technical
+            # language, and deserves an explanation rather than a new interview.
+            self.awaiting_preference_answer = False
+            return
         normalized = _normalize(utterance)
         explicit = self.awaiting_preference_answer or any(
             signal in normalized for signal in _PREFERENCE_SIGNALS

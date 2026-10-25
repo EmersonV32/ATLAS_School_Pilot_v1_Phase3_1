@@ -148,6 +148,40 @@ _JSON_INSTRUCTION = (
     '"fallback_used": false}'
 )
 
+_VOCABULARY_INSTRUCTION = (
+    " VOCABULARY HELP (all visitor levels and languages): When a visitor asks "
+    "what a word or expression means, explain its meaning first in familiar, "
+    "everyday words, even for an expert visitor. Do not define a difficult word "
+    "using more unexplained difficult words. Then, if useful, give one concrete "
+    "example and explain why the word describes the artwork or detail under "
+    "discussion. Use the recent answer where the word appeared to choose its "
+    "sense, not a list of unrelated dictionary meanings. If it described an "
+    "earlier artwork, name that earlier work rather than attaching the word to "
+    "a newly viewed work. Do not invent a visual detail or claim fresh vision. "
+    "For 'that word', use an unambiguous recent reference; if several words "
+    "could fit, ask which word instead of guessing. A question about the "
+    "meaning of the whole artwork is not automatically a word-definition "
+    "request. Answer the vocabulary question before any optional follow-up; "
+    "do not interrupt it with a preference question. Keep the explanation "
+    "short, respectful and in the selected response language."
+)
+
+_PLAIN_LANGUAGE_INSTRUCTION = (
+    " PLAIN LANGUAGE PRIORITY: Use everyday words a young child already knows, "
+    "one idea at a time and short sentences. Do not merely shorten an adult "
+    "art-history explanation. Prefer concrete things the visitor can picture "
+    "over abstract nouns. Replace jargon rather than introducing it: say "
+    "'thick paint that sticks out' instead of 'relief' or 'impasto', 'soft "
+    "edges' instead of 'sfumato', and 'where the people and things are placed' "
+    "instead of 'composition'; use equally familiar words in the selected "
+    "language. Keep proper names correct. If the visitor specifically asks "
+    "about a difficult word, you may name it once and immediately explain it "
+    "with easier words and one simple example. This simplicity requirement "
+    "takes priority over an interest in technique, technical-style preferences, "
+    "or enthusiast expertise. More detail must still use easy words. Stay "
+    "warm and respectful, not babyish, and never tell the visitor their profile."
+)
+
 _STREAMING_INSTRUCTION = (
     "\nReturn only the words ATLAS should speak, with no JSON or markdown. "
     "Write the answer as 1 or 2 complete sentences so each sentence can be "
@@ -181,11 +215,31 @@ _LEVEL_HINTS = {
         ),
     },
     "child": {
-        "en": "\nSpeak simply and warmly for a curious child aged 7-12.",
-        "fr": "\nParlez simplement et chaleureusement \u00e0 un enfant curieux de 7 \u00e0 12 ans.",
-        "es": "\nHabla de forma sencilla y c\u00e1lida para un ni\u00f1o curioso de 7 a 12 a\u00f1os.",
-        "it": "\nParla in modo semplice e caloroso a un bambino curioso dai 7 ai 12 anni.",
-        "zh": "\n\u8bf7\u7528\u7b80\u5355\u3001\u6e29\u6696\u7684\u65b9\u5f0f\u56de\u7b54\uff0c\u9002\u5408\u4e03\u81f3\u5341\u4e8c\u5c81\u7684\u597d\u5947\u5b69\u5b50\u3002",
+        "en": (
+            "\nSpeak warmly to a child aged 7-12. Use familiar everyday words, "
+            "one idea at a time and short sentences. Replace art terms with "
+            "plain descriptions; explain a term only when it is asked about."
+        ),
+        "fr": (
+            "\nParlez à un enfant de 7 à 12 ans avec des mots de tous les jours "
+            "et des phrases courtes, une idée à la fois. Dites par exemple "
+            "'la peinture dépasse' plutôt que 'relief'. Expliquez les mots "
+            "difficiles avec des mots plus faciles, sans parler comme à un bébé."
+        ),
+        "es": (
+            "\nHabla con un niño de 7 a 12 años con palabras de todos los días "
+            "y frases cortas, una idea cada vez. Cambia las palabras de arte "
+            "difíciles por explicaciones fáciles y ejemplos concretos."
+        ),
+        "it": (
+            "\nParla a un bambino di 7-12 anni con parole di tutti i giorni "
+            "e frasi brevi, una idea alla volta. Sostituisci i termini d'arte "
+            "difficili con parole facili ed esempi concreti."
+        ),
+        "zh": (
+            "\n請用七至十二歲孩子熟悉的日常用語和短句，一次只說一個想法。"
+            "用看得見、想得到的例子代替難懂的藝術用語；被問到生詞時，再用更簡單的話解釋。"
+        ),
     },
     "teen": {
         "en": "\nSpeak clearly, directly and engagingly for a teenager.",
@@ -290,6 +344,12 @@ class PromptBuilder:
         system_text += _SPEECH_REPAIR_INSTRUCTION
         system_text += _CONVERSATION_INSTRUCTION
         system_text += _PERSONALIZATION_INSTRUCTION
+        system_text += _VOCABULARY_INSTRUCTION
+        level = ctx.profile or _age_to_level(ctx.visitor_age)
+        if level in {"early_child", "child", "simple_language"} or (
+            "simple language" in ctx.explanation_preferences
+        ):
+            system_text += _PLAIN_LANGUAGE_INSTRUCTION
         if json_output:
             system_text += _JSON_INSTRUCTION
         elif streaming_output:
@@ -315,8 +375,10 @@ class PromptBuilder:
             else "(no artwork context available)"
         )
 
-        level = ctx.profile or _age_to_level(ctx.visitor_age)
-        level_hint = _LEVEL_HINTS.get(level, _LEVEL_HINTS["adult"]).get(lang, "")
+        hints = _LEVEL_HINTS.get(level, _LEVEL_HINTS["adult"])
+        # Preview/admin languages need the same level guidance, not a silent
+        # return to adult language because only five hints are translated.
+        level_hint = hints.get(lang, hints.get("en", ""))
         intended_question = _likely_intended_question(ctx.question, lang)
         question_block = f"VISITOR QUESTION: {ctx.question}"
         if intended_question != ctx.question:

@@ -11,10 +11,15 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import replace
 
 from atlas.app.dependency_container import Container
 from atlas.app.headset_button import HeadsetButtonListener
 from atlas.audio.stt import TranscriptResult
+from atlas.dashboard.visitor_activation import (
+    is_hesitation_only,
+    wake_phrase_remainder,
+)
 from atlas.vision.detector import ArtworkDetection
 
 logger = logging.getLogger(__name__)
@@ -544,6 +549,7 @@ class DeviceRuntime:
         last_frame_number = 0
         last_missing_frame_log_at = 0.0
         active_session_id: str | None = None
+        awaiting_spoken_request = False
 
         try:
             start_pan = getattr(self.container, "start_camera_pan", None)
@@ -593,6 +599,7 @@ class DeviceRuntime:
                     active_detection = None
                     clear_count = 0
                     active_session_id = None
+                    awaiting_spoken_request = False
                     time.sleep(self.settings.vision_poll_interval_s)
                     continue
 
@@ -618,6 +625,7 @@ class DeviceRuntime:
 
                 if dashboard_session_id != active_session_id:
                     active_session_id = dashboard_session_id
+                    awaiting_spoken_request = False
                     vision_hold.reset()
                     latched_id = None
                     active_detection = None
@@ -683,7 +691,7 @@ class DeviceRuntime:
                             "[Capture] Context selected: "
                             f"{result.detection.label}; listening remains active"
                         )
-                        if demo_active and not (
+                        if demo_active and not awaiting_spoken_request and not (
                             self._dashboard_service is not None
                             and self._dashboard_service.wake_pending
                         ):
@@ -716,7 +724,33 @@ class DeviceRuntime:
                                 logger.info(
                                     "[Activation] Visitor voice session is active"
                                 )
+                            else:
+                                continue
+                        remainder = wake_phrase_remainder(
+                            question.text,
+                            (
+                                self._dashboard_service.language
+                                if self._dashboard_service is not None
+                                else question.language
+                            ),
+                        )
+                        if remainder is not None:
+                            question = replace(question, text=remainder)
+                        if is_hesitation_only(question.text):
+                            # Stay quiet and keep listening after "Bonjour Atlas"
+                            # (or a hesitation). Vision still updates context, but
+                            # must not fill this pause with a proactive invitation.
+                            awaiting_spoken_request = True
+                            vision_hold.reset()
+                            logger.info("[Listening] Waiting for visitor request")
                             continue
+                        awaiting_spoken_request = False
+                        if bool(getattr(
+                            self._dashboard_service, "greeting_pending", False,
+                        )):
+                            self._dashboard_service.speak_pending_greeting()
+                            if self._dashboard_service.session_id != active_session_id:
+                                continue
                         response_started = time.perf_counter()
                         result = runner.respond_to_transcript(
                             question,
@@ -820,7 +854,7 @@ class DeviceRuntime:
                 logger.info(
                     "[Vision] Artwork context selected; continuous listening unchanged"
                 )
-                if demo_active and not (
+                if demo_active and not awaiting_spoken_request and not (
                     self._dashboard_service is not None
                     and self._dashboard_service.wake_pending
                 ):
