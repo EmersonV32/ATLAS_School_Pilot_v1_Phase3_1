@@ -63,6 +63,11 @@ let checks = 0;
 function check(script, expected) { assert.deepEqual(JSON.parse(JSON.stringify(evaluate(script))), expected, script); checks++; }
 
 (async () => {
+  for (const camera of [null, {}, {ready: false, last_frame_age_s: 0.1}, {ready: true, last_frame_age_s: 3.1}, {ready: true, last_frame_age_s: null}, {ready: true, last_frame_age_s: -1}, {ready: true, last_frame_age_s: NaN}]) {
+    sandbox.fixture = camera; check('cameraIsFresh(fixture)', false);
+  }
+  check('cameraIsFresh({ready: true, last_frame_age_s: 0.1})', true);
+  check('cameraIsFresh({ready: true, last_frame_age_s: 3})', true);
   check('componentState("Deepgram primary (ready); Whisper fallback (unavailable); last=not used yet")', "warning");
   check('componentState("Deepgram primary (unavailable); Whisper fallback (ready); last=Whisper")', "warning");
   check('componentState("Deepgram primary (unavailable); Whisper fallback (unavailable)")', "danger");

@@ -158,7 +158,7 @@ class TestVisitorShell:
         assert 'id="admin-workspace"' in response.text
         assert 'class="admin-page admin-locked"' in response.text
         assert "/static/style.css?v=21" in response.text
-        assert "/static/admin.js?v=22" in response.text
+        assert "/static/admin.js?v=23" in response.text
         assert 'id="btn-toggle-visitor-monitor"' in response.text
         assert 'id="btn-save-config-top"' in response.text
         assert 'data-log-format="human"' in response.text
@@ -817,8 +817,10 @@ class TestRuntimeBridge:
         runtime.camera_ready = False
         runtime.camera_age_s = None
         runtime.camera_error = "camera disconnected"
+        previous_status = runtime.status
+        runtime.status = lambda: {**previous_status(), "emergency_stopped": True}
 
-        with pytest.raises(RuntimeError, match="Camera"):
+        with pytest.raises(RuntimeError, match="Emergency stop"):
             service.start_demo(language="fr", profile="expert")
 
         state = service.live_status()["state"]
@@ -840,15 +842,30 @@ class TestRuntimeBridge:
         assert service.stop()["stopped"] is True
         assert runtime.stopped == 1
 
-    def test_runtime_bridge_blocks_start_without_a_fresh_camera(self):
-        service = VisitorService(runtime_service=_FakeRuntime(camera_ready=False))
+    def test_runtime_bridge_starts_voice_visit_without_a_camera(self):
+        runtime = _FakeRuntime(camera_ready=False)
+        service = VisitorService(runtime_service=runtime)
         service.progress(VisitorProgressRequest(**_progress(step="privacy")))
 
         readiness = service.readiness()
         camera = next(item for item in readiness["items"] if item["id"] == "camera")
-        assert camera["status"] == "unavailable"
-        with pytest.raises(RuntimeError, match="Camera"):
-            service.start()
+        assert camera["status"] == "degraded"
+        assert readiness["ready"] is True
+        assert service.start()["phase"] == "in_use"
+        assert runtime.started == 1
+
+    def test_admin_demo_works_without_camera_and_reports_reconnection(self):
+        runtime = _FakeRuntime(
+            camera_ready=False, camera_age_s=None, camera_error="offline"
+        )
+        service = VisitorService(runtime_service=runtime)
+        assert service.start_demo(language="en", profile="expert")["phase"] == "in_use"
+        assert runtime.started == 1
+        runtime.camera_ready = True
+        runtime.camera_age_s = 0.1
+        runtime.camera_error = None
+        camera = next(i for i in service.readiness()["items"] if i["id"] == "camera")
+        assert camera["status"] == "ready"
 
     def test_runtime_bridge_reports_disconnected_camera_without_hiding_site(self):
         service = VisitorService(
@@ -862,21 +879,52 @@ class TestRuntimeBridge:
         readiness = service.readiness()
         camera = next(item for item in readiness["items"] if item["id"] == "camera")
 
-        assert camera["status"] == "unavailable"
+        assert camera["status"] == "degraded"
         assert camera["detail"] == (
-            "Camera disconnected. Reconnect it when ready; this website "
-            "remains available."
+            "Camera disconnected. Voice conversation remains available; "
+            "ask about an artwork by name or have staff select it manually."
         )
 
-    def test_runtime_bridge_blocks_a_stale_camera_frame(self):
+    def test_stale_camera_is_not_fresh_but_does_not_block_voice(self):
         service = VisitorService(runtime_service=_FakeRuntime(camera_age_s=3.1))
         service.progress(VisitorProgressRequest(**_progress(step="privacy")))
 
         readiness = service.readiness()
         camera = next(item for item in readiness["items"] if item["id"] == "camera")
-        assert camera["status"] == "unavailable"
-        with pytest.raises(RuntimeError, match="Camera"):
-            service.start()
+        assert camera["status"] == "degraded"
+        assert "No fresh camera image" in camera["detail"]
+        assert service.start()["phase"] == "in_use"
+
+    @pytest.mark.parametrize("component", ["stt", "tts", "llm", "retriever"])
+    def test_optional_camera_does_not_bypass_other_readiness_checks(self, component):
+        runtime = _FakeRuntime(camera_ready=False)
+        original_health = runtime.health
+
+        def unavailable():
+            health = original_health()
+            health["components"][component] = "unavailable"
+            return health
+
+        runtime.health = unavailable
+        service = VisitorService(runtime_service=runtime)
+        with pytest.raises(RuntimeError):
+            service.start_demo(language="en", profile="adult_beginner")
+        assert runtime.started == 0
+
+    def test_admin_camera_offline_demo_preserves_authentication(self, visitor_client):
+        runtime = _FakeRuntime(camera_ready=False, camera_age_s=None)
+        visitor_client.app.state.visitor_service = VisitorService(
+            runtime_service=runtime
+        )
+        request = {"language": "en", "profile": "adult_beginner"}
+        unauthorized = visitor_client.post("/api/admin/demo/start", json=request)
+        assert unauthorized.status_code == 401
+        response = visitor_client.post(
+            "/api/admin/demo/start", json=request, headers=_admin()
+        )
+        assert response.status_code == 200
+        assert response.json()["phase"] == "in_use"
+        assert runtime.started == 1
 
     def test_runtime_bridge_blocks_preview_only_language(self):
         service = VisitorService(runtime_service=_FakeRuntime())

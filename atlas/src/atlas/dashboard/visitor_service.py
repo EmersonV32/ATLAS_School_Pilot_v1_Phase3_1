@@ -570,12 +570,13 @@ class VisitorService:
             camera_detail = "Camera health signal is fresh."
         elif camera_disconnected:
             camera_detail = (
-                "Camera disconnected. Reconnect it when ready; this website "
-                "remains available."
+                "Camera disconnected. Voice conversation remains available; "
+                "ask about an artwork by name or have staff select it manually."
             )
         else:
             camera_detail = (
-                "Camera stream is connected but not supplying a fresh image."
+                "No fresh camera image. Voice conversation remains available; "
+                "live artwork recognition needs the camera to reconnect."
             )
         emergency_stopped = bool(status.get("emergency_stopped"))
         private_speech_ready = _runtime_private_speech_ready(
@@ -624,7 +625,9 @@ class VisitorService:
             self._item(
                 "camera",
                 "Camera",
-                "ready" if camera_ready else "unavailable",
+                # Vision is optional for conversation, not falsely healthy.
+                # Capture/preview still require a real, fresh camera frame.
+                "ready" if camera_ready else "degraded",
                 camera_detail,
             ),
             self._item(

@@ -402,6 +402,12 @@ function valueIsHealthy(value) {
   return componentState(value) !== "danger";
 }
 
+function cameraIsFresh(camera) {
+  const age = camera && camera.last_frame_age_s;
+  return Boolean(camera && camera.ready) && typeof age === "number"
+    && Number.isFinite(age) && age >= 0 && age <= 3;
+}
+
 function renderDemoReadiness() {
   if (!latestStatus) return;
   const status = latestStatus;
@@ -412,7 +418,7 @@ function renderDemoReadiness() {
     ["Runtime", !status.emergency_stopped, status.emergency_stopped ? "Stopped" : "Safety clear"],
     ["Speech input", valueIsHealthy(components.stt), providerLabel(components.stt)],
     ["Speech output", valueIsHealthy(components.tts), providerLabel(components.tts)],
-    ["Artwork camera", Boolean(camera.ready), camera.ready ? "Frame ready" : "Disconnected"],
+    ["Artwork camera (optional)", cameraIsFresh(camera), cameraIsFresh(camera) ? "Frame ready" : "Offline · voice demo available"],
     ["Knowledge", valueIsHealthy(components.retriever), providerLabel(components.retriever)],
     ["Audio route", Boolean(audioReady), latestAudio
       ? `${titleCase(latestAudio.route)}${audioReady ? "" : " unavailable"}` : "Checking"],
@@ -450,14 +456,15 @@ function renderOperationalDetails() {
   $("demo-stage-artwork").textContent = artwork.label || "No artwork";
   $("demo-stage-response").textContent = interaction ? (interaction.state === "failed" ? "Needs attention" : interaction.state === "completed" ? "Response completed" : "Control applied") : answer.answer ? "Dashboard answer ready" : "No response recorded";
 
-  $("diag-camera").textContent = camera.ready ? "Connected" : "Disconnected";
+  $("diag-camera").textContent = cameraIsFresh(camera) ? "Connected" : "Offline · optional for speech";
   $("diag-yolo").textContent = latestConfig
     ? titleCase(latestConfig.hardware.yolo_backend)
     : providerLabel(components.vision);
   $("diag-stt").textContent = providerLabel(components.stt);
   $("diag-tts").textContent = providerLabel(components.tts);
-  const criticalGood = camera.ready && valueIsHealthy(components.stt) && valueIsHealthy(components.tts);
-  $("signal-state").textContent = criticalGood ? "Ready" : "Needs attention";
+  const speechReady = valueIsHealthy(components.stt) && valueIsHealthy(components.tts);
+  const criticalGood = cameraIsFresh(camera) && speechReady;
+  $("signal-state").textContent = criticalGood ? "Ready" : speechReady ? "Voice ready · camera offline" : "Needs attention";
   $("signal-state").className = `status-pill ${criticalGood ? "ok" : "warning"}`;
   renderDemoReadiness();
 }
@@ -566,7 +573,7 @@ async function refreshStatus() {
     $("runtime-mode").className = `status-pill ${simulated ? "warning" : "neutral"}`;
     replaceIssues("runtime-", [
       ...(status.emergency_stopped ? [["stop", { title: "Emergency stop is active", detail: "Motion is stopped. Only clear the stop once the equipment is safe.", severity: "danger", view: "audio-vision" }]] : []),
-      ...(!status.camera || !status.camera.ready || status.camera.last_frame_age_s > 3 ? [["camera", { title: "Artwork camera is not ready", detail: "A fresh camera frame is unavailable. Check camera power, network and the live preview.", severity: "danger", view: "audio-vision" }]] : []),
+      ...(!cameraIsFresh(status.camera) ? [["camera", { title: "Camera offline · voice demo available", detail: "Live recognition is unavailable. Ask about an artwork by name or choose it in Artwork context; speech and knowledge still work.", severity: "warning", view: "audio-vision" }]] : []),
       ...(status.last_interaction && status.last_interaction.response_failed ? [["response", { title: "Last response failed", detail: "ATLAS reported an AI or interaction failure. Review Activity & logs before retrying.", severity: "danger", view: "logs" }]] : []),
       ...(status.last_interaction && status.last_interaction.speech_ok === false ? [["speech", { title: "Last spoken response was not played", detail: "Check the headset, selected output and speech provider before retrying.", severity: "danger", view: "audio-vision" }]] : []),
     ]);
@@ -588,6 +595,7 @@ async function refreshStatus() {
     $("vision-last-answer").textContent = interaction ? (interaction.state === "failed" ? "Last interaction needs attention. See the issue board." : interaction.state === "control" ? "Last voice control applied." : `Last ${interaction.source === "voice" ? "spoken" : "dashboard"} response completed.`)
       : status.last_answer && status.last_answer.answer ? "Last dashboard response completed." : "No response recorded yet.";
     $("btn-stop").disabled = !status.session_active;
+    $("btn-capture").disabled = !cameraIsFresh(status.camera);
     if (!experienceDirty) {
       $("experience-state").textContent = status.session_active ? "Session active" : "Session idle";
     }
@@ -606,13 +614,13 @@ async function refreshStatus() {
       : artwork.artwork_id
       ? `${artwork.stable ? "Stable" : "Detecting"} / ${artwork.source}` : "Camera stream";
     const camera = status.camera || {};
-    $("metric-camera").textContent = camera.ready ? "Frame ready" : "Disconnected";
+    $("metric-camera").textContent = cameraIsFresh(camera) ? "Frame ready" : "Offline · optional";
     const cameraResolution = camera.actual_width && camera.actual_height
       ? ` @ ${camera.actual_width}x${camera.actual_height}` : "";
     $("vision-camera-fps").textContent = camera.observed_fps != null
       ? `${Number(camera.observed_fps).toFixed(1)} fps${cameraResolution}` : "--";
     if (camera.last_error) {
-      $("camera-source").textContent = "Camera recovering. Check its power and connection.";
+      $("camera-source").textContent = "Camera offline. Ask by artwork name or select one manually; voice conversation remains available.";
     }
     renderOperationalDetails();
   } catch (_) {
@@ -1057,7 +1065,7 @@ async function refreshCamera() {
     $("admin-camera").removeAttribute("src");
     $("admin-camera").classList.add("hidden");
     $("camera-empty").classList.remove("hidden");
-    $("camera-empty-detail").textContent = "No fresh preview. Check camera power and network. ATLAS will retry automatically.";
+    $("camera-empty-detail").textContent = "No fresh preview. Voice conversation still works: ask about an artwork by name or select one manually. The camera retries automatically.";
     if (adminUnlocked) setIssue("camera-preview", { title: "Artwork preview unavailable", detail: "The dashboard cannot display a fresh image. Automatic retries are running.", severity: "warning", view: "audio-vision" });
     $("camera-state").textContent = "Unavailable";
     $("camera-state").className = "status-pill danger";

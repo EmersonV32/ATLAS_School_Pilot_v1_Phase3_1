@@ -250,7 +250,7 @@ def test_cancelled_voice_response_is_not_spoken(streaming):
     assert spoken == []
 
 
-@pytest.mark.parametrize("scenario", ["voice", "stop"])
+@pytest.mark.parametrize("scenario", ["voice", "voice_manual", "demo_voice", "stop"])
 def test_device_loop_handles_voice_and_session_stop_without_camera(
     monkeypatch, scenario
 ):
@@ -258,10 +258,16 @@ def test_device_loop_handles_voice_and_session_stop_without_camera(
         session_id="visit-1",
         language="en",
         profile="adult_beginner",
-        demo_active=False,
+        demo_active=scenario == "demo_voice",
         wake_pending=False,
     )
     states = {"active": False, "answered": False, "deactivated": 0}
+    selected = (
+        ArtworkDetection(
+            artwork_id="mona_lisa", label="Mona Lisa", confidence=1.0,
+            source="manual_override", stable=True,
+        ) if scenario == "voice_manual" else None
+    )
 
     class Listener:
         def __init__(self, runner):
@@ -281,7 +287,7 @@ def test_device_loop_handles_voice_and_session_stop_without_camera(
             states["deactivated"] += 1
 
         def pop(self):
-            if scenario == "voice" and states["active"]:
+            if scenario != "stop" and states["active"]:
                 return TranscriptResult(text="What is composition?", language="en")
 
         def clear_prompts(self):
@@ -319,13 +325,13 @@ def test_device_loop_handles_voice_and_session_stop_without_camera(
 
         def respond_to_transcript(self, transcript, **kwargs):
             assert kwargs["frame"] is None
-            assert kwargs["detection"] is None
+            assert kwargs["detection"] is selected
             states["answered"] = True
             return SimpleNamespace(event=None, success=True, detection=None)
 
     container = SimpleNamespace(
         settings=Settings(),
-        artwork_tracker=SimpleNamespace(manual_override=None),
+        artwork_tracker=SimpleNamespace(manual_override=selected),
         session_runner=Runner(),
         camera_source=Camera(),
         hardware=MockHardware(),
@@ -344,7 +350,7 @@ def test_device_loop_handles_voice_and_session_stop_without_camera(
     monkeypatch.setattr(runtime, "_start_headset_button_listener", lambda: "disabled")
     monkeypatch.setattr(runtime, "_start_terminal_capture_listener", lambda: None)
     monkeypatch.setattr(runtime, "_stop_dashboard", lambda: None)
-    if scenario == "voice":
+    if scenario != "stop":
         runtime.run(max_interactions=1)
         assert states["answered"]
     else:
