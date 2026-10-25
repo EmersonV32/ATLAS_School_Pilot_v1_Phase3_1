@@ -1,13 +1,50 @@
 # Current state
 
-Source status date: 2026-10-18. Physical observations below retain their actual
+Source status date: 2026-10-25. Physical observations below retain their actual
 dates; repository cleanup is not a hardware deployment or a fresh health check.
 
-**Read [school director demo / teammate handoff](2026-10-18_SCHOOL_DEMO_HANDOFF.md)
-first.** The final longer-answer test reproduced a voice change, and a later
-camera probe again reported unavailable. Those two issues remain OPEN despite
-successful basic demo/context checks. School Wi-Fi is saved on both devices,
-but real school authentication and LAN traffic cannot be verified at home.
+**Read [October 25 camera-free deployment](../atlas/docs/2026-10-25_CAMERA_FREE_DEMO.md)
+first, then the [school director demo / teammate handoff](2026-10-18_SCHOOL_DEMO_HANDOFF.md).**
+The camera is physically offline (owner reports damaged BAT+ contact). Voice
+demo start no longer requires a camera; the owner confirmed that it starts.
+The voice-change problem recurred today and affects all languages, not just
+French. It remains OPEN. School Wi-Fi is saved on both devices, but actual
+school authentication and LAN acceptance remain unverified.
+
+## October 25 latest deployment and acceptance
+
+Current work branch: `codex/camera-offline-demo-2026-10-25`; installed source
+revision: `d9b062b3868cd4c4a5122a1cf29d3bc5f0f609ab`. Main is unchanged.
+The existing user service was updated with a reversible source-only release.
+All 188 managed files match; service active/running with zero unexpected
+restarts, headset/AI/retrieval ready. Camera readiness is truthfully degraded,
+not a demo blocker. Capture remains unavailable without fresh camera frames.
+Named-artwork questions and staff manual artwork context do not need a camera.
+
+Software checks: **3,480 passed, two skips**, Ruff/dependency/secrets/recovery
+and whitespace gates passed. Synthetic dashboard browser QA: 35 layouts,
+32 actions, 11 failure/recovery scenarios, 2,727 contrast checks, zero unexpected
+errors. Camera-offline visitor flow: 42 keyboard transitions at 1024x768,
+reduced motion, no visitor cookies/storage/IndexedDB, zero browser errors.
+These are not audible or motor acceptance claims.
+
+The owner first reported demo start failure, then corrected that report:
+the demo works. French voice variation was reported, then clarified to affect
+all languages. Last-used health metadata still identifies Cartesia, not proof
+of the cause or a provider switch. The owner is restarting ATLAS to retest;
+no speculative voice/provider/config changes or second restart were made.
+Temporary recovery after restart is not a permanent fix.
+
+Direct-SG90 dashboard/controller software is installed but motor output stays
+OFF. Read-only discovery finds both supported PWM controllers with user
+access. Header pinmux/waveform, servo power, calibration and CSI preview under
+load remain unverified; the owner has not identified a suitable supply.
+See [camera pan setup](../atlas/docs/CAMERA_PAN.md). Do not enable EV3, human
+tracking, sentence TTS or privacy-sensitive logging just to remove inactive
+labels. Existing hardware and safety prerequisites still apply.
+
+The sections below retain dated historical evidence; their earlier
+"not deployed" descriptions do not override this latest deployment record.
 
 ## Maintained version and source
 

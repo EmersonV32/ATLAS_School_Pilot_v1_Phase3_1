@@ -1,9 +1,29 @@
 # Direct SG90 camera pan - reComputer Super J4012 / Orin NX 16 GB
 
-Prepared locally on `codex/jetson-direct-camera-pan`, based on the latest
-dashboard, readable activity, conversation and listening work. Not deployed.
+Originally prepared on `codex/jetson-direct-camera-pan`, based on the latest
+dashboard, readable activity, conversation and listening work. Controller and
+dashboard source are now installed on the Jetson; physical motor activation
+has NOT occurred. See the October 25 status below.
 This supersedes the PCA9685-only proposal on `codex/arducam-sg90-pan`.
 The retained PCA9685 option remains compatible; it is not required for direct PWM.
+
+## October 25 physical preparation status
+
+The owner has SG90 servos with three-socket plugs, but no verified power supply.
+Do not plug that block onto three adjacent header pins: separate mapped jumper
+connections are required. No soldering to the Jetson is needed.
+
+Read-only discovery on the real Super / Orin NX 16 GB finds `3280000.pwm`
+(physical pin 15 route) and `32e0000.pwm` (physical pin 32 route). Both report
+one unexported channel and writable export/unexport under the existing user.
+No output was exported, PWM generated, boot settings changed or motor moved.
+Discovery does not prove header pinmux, waveform or servo compatibility.
+
+Motor power, a suitable connector/breakout for that supply, common-ground
+wiring, PWM routing/signal verification and a supervised bare-servo calibration
+are still required. Send the supply's label/rating before choosing it. Do not
+assume the existing Jetson barrel adapter, camera battery or a USB cable alone
+is suitable. Follow the wiring and commissioning steps below; pan remains OFF.
 
 ## What is implemented
 
@@ -155,10 +175,12 @@ old PCA9685 configs retain the previous backend default. PCA9685 requires the
 optional `camera-pan` dependency, explicit I2C bus, dedicated board and its own
 verified wiring, not this direct wiring plan.
 
-## Deployment and acceptance still required
+## Physical commissioning and acceptance still required
 
-No target was contacted; no device configuration/service unit/boot file was
-changed. Use the reviewed **combined feature branch** for future release, not
+The following source-deployment procedure was written before the combined
+software was installed. The current status above takes precedence; physical
+commissioning remains pending. No motor configuration or boot file was changed
+on October 25. Use the reviewed **combined feature branch**, not
 the earlier PCA-only patch/bundle. Compare the actual installed source first,
 then apply only approved source/config changes with a reversible backup and
 run the existing isolated regression wrapper. Keep pan disabled on first
