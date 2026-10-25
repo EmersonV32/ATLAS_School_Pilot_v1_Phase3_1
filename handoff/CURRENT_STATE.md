@@ -3,7 +3,8 @@
 Source status date: 2026-10-25. Physical observations below retain their actual
 dates; repository cleanup is not a hardware deployment or a fresh health check.
 
-**Read [October 25 camera-free deployment](../atlas/docs/2026-10-25_CAMERA_FREE_DEMO.md)
+**Read [October 25 voice recovery and greeting update](../atlas/docs/2026-10-25_VOICE_AND_GREETING.md),
+then [October 25 camera-free deployment](../atlas/docs/2026-10-25_CAMERA_FREE_DEMO.md)
 first, then the [school director demo / teammate handoff](2026-10-18_SCHOOL_DEMO_HANDOFF.md).**
 The camera is physically offline (owner reports damaged BAT+ contact). Voice
 demo start no longer requires a camera; the owner confirmed that it starts.
@@ -12,6 +13,15 @@ French. It remains OPEN. School Wi-Fi is saved on both devices, but actual
 school authentication and LAN acceptance remain unverified.
 
 ## October 25 latest deployment and acceptance
+
+Latest voice/greeting implementation: `f90bf48`. It fixes permanent fallback
+after a transient Cartesia failure and serializes whole-answer speech; both
+admin and visitor starts now queue an automatic selected-language introduction
+before listening. Private optional names stay local-only. Native preflight
+passed; **3,593 tests passed, two skipped**, and source apply succeeded.
+All 189 installed files match; service/headset/AI/speech are healthy. Exact
+evidence and rollback backup belong to the linked latest record.
+Provider-internal timbre drift is not proven fixed by these client safeguards.
 
 Current work branch: `codex/camera-offline-demo-2026-10-25`; installed source
 revision: `d9b062b3868cd4c4a5122a1cf29d3bc5f0f609ab`. Main is unchanged.
