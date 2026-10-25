@@ -1,5 +1,6 @@
 """Direct PWM tests: synthetic kernel files/channel only, never a real Jetson."""
 
+import errno
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ from pydantic import ValidationError
 
 from atlas.app.dependency_container import Container
 from atlas.config.settings import CameraPanSettings, Settings
+from atlas.hardware import camera_pan_driver
 from atlas.hardware.camera_pan import CameraPanController
 from atlas.hardware.camera_pan_driver import (
     JETSON_HEADER_PWM,
@@ -169,7 +171,16 @@ def test_demo_direct_config_uses_mock_and_default_device_is_nonmoving():
     container.close()
 
 
-def make_kernel(tmp_path, monkeypatch, *, preexported=False, fail_write=None):
+def make_kernel(
+    tmp_path,
+    monkeypatch,
+    *,
+    preexported=False,
+    fail_write=None,
+    polarity="normal",
+    initial_state=None,
+    reject_zero_period_apply=False,
+):
     root = tmp_path / "class" / "pwm"
     chip = root / "pwmchip42"
     device = tmp_path / "devices" / JETSON_HEADER_PWM[32]
@@ -193,10 +204,21 @@ def make_kernel(tmp_path, monkeypatch, *, preexported=False, fail_write=None):
         writes.append((self.name, value))
         if fail_write == self.name:
             raise PermissionError("synthetic permission failure")
+        if (
+            reject_zero_period_apply
+            and self.parent == chip / "pwm0"
+            and self.name in ("enable", "duty_cycle")
+            and (chip / "pwm0" / "period").read_text() == "0"
+        ):
+            raise OSError(errno.EINVAL, "synthetic PWM apply rejects zero period")
         if self == chip / "export":
             (chip / "pwm0").mkdir()
-            for name in ("enable", "duty_cycle", "period", "polarity"):
-                original_write(chip / "pwm0" / name, "0")
+            state = {"enable": "0", "duty_cycle": "0", "period": "0"}
+            state.update(initial_state or {})
+            for name, initial in state.items():
+                original_write(chip / "pwm0" / name, initial)
+            if polarity is not None:
+                original_write(chip / "pwm0" / "polarity", polarity)
         return original_write(self, value, **kwargs)
 
     monkeypatch.setattr(Path, "write_text", write)
@@ -225,6 +247,51 @@ def test_kernel_chip_identity_not_numeric_index_and_only_owned_shutdown(
     assert writes[-1] == ("unexport", "0") and ownership.closed
 
 
+def test_kernel_initializes_zero_period_before_any_state_apply(tmp_path, monkeypatch):
+    channel, chip, ownership, writes = make_kernel(
+        tmp_path, monkeypatch, reject_zero_period_apply=True
+    )
+    channel.open()
+    assert writes == [
+        ("export", "0"),
+        ("period", "20000000"),
+        ("enable", "0"),
+        ("duty_cycle", "0"),
+    ]
+    assert (chip / "pwm0" / "enable").read_text() == "0"
+    assert (chip / "pwm0" / "duty_cycle").read_text() == "0"
+    channel.close()
+    assert writes[-1] == ("unexport", "0") and ownership.closed
+
+
+@pytest.mark.parametrize(
+    "initial_state",
+    [
+        {"enable": "1"},
+        {"enable": "unknown"},
+        {"duty_cycle": "1000"},
+        {"duty_cycle": "-1"},
+        {"duty_cycle": "unknown"},
+    ],
+)
+def test_kernel_unexpected_initial_state_never_sets_period_or_enables(
+    tmp_path, monkeypatch, initial_state
+):
+    channel, _, ownership, writes = make_kernel(
+        tmp_path,
+        monkeypatch,
+        initial_state={"period": "20000000", **initial_state},
+        reject_zero_period_apply=True,
+    )
+    with pytest.raises(RuntimeError, match="disabled with zero duty"):
+        channel.open()
+    assert not any(name == "period" for name, _ in writes)
+    assert not any(
+        name in ("enable", "duty_cycle") and value != "0" for name, value in writes
+    )
+    assert writes[-1] == ("unexport", "0") and ownership.closed
+
+
 def test_kernel_already_exported_pwm_is_untouched_even_if_disabled(
     tmp_path, monkeypatch
 ):
@@ -245,7 +312,7 @@ def test_kernel_missing_controller_and_fan_are_never_touched(tmp_path):
     assert not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize("failure", ["export", "polarity", "period"])
+@pytest.mark.parametrize("failure", ["export", "period"])
 def test_kernel_setup_failure_releases_only_its_export(tmp_path, monkeypatch, failure):
     channel, _, ownership, writes = make_kernel(
         tmp_path, monkeypatch, fail_write=failure
@@ -254,6 +321,82 @@ def test_kernel_setup_failure_releases_only_its_export(tmp_path, monkeypatch, fa
         channel.open()
     assert ownership.closed
     assert (("unexport", "0") in writes) == (failure != "export")
+
+
+def test_kernel_normal_read_only_polarity_is_never_written(tmp_path, monkeypatch):
+    channel, _, ownership, writes = make_kernel(
+        tmp_path, monkeypatch, fail_write="polarity", polarity="normal\n"
+    )
+    channel.open()
+    channel.write_pulse(1_500_000)
+    channel.close()
+    assert not any(name == "polarity" for name, _ in writes)
+    assert ("enable", "1") in writes
+    assert writes[-1] == ("unexport", "0") and ownership.closed
+
+
+@pytest.mark.parametrize("polarity", ["inversed", "unknown", "0", "", None])
+def test_kernel_wrong_or_missing_polarity_never_enables(
+    tmp_path, monkeypatch, polarity
+):
+    channel, _, ownership, writes = make_kernel(
+        tmp_path, monkeypatch, polarity=polarity
+    )
+    expected = FileNotFoundError if polarity is None else RuntimeError
+    with pytest.raises(expected):
+        channel.open()
+    assert not any(
+        name in ("enable", "duty_cycle") and value != "0" for name, value in writes
+    )
+    assert not any(name == "polarity" for name, _ in writes)
+    assert writes[-1] == ("unexport", "0") and ownership.closed
+
+
+def test_kernel_waits_for_existing_udev_write_permissions(tmp_path, monkeypatch):
+    channel, _, ownership, writes = make_kernel(tmp_path, monkeypatch)
+    now, sleeps, checked = [0.0], [], []
+
+    def access(path, mode):
+        assert mode == camera_pan_driver.os.W_OK
+        checked.append(path.name)
+        return now[0] >= 0.03
+
+    def sleep(duration):
+        assert writes == [("export", "0")]
+        sleeps.append(duration)
+        now[0] += duration
+
+    monkeypatch.setattr(camera_pan_driver.os, "access", access)
+    monkeypatch.setattr(camera_pan_driver.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(camera_pan_driver.time, "sleep", sleep)
+    channel.open()
+    assert sleeps == [0.01, 0.01, 0.01]
+    assert set(checked) == {"enable", "duty_cycle", "period"}
+    assert ("period", "20000000") in writes
+    channel.close()
+    assert writes[-1] == ("unexport", "0") and ownership.closed
+
+
+def test_kernel_udev_permission_timeout_releases_owned_export(tmp_path, monkeypatch):
+    channel, _, ownership, writes = make_kernel(tmp_path, monkeypatch)
+    now, sleeps = [0.0], []
+
+    def sleep(duration):
+        assert writes == [("export", "0")]
+        sleeps.append(duration)
+        now[0] += duration
+
+    monkeypatch.setattr(camera_pan_driver.os, "access", lambda *_args: False)
+    monkeypatch.setattr(camera_pan_driver.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(camera_pan_driver.time, "sleep", sleep)
+    with pytest.raises(RuntimeError, match="writable attributes"):
+        channel.open()
+    assert sum(sleeps) == pytest.approx(1.0)
+    assert now[0] <= 1.0
+    assert not any(
+        name in ("enable", "duty_cycle") and value != "0" for name, value in writes
+    )
+    assert writes[-1] == ("unexport", "0") and ownership.closed
 
 
 def test_kernel_lock_failure_does_not_export(tmp_path, monkeypatch):

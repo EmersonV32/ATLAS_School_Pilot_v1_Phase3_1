@@ -8,6 +8,7 @@ Direct Jetson PWM uses the Linux kernel, no GPIO library or extra board.
 from __future__ import annotations
 
 import math
+import os
 import time
 from pathlib import Path
 from typing import Protocol
@@ -69,7 +70,6 @@ class _LinuxPWMChannel:
         if self._ownership_factory is not None:
             return self._ownership_factory(self.identity)
         import fcntl
-        import os
         import tempfile
 
         path = Path(tempfile.gettempdir()) / (
@@ -113,14 +113,31 @@ class _LinuxPWMChannel:
             (chip / "export").write_text("0", encoding="ascii")
             self._exported = True
             deadline = time.monotonic() + 1.0
-            while not (self._channel / "enable").exists():
-                if time.monotonic() >= deadline:
-                    raise RuntimeError("Header PWM export did not become ready")
-                time.sleep(0.01)
+            # Export creates attributes before the existing udev rule grants
+            # the gpio group access. Wait only for the fields we will write.
+            while not all(
+                os.access(self._channel / name, os.W_OK)
+                for name in ("enable", "duty_cycle", "period")
+            ):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError(
+                        "Header PWM writable attributes did not become ready"
+                    )
+                time.sleep(min(0.01, remaining))
+            # NVIDIA's gpio-group rule leaves polarity read-only. Never change
+            # it: an unknown/inverted signal is not safe to enable.
+            polarity = (self._channel / "polarity").read_text(encoding="ascii").strip()
+            if polarity != "normal":
+                raise RuntimeError("Header PWM polarity must already be normal")
+            for name in ("enable", "duty_cycle"):
+                if (self._channel / name).read_text(encoding="ascii").strip() != "0":
+                    raise RuntimeError("New header PWM must be disabled with zero duty")
+            # Linux rejects every PWM state apply while the period is zero,
+            # including redundant enable=0 or duty=0 stores after fresh export.
+            self._write("period", self.PERIOD_NS)
             self._write("enable", 0)
             self._write("duty_cycle", 0)
-            self._write("polarity", "normal")
-            self._write("period", self.PERIOD_NS)
         except Exception:
             self.close()
             raise

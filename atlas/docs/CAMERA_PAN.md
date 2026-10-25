@@ -2,28 +2,111 @@
 
 Originally prepared on `codex/jetson-direct-camera-pan`, based on the latest
 dashboard, readable activity, conversation and listening work. Controller and
-dashboard source are now installed on the Jetson; physical motor activation
-has NOT occurred. See the October 25 status below.
+dashboard source are now installed on the Jetson; normal pan remains OFF.
+See the October 25 status below for the separate commissioning experiment.
 This supersedes the PCA9685-only proposal on `codex/arducam-sg90-pan`.
 The retained PCA9685 option remains compatible; it is not required for direct PWM.
 
 ## October 25 physical preparation status
 
-The owner has SG90 servos with three-socket plugs, but no verified power supply.
-Do not plug that block onto three adjacent header pins: separate mapped jumper
-connections are required. No soldering to the Jetson is needed.
+The owner has SG90 servos with individually soldered, separately insulated
+extensions, but no verified external servo supply. Do not plug the original
+three-socket block onto three adjacent header pins. No soldering to the Jetson
+is needed.
 
 Read-only discovery on the real Super / Orin NX 16 GB finds `3280000.pwm`
 (physical pin 15 route) and `32e0000.pwm` (physical pin 32 route). Both report
 one unexported channel and writable export/unexport under the existing user.
-No output was exported, PWM generated, boot settings changed or motor moved.
-Discovery does not prove header pinmux, waveform or servo compatibility.
+Jetson-IO PWM7 on pin 32 was subsequently saved and rebooted, preserving the
+existing IMX477 Quad Seeed camera overlay and M.2 I2S4 configuration. The live
+device tree confirms PG.06 / `gp` output routing. Pre-change boot configuration,
+base DTB and camera overlay were backed up and hash-verified outside the repo.
+Discovery and device-tree inspection do not prove the actual header waveform
+or servo compatibility.
 
-Motor power, a suitable connector/breakout for that supply, common-ground
-wiring, PWM routing/signal verification and a supervised bare-servo calibration
-are still required. Send the supply's label/rating before choosing it. Do not
-assume the existing Jetson barrel adapter, camera battery or a USB cable alone
-is suitable. Follow the wiring and commissioning steps below; pan remains OFF.
+The owner explicitly accepted a brief experimental bare-servo trial using
+header power: red to physical pin 2, brown to pin 6, orange to pin 32. Photos
+were checked against the carrier markings; unloaded pin 2-to-6 voltage measured
++5.1 V. This does NOT establish current headroom, loaded/transient stability,
+signal compatibility or safe travel. The 19 V Jetson barrel adapter must never
+directly power the servo. Normal pan and all three safety confirmations remain
+OFF. No camera mounting, automatic sweep or permanent activation is accepted.
+
+### Separate one-shot commissioning helper
+
+`scripts/commission_camera_pan.py` defaults to a read-only JSON plan with no
+network or hardware access. Only the following explicit command generates the
+fixed experimental sequence, on Linux and under physical supervision:
+
+```bash
+python scripts/commission_camera_pan.py --execute --accept-unverified-power --bare-servo
+```
+
+It uses the existing controller-identity/ownership driver, refuses an exported
+channel, polls the public loopback emergency-stop flag fail-closed, and handles
+SIGINT/SIGTERM plus a four-second execution watchdog. The fixed sequence is
+1500, 1400, 1600, then 1500 microseconds at 50 Hz, with two seconds of planned
+holds plus health-request overhead. Initial centering can cause a LARGE jump
+from an unknown position. Cleanup attempts duty-zero, disable and unexport of
+only its own output. No retries, service restarts, configuration edits, cloud
+requests, camera access or normal feature activation occur.
+
+Keep the camera removed, horn clear and physical power disconnect ready.
+Disconnect immediately for sustained buzzing, jitter, heating or Jetson
+restarts. Software cannot guarantee cleanup after SIGKILL, blocked hardware
+I/O or power faults. A successful command is not electrical acceptance or
+calibration. Recheck unexported PWM, unchanged boot time and ATLAS health, and
+record the operator's observed movement before any further test.
+
+The first attempted command stopped with `PermissionError`; immediate inspection
+confirmed both header PWM channels unexported, unchanged kernel boot ID and
+`atlas.service` active with zero service restarts. The existing NVIDIA udev rule
+grants `gpio` access to timing/enable attributes but not `polarity`. The driver
+must verify normal polarity without rewriting that root-only attribute, and
+wait boundedly for the existing udev permissions. No global permission changes
+or root AI service are appropriate. Motor movement is not yet accepted.
+
+A subsequent disabled-output diagnostic identified Linux `EINVAL` on the first
+`enable=0` write: a fresh channel's zero period makes even zero-duty/disable
+state applies invalid. The driver now first requires normal polarity, disabled
+output and zero duty, then sets the fixed 20 ms period before zero writes.
+The regression fixture models this kernel behavior rather than treating sysfs
+as unconstrained text files. See [Linux 5.15 PWM state validation](https://github.com/torvalds/linux/blob/v5.15/drivers/pwm/core.c#L502-L509).
+
+### Latest physical test result: NO visible motion
+
+After the setup fixes, the bounded test completed and released its output.
+The same kernel boot ID remained active and `atlas.service` stayed running
+with zero service restarts. The operator saw no motion in either the initial
+tiny-offset test or an explicitly approved larger near-centre wiggle. Do not
+report this as successful motor operation or enable normal pan.
+
+The original 1480/1500/1520 us requests can all quantize to the same duty count
+19 on Tegra's 8-bit divider. The revised helper uses 1400/1500/1600 us, nominal
+counts 18/19/20, to distinguish its commands. At a 20 ms period this is roughly
+78 us duty resolution: direct hardware PWM may give coarse motion, not a smooth
+security-camera pan. These calculations do not verify physical pulse widths or
+servo angles. See the [NVIDIA-authored Linux 5.15 Tegra driver](https://github.com/torvalds/linux/blob/v5.15/drivers/pwm/pwm-tegra.c#L98-L106)
+and [Linux's requested-versus-implemented state warning](https://www.kernel.org/doc/html/v5.15/driver-api/pwm.html#using-pwms).
+
+Sysfs readback during the tiny-offset repeat showed period 20000000 ns,
+requested duties 1500000/1480000/1520000/1500000 ns, enable 1 and normal polarity;
+it is not a scope measurement. Every attempt was followed by verification that
+both header channels were unexported. No further blind repeats are appropriate.
+Next: inspect live pinctrl/SFIO state using a filtered read-only privileged
+diagnostic, then verify the physical signal path and voltage at the servo with
+suitable tools. Power down and unplug all supplies before changing wiring;
+never compensate by injecting 5 V into a signal pin or adding a strong pull-up.
+Actual servo-supply capacity, loaded voltage, signal amplitude/waveform, travel,
+camera mounting/cable slack and dashboard control acceptance remain unverified.
+
+The operator subsequently ran the filtered privileged pinctrl inspection:
+`pin 41 (SOC_GPIO19_PG6): 2430000.pinmux (GPIO UNCLAIMED) (HOG) function gp group soc_gpio19_pg6`.
+This confirms the expected kernel pinmux assignment; `GPIO UNCLAIMED` does not
+mean a missing GPIO claim for a PWM/SFIO function. It still does not measure the
+signal at the header or servo. Next physical diagnostic is voltage at the
+actual servo red/brown path, after identifying accessible, safe test points;
+the earlier unloaded 5.1 V header measurement is not sufficient.
 
 ## What is implemented
 
@@ -179,8 +262,9 @@ verified wiring, not this direct wiring plan.
 
 The following source-deployment procedure was written before the combined
 software was installed. The current status above takes precedence; physical
-commissioning remains pending. No motor configuration or boot file was changed
-on October 25. Use the reviewed **combined feature branch**, not
+loaded commissioning remains pending. The approved Jetson-IO boot change and
+separate bare-servo preparation are recorded above; normal motor configuration
+has not been enabled. Use the reviewed **combined feature branch**, not
 the earlier PCA-only patch/bundle. Compare the actual installed source first,
 then apply only approved source/config changes with a reversible backup and
 run the existing isolated regression wrapper. Keep pan disabled on first
@@ -196,12 +280,18 @@ certify mechanical safety, power stability, PWM routing, real speech or hardware
 
 ## Local regression verification
 
+October 25 commissioning corrections: **3,646 passed, two expected skips**
+across all 52 collected test files, run in four disjoint isolated partitions;
+focused pan coverage: **130 passed**. Ruff, secret scan, recovery verification
+and whitespace checks passed. Driver hash prefix: `864644b3`; helper: `a25d8ab8`.
+These checks do not override the NO-motion physical result recorded above.
+
 Synthetic tests cover waveform conversion/50 Hz configuration, controller
 identity, no fan/shared output changes, ownership/export/permission failures,
 invalid pulses/settings, calibration/setup gates, slow sweep and reversals,
 manual override, expired jog, stale commands, emergency-stop epochs, lifecycle
 and fault isolation. Dashboard tests use intercepted mock APIs, never hardware
-or provider keys. Final local gate: **3,323 passed, one expected skip**, with
+or provider keys. Earlier dashboard release gate: **3,323 passed, one expected skip**, with
 the existing non-failing Starlette/httpx deprecation warning. Synthetic
 JavaScript checks: 81. Headless browser: 35 layouts, 29 control requests, 10
 failure/recovery checks, 2,717 contrast checks, no unexpected browser errors.
