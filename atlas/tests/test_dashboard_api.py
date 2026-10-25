@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from atlas.app.dependency_container import Container
 from atlas.config.settings import DashboardSettings, PathsSettings, RunMode, Settings
 from atlas.dashboard.api import create_app
+from atlas.dashboard.visitor_service import VisitorService
 from atlas.models.languages import ADMIN_LANGUAGE_OPTIONS
 from atlas.rag.ingest import load_content_pack
 
@@ -128,6 +129,157 @@ class TestHealthAndStatus:
 
 
 class TestSession:
+    @pytest.mark.parametrize("entry_point", ["admin", "visitor"])
+    def test_introduction_is_queued_and_played_once_not_in_http(
+        self, client, monkeypatch, entry_point,
+    ):
+        service = client.app.state.service
+        # Keep all hardware/providers mocked while exercising the real shared
+        # device bridge (the ordinary dev preview intentionally has no bridge).
+        client.app.state.visitor_service = VisitorService(runtime_service=service)
+        monkeypatch.setattr(
+            "atlas.dashboard.visitor_service._runtime_headset_ready",
+            lambda runtime: True,
+        )
+        spoken = []
+        monkeypatch.setattr(
+            service.container.tts,
+            "speak",
+            lambda text, language: spoken.append((text, language)) or True,
+        )
+        if entry_point == "admin":
+            response = client.post(
+                "/api/admin/demo/start", headers=_admin(client),
+                json={"language": "fr", "profile": "adult_beginner"},
+            )
+        else:
+            progress = client.post(
+                "/api/visitor/onboarding/progress",
+                json={"step": "privacy", "language": "fr"},
+            )
+            assert progress.status_code == 200
+            response = client.post("/api/visitor/onboarding/start", json={})
+        assert response.status_code == 200
+        assert spoken == []
+        assert service.speak_pending_greeting() is True
+        assert service.speak_pending_greeting() is False
+        assert len(spoken) == 1
+        assert spoken[0][1] == "fr"
+        assert spoken[0][0].startswith("Bonjour, je suis ATLAS")
+
+    def test_stopped_session_does_not_play_queued_introduction(
+        self, client, monkeypatch
+    ):
+        service = client.app.state.service
+        spoken = []
+        monkeypatch.setattr(
+            service.container.tts,
+            "speak",
+            lambda *args: spoken.append(args) or True,
+        )
+        service.start_session(demo=True)
+        service.stop_session()
+        assert service.speak_pending_greeting() is False
+        assert spoken == []
+
+    def test_restart_replaces_queued_introduction(self, client, monkeypatch):
+        service = client.app.state.service
+        spoken = []
+        monkeypatch.setattr(
+            service.container.tts,
+            "speak",
+            lambda text, language: spoken.append((text, language)) or True,
+        )
+        service.set_profile(language="fr")
+        service.start_session(demo=True)
+        service.set_profile(language="es")
+        service.start_session(demo=True)
+        assert service.speak_pending_greeting() is True
+        assert len(spoken) == 1
+        assert spoken[0][1] == "es"
+
+    def test_automatic_named_greeting_stays_local_and_erases_name(
+        self,
+        client,
+        monkeypatch,
+        caplog,
+    ):
+        service = client.app.state.service
+        local = []
+        cloud = []
+        monkeypatch.setattr(
+            service.container.tts,
+            "speak_private_local",
+            lambda text, language: local.append((text, language)) or True,
+        )
+        monkeypatch.setattr(
+            service.container.tts,
+            "speak",
+            lambda *args: cloud.append(args) or True,
+        )
+        service.start_session(demo=True, greeting_name="Emerson")
+        assert service.speak_pending_greeting() is True
+        assert len(local) == 1
+        assert "Emerson" in local[0][0]
+        assert cloud == []
+        assert service._greeting_name is None
+        assert "Emerson" not in caplog.text
+        assert "Emerson" not in str(service.status())
+
+    def test_failed_private_intro_never_cloud_falls_back_or_retries(
+        self,
+        client,
+        monkeypatch,
+        caplog,
+    ):
+        service = client.app.state.service
+        cloud = []
+
+        def local_failure(text, language):
+            raise RuntimeError("private synthetic name Emerson")
+
+        monkeypatch.setattr(service.container.tts, "speak_private_local", local_failure)
+        monkeypatch.setattr(
+            service.container.tts,
+            "speak",
+            lambda *args: cloud.append(args) or True,
+        )
+        service.start_session(greeting_name="Emerson")
+        assert service.speak_pending_greeting() is False
+        assert service.speak_pending_greeting() is False
+        assert service._greeting_name is None
+        assert cloud == []
+        assert "Emerson" not in caplog.text
+
+    def test_intro_cancelled_during_audio_does_not_mark_old_session_complete(
+        self,
+        client,
+        monkeypatch,
+    ):
+        service = client.app.state.service
+
+        def stop_during_audio(text, language):
+            service.stop_session()
+            return True
+
+        monkeypatch.setattr(service.container.tts, "speak", stop_during_audio)
+        service.start_session()
+        assert service.speak_pending_greeting() is False
+        assert service.session_id is None
+
+    def test_emergency_stop_suppresses_queued_introduction(self, client, monkeypatch):
+        service = client.app.state.service
+        spoken = []
+        monkeypatch.setattr(
+            service.container.tts,
+            "speak",
+            lambda *args: spoken.append(args) or True,
+        )
+        service.start_session()
+        service.container.hardware.emergency_stop()
+        assert service.speak_pending_greeting() is False
+        assert spoken == []
+
     def test_start_and_stop(self, client):
         started = client.post("/session/start", headers=_admin(client)).json()
         assert started["session_id"]
@@ -519,9 +671,10 @@ class TestSharedActivitySnapshot:
             assert "synthetic hidden" in entry["raw"]
             assert "synthetic hidden" in entry["text"]
         assert shown["snapshot_id"] != hidden["snapshot_id"]
-        assert client.get("/logs/snapshot", headers=_admin(client)).json()[
-            "snapshot_id"
-        ] == shown["snapshot_id"]
+        assert (
+            client.get("/logs/snapshot", headers=_admin(client)).json()["snapshot_id"]
+            == shown["snapshot_id"]
+        )
 
     def test_snapshot_limits_preserve_pairing_and_original_order(self, client):
         service = client.app.state.service
@@ -529,7 +682,8 @@ class TestSharedActivitySnapshot:
         path.write_text(
             "[STT] Preparing to listen\n"
             "[Vision] Triggered Mona Lisa after 1.0s\n"
-            "[Button] Manual artwork capture requested\n", encoding="utf-8",
+            "[Button] Manual artwork capture requested\n",
+            encoding="utf-8",
         )
         for name in ("session_start", "session_stop"):
             service.container.logger.log(session_id="test", state="session", event=name)
@@ -544,13 +698,19 @@ class TestSharedActivitySnapshot:
         assert result["events"][0]["text"] == "The visitor session ended."
 
     def test_invalid_limit_type_rejected(self, client):
-        assert client.get(
-            "/logs/snapshot?limit=invalid", headers=_admin(client)
-        ).status_code == 422
+        assert (
+            client.get(
+                "/logs/snapshot?limit=invalid", headers=_admin(client)
+            ).status_code
+            == 422
+        )
 
     @pytest.mark.parametrize("enabled", [False, True])
     def test_local_answer_is_observable_without_new_question_retention(
-        self, client, enabled, caplog,
+        self,
+        client,
+        enabled,
+        caplog,
     ):
         import logging
 
@@ -560,7 +720,9 @@ class TestSharedActivitySnapshot:
         service.container.settings.logging.log_transcripts = True
         question = "Who painted the Mona Lisa?"
         answer = client.post(
-            "/ask", headers=_admin(client), json={"question": question},
+            "/ask",
+            headers=_admin(client),
+            json={"question": question},
         ).json()
         assert (f"[ATLAS final] {answer['answer']}" in caplog.text) is enabled
         event = service.container.logger.read_recent()[-1]
@@ -569,16 +731,21 @@ class TestSharedActivitySnapshot:
         assert question not in str(event)
 
     def test_activity_write_failure_does_not_break_a_local_answer(
-        self, client, monkeypatch,
+        self,
+        client,
+        monkeypatch,
     ):
         def unavailable(**_fields):
             raise OSError("synthetic activity disk unavailable")
 
         monkeypatch.setattr(
-            client.app.state.service.container.logger, "log", unavailable,
+            client.app.state.service.container.logger,
+            "log",
+            unavailable,
         )
         response = client.post(
-            "/ask", headers=_admin(client),
+            "/ask",
+            headers=_admin(client),
             json={"question": "Who painted the Mona Lisa?"},
         )
         assert response.status_code == 200
@@ -609,7 +776,8 @@ class TestAdminConfig:
     @pytest.mark.parametrize(
         ("field", "value"),
         [
-            ("max_utterance_s", 4), ("max_utterance_s", 121),
+            ("max_utterance_s", 4),
+            ("max_utterance_s", 121),
             ("silero_hesitation_silence_ms", 199),
             ("silero_hesitation_silence_ms", 10001),
         ],

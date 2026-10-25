@@ -34,6 +34,7 @@ from atlas.dashboard.activity import (
 from atlas.dashboard.visitor_activation import (
     clean_greeting_name,
     local_greeting,
+    session_introduction,
     wake_phrase_matches,
 )
 from atlas.dialogue.conversation_memory import interleave_context
@@ -188,6 +189,7 @@ class RuntimeService:
         self._wake_required = False
         self._wake_activated = True
         self._greeting_name: str | None = None
+        self._greeting_pending = False
         hardware = container.settings.hardware
         configured_output = str(hardware.audio_output_name).strip()
         self._headset_output_name = str(hardware.headset_name).strip()
@@ -249,6 +251,7 @@ class RuntimeService:
         self._wake_required = bool(wake_required)
         self._wake_activated = not self._wake_required
         self._greeting_name = clean_greeting_name(greeting_name)
+        self._greeting_pending = not self._wake_required
         self.session_id = new_session_id()
         self.container.logger.log(
             session_id=self.session_id,
@@ -283,6 +286,7 @@ class RuntimeService:
         self._wake_required = False
         self._wake_activated = True
         self._greeting_name = None
+        self._greeting_pending = False
         self._visitor_interests = []
         self._visitor_accessibility = []
         self._visitor_expertise = None
@@ -326,6 +330,49 @@ class RuntimeService:
     def visitor_accessibility(self) -> tuple[str, ...]:
         """Return privacy-bounded accessibility choices for the live runner."""
         return tuple(self._visitor_accessibility)
+
+    def speak_pending_greeting(self) -> bool:
+        """Consume one new-session greeting on the device runtime thread.
+
+        HTTP session-start handlers only queue it; they never synthesize or
+        block on audio. Claim and erase the optional name before synthesis,
+        prevent duplicate greetings, and never retry a partial spoken greeting.
+        The session-change callback aborts playback if staff stop or restart.
+        """
+        with self._session_lock:
+            if not self.session_id or not self._greeting_pending:
+                return False
+            self._greeting_pending = False
+            name = self._greeting_name
+            self._greeting_name = None
+            generation = self._session_generation
+            language = self.language
+            if bool(getattr(self.container.hardware, "emergency_stopped", False)):
+                return False
+        introduction = session_introduction(language, name)
+        with self._session_lock:
+            if generation != self._session_generation or self.session_id is None:
+                return False
+        try:
+            if name:
+                spoken = bool(
+                    self.container.tts.speak_private_local(introduction, language)
+                )
+            else:
+                spoken = bool(self.container.tts.speak(introduction, language))
+        except Exception:
+            # Provider exceptions may contain request text; never log their
+            # traceback because the named version is private local-only data.
+            logger.warning("[Activation] Session introduction audio failed")
+            return False
+        with self._session_lock:
+            if generation != self._session_generation:
+                return False
+        logger.info(
+            "[Activation] Session introduction completed "
+            "[language=%s audio_played=%s]", language, spoken,
+        )
+        return spoken
 
     def activate_from_wake(self, transcript: str) -> bool:
         """Accept the local wake phrase and play a private local greeting."""

@@ -206,7 +206,7 @@ class VisitorService:
             try:
                 self._activate_runtime_session(
                     demo=True,
-                    wake_required=True,
+                    wake_required=False,
                     greeting_name=(
                         greeting_name
                         if self._state["profile"]["name_entered"]

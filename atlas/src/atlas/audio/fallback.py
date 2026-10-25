@@ -155,7 +155,13 @@ class FallbackSTT(BaseSTT):
 
 
 class FallbackTTS(BaseTTS):
-    def __init__(self, primary: BaseTTS, fallback: BaseTTS) -> None:
+    def __init__(
+        self,
+        primary: BaseTTS,
+        fallback: BaseTTS,
+        *,
+        primary_retry_interval_s: float = 15.0,
+    ) -> None:
         self.primary = primary
         self.fallback = fallback
         self.primary_ready = False
@@ -170,6 +176,33 @@ class FallbackTTS(BaseTTS):
         self._utterance_had_audio = False
         self._cancel_lock = threading.Lock()
         self._speech_generation = 0
+        self._speak_lock = threading.RLock()
+        self._primary_retry_interval_s = max(0.0, primary_retry_interval_s)
+        self._primary_failed_at = 0.0
+
+    def _mark_primary_failed(self) -> None:
+        self.primary_ready = False
+        self._primary_failed_at = time.monotonic()
+
+    def _recover_primary(self, generation: int) -> None:
+        """Retry a transient outage only between answers, never during audio."""
+        if (
+            self.primary_ready
+            or self._speech_cancelled(generation)
+            or time.monotonic() - self._primary_failed_at
+            < self._primary_retry_interval_s
+        ):
+            return
+        try:
+            self.primary.warm_up()
+        except Exception as exc:
+            if not self._speech_cancelled(generation):
+                self._mark_primary_failed()
+            logger.warning("[TTS] Primary recovery unavailable: %s", exc)
+            return
+        if not self._speech_cancelled(generation):
+            self.primary_ready = True
+            logger.info("[TTS] Primary recovered: %s", type(self.primary).__name__)
 
     def warm_up(self) -> None:
         primary_error: Exception | None = None
@@ -180,6 +213,7 @@ class FallbackTTS(BaseTTS):
             logger.info("[TTS] Primary ready: %s", type(self.primary).__name__)
         except Exception as exc:
             primary_error = exc
+            self._mark_primary_failed()
             logger.warning("Cloud TTS unavailable; using local fallback: %s", exc)
         try:
             self.fallback.warm_up()
@@ -244,6 +278,16 @@ class FallbackTTS(BaseTTS):
         return result
 
     def begin_utterance(self, language: str = "en") -> bool:
+        generation = self._speech_generation
+        with self._speak_lock:
+            if self._speech_cancelled(generation):
+                return False
+            self._recover_primary(generation)
+            if self._speech_cancelled(generation):
+                return False
+            return self._begin_utterance(language)
+
+    def _begin_utterance(self, language: str) -> bool:
         self._streaming_primary = False
         self._stream_segments = []
         self._stream_language = language
@@ -405,6 +449,20 @@ class FallbackTTS(BaseTTS):
 
     def speak(self, text: str, language: str = "en") -> bool:
         generation = self._speech_generation
+        # The provider's playback_started flag belongs to the current call.
+        # Inspect it before another call can reset it and accidentally permit a
+        # second voice over audio from a failed first call. Capture generation
+        # before waiting so a stopped session cannot revive queued speech.
+        with self._speak_lock:
+            if self._speech_cancelled(generation):
+                return False
+            if self._locked_adapter is None and not self._streaming_primary:
+                self._recover_primary(generation)
+            if self._speech_cancelled(generation):
+                return False
+            return self._speak(text, language, generation)
+
+    def _speak(self, text: str, language: str, generation: int) -> bool:
         if self._locked_adapter is not None and not self._streaming_primary:
             adapter = self._locked_adapter
             try:
@@ -472,7 +530,7 @@ class FallbackTTS(BaseTTS):
                 type(self.primary).__name__,
                 type(self.fallback).__name__,
             )
-            self.primary_ready = False
+            self._mark_primary_failed()
         try:
             if self._speech_cancelled(generation):
                 return False

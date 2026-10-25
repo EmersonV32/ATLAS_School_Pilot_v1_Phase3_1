@@ -261,7 +261,14 @@ def test_device_loop_handles_voice_and_session_stop_without_camera(
         demo_active=scenario == "demo_voice",
         wake_pending=False,
     )
-    states = {"active": False, "answered": False, "deactivated": 0}
+    states = {"active": False, "answered": False, "deactivated": 0, "greeted": 0}
+
+    def greet():
+        assert not states["active"], "The microphone must not hear the greeting"
+        states["greeted"] += 1
+        return True
+
+    service.speak_pending_greeting = greet
     selected = (
         ArtworkDetection(
             artwork_id="mona_lisa", label="Mona Lisa", confidence=1.0,
@@ -280,6 +287,7 @@ def test_device_loop_handles_voice_and_session_stop_without_camera(
             pass
 
         def activate(self):
+            assert states["greeted"] == 1
             states["active"] = True
 
         def deactivate(self):

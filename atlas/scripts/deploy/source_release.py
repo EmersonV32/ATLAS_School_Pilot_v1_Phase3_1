@@ -68,6 +68,10 @@ REQUIRED = (
         "tests/test_conversation_workflow.py",
         "tests/test_camera_pan.py",
         "tests/test_jetson_camera_pan.py",
+        "tests/test_fallback_tts.py",
+        "tests/test_voice_identity_regressions.py",
+        "tests/test_dashboard_api.py",
+        "tests/test_visitor_personalization.py",
     }
     | {VALIDATION_PREFIX + name for name in VALIDATION_FILES}
 )
@@ -80,6 +84,10 @@ SMOKE_TESTS = (
     "tests/test_conversation_workflow.py",
     "tests/test_camera_pan.py",
     "tests/test_jetson_camera_pan.py",
+    "tests/test_fallback_tts.py",
+    "tests/test_voice_identity_regressions.py",
+    "tests/test_dashboard_api.py",
+    "tests/test_visitor_personalization.py",
 )
 ASSETS = (
     "/static/admin.js",

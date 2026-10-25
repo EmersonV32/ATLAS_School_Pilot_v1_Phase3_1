@@ -7,9 +7,22 @@ import pytest
 from atlas.dashboard.visitor_activation import (
     clean_greeting_name,
     local_greeting,
+    session_introduction,
     wake_phrase_matches,
 )
 from atlas.dialogue.personalization import SessionPersonalization
+from atlas.models.languages import ADMIN_LANGUAGE_CODES
+
+
+@pytest.mark.parametrize("language", sorted(ADMIN_LANGUAGE_CODES))
+def test_session_introduction_covers_every_enabled_admin_language(language):
+    introduction = session_introduction(language)
+    assert introduction
+    assert introduction != session_introduction("en") or language == "en"
+
+
+def test_named_introduction_is_one_local_greeting():
+    assert session_introduction("fr", "Emerson") == local_greeting("fr", "Emerson")
 
 
 @pytest.mark.parametrize(

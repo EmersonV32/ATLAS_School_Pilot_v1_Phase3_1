@@ -623,6 +623,20 @@ class DeviceRuntime:
                     active_detection = None
                     clear_count = 0
                     print(f"[Session] Active: {active_session_id}")
+                    greet = getattr(
+                        self._dashboard_service, "speak_pending_greeting", None,
+                    )
+                    if callable(greet):
+                        # Greet on this speech-owning thread, before opening the
+                        # microphone. HTTP start stays fast; no self-transcription.
+                        greet()
+                    if (
+                        self._dashboard_service is not None
+                        and self._dashboard_service.session_id != active_session_id
+                    ):
+                        # A stop/restart during the greeting must not reactivate
+                        # the cancelled visit's listener.
+                        continue
                     runner.cue_listening()
                     listener.activate()
                     if (
