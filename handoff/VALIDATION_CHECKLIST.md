@@ -1,12 +1,10 @@
 # Validation checklist
 
-For the current prepared candidate, start with the
-[October 18 onsite runbook](../atlas/docs/2026-10-18_ONSITE_DEPLOYMENT.md) and the
-[combined detailed online checklist](../atlas/docs/2026-10-12_COMBINED_RELEASE_AUDIT.md).
-The watchdog now has a source fix, but actual flash/soak and pending hardware/cloud
-tests are not waived by a passing laptop gate. Keep pan disabled until supervised
-commissioning. Do not use an old model/firmware deployment bundle blindly for
-a workflow-only update.
+Start with the [October 26 handoff](2026-10-26_TEAMMATE_HANDOFF.md) and
+[source-only deployment runbook](DEPLOYMENT_RUNBOOK.md). Older onsite/audit
+reports are dated evidence, not current deployment commands. Passing laptop
+checks does not waive physical acceptance. SG90 commissioning is paused;
+pan is not required to make the conversation demo ready.
 
 ## Repository gate
 
@@ -48,12 +46,33 @@ It allows synthetic per-test fixtures while blocking real dotenv discovery.
 The lint scope covers maintained runtime/tests/scripts, not frozen historical
 training recipes. Git-backed gates require new files/deletions to be staged.
 
+### Windows: isolated temporary directories and focused runs
+
+Some Windows environments deny access to pytest's default temporary directory.
+Use a new temporary root for each process; do not repeatedly retry a known
+inaccessible directory or weaken tests. From `atlas/` in PowerShell:
+
+```powershell
+$atlasQaRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("atlas-qa-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $atlasQaRoot -ErrorAction Stop | Out-Null
+$env:TEMP = $atlasQaRoot
+$env:TMP = $atlasQaRoot
+.\.venv\Scripts\python.exe -c "import sys; sys.path.insert(0,'scripts'); import run_deployment_pytest as gate; original=gate.pytest.main; gate.pytest.main=lambda args: original(args+sys.argv[2:]+['--basetemp='+sys.argv[1],'--tb=short','--maxfail=3']); raise SystemExit(gate.run_tests())" (Join-Path $atlasQaRoot "pytest")
+```
+
+Append specific `tests/test_*.py` paths to that command for focused runs. With
+no paths it runs the full suite. Use the approved host Python execution context
+if the restricted runner still cannot access the new directory. Deployment
+transaction tests can take several minutes. When splitting the suite across
+processes, use distinct temporary roots and record that their union covers
+every test file exactly once; a focused subset is not the full gate.
+
 ## Fresh-clone recovery gate
 
 From a new temporary directory:
 
 ```bash
-git clone --single-branch --branch main <repository-url> atlas-recovery-test
+git clone --single-branch --branch codex/camera-offline-demo-2026-10-25 <repository-url> atlas-recovery-test
 cd atlas-recovery-test/atlas
 python scripts/verify_recovery_bundle.py
 python scripts/verify_repository_layout.py
@@ -65,6 +84,14 @@ python scripts/verify_repository_layout.py
 - [ ] The checked-out commit equals the intended remote branch or tag.
 
 ## Jetson hardware gate
+
+Apply only the checks relevant to the approved change, and record remaining
+checks as pending. For the camera-free conversation demo, the damaged primary
+camera may remain degraded; do not require capture or flash firmware merely
+to start a voice session. A camera feature still requires its own fresh-frame,
+capture, button, and load acceptance. SG90 motion needs a separate supervised
+commissioning plan and is currently paused. Do not install packages or restore
+secrets on an already working device just to repeat this list.
 
 - [ ] Secrets restored outside Git with restrictive permissions.
 - [ ] Python environment installs from the locked requirements.

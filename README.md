@@ -11,10 +11,14 @@ artwork itself.
 Public project website:
 [ATLAS](https://emersonv32.github.io/ATLAS_School_Pilot_v1_Phase3_1/).
 
-`main` is the maintained branch. Start with
-[current state](handoff/CURRENT_STATE.md), then use the map below.
-Experimental and historical branches are explained in
-[the branch guide](handoff/BRANCHES.md); they are not deployment sources.
+**Teammate takeover, October 26:** start with the
+[two-week handoff](handoff/2026-10-26_TEAMMATE_HANDOFF.md) and give a new Codex
+the [continuation prompt](handoff/NEW_CODEX_PROMPT.md).
+The current continuation branch is `codex/camera-offline-demo-2026-10-25`;
+its latest deployed fixes have not been promoted to `main`. Use the
+[source-only deployment runbook](handoff/DEPLOYMENT_RUNBOOK.md) for an approved
+update to the existing Jetson. See [current state](handoff/CURRENT_STATE.md)
+and the dated [branch ledger](handoff/BRANCHES.md) for evidence and history.
 
 ## What makes ATLAS different
 
@@ -89,6 +93,9 @@ python scripts/verify_repository_layout.py
 ```
 
 Run the dashboard with mock integrations:
+
+Use a fresh laptop development checkout with no private `.env` or hardware
+configuration. Do not launch a second runtime on the live Jetson.
 
 ```bash
 python -m uvicorn atlas.dashboard.api:app --host 127.0.0.1 --port 8765

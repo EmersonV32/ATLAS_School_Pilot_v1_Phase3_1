@@ -1,7 +1,11 @@
 # Rebuild ATLAS from a fresh Jetson flash
 
-This is the shortest authoritative recovery path. Read
-`ATLAS_JETSON_NX_SETUP_LOG.md` before changing NVIDIA packages.
+This guide applies only to an explicitly approved replacement/fresh flash.
+Do not use it to repair a working demo or deploy an ordinary source change;
+use the [source-only runbook](../DEPLOYMENT_RUNBOOK.md) instead. Read the
+[October 26 handoff](../2026-10-26_TEAMMATE_HANDOFF.md) and
+`ATLAS_JETSON_NX_SETUP_LOG.md` before changing NVIDIA packages. Existing private
+configuration, credentials, model caches, and protected backups are not in Git.
 
 ## 1. Flash and boot
 
@@ -15,19 +19,21 @@ This is the shortest authoritative recovery path. Read
 
 ```bash
 mkdir -p ~/atlas
-git clone --single-branch --branch main \
+git clone --single-branch --branch codex/camera-offline-demo-2026-10-25 \
   https://github.com/EmersonV32/ATLAS_School_Pilot_v1_Phase3_1.git \
   ~/atlas/ATLAS_School_Pilot_v1_Phase3_1
 cd ~/atlas/ATLAS_School_Pilot_v1_Phase3_1/atlas
 ```
 
-The repository's `main` branch and root `atlas/` directory are the maintained
-recovery source. Historical code must not be used for a fresh recovery. See
+As of October 26 the continuation branch above contains later working fixes
+that have not been promoted to `main`; root `atlas/` is the active runtime.
+Confirm the intended reviewed revision before rebuilding. Historical code
+must not be used for a fresh recovery. See
 [`../../archive/README.md`](../../archive/README.md) for retained evidence and
 the `snapshot/repository-pre-cleanup-2026-10-11` recovery tag; that tag is not
 the current application release.
 
-The install clone fetches `main` history, not every experimental branch. Fetch
+The install clone fetches the selected branch, not every experimental branch. Fetch
 a specific research branch separately only when reviewing that work; do not
 add it to normal device startup.
 

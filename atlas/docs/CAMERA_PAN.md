@@ -1,5 +1,23 @@
 # Direct SG90 camera pan - reComputer Super J4012 / Orin NX 16 GB
 
+## October 26 stop state — read first
+
+**PAUSED / NOT WORKING / DISABLED.** No visible servo movement has ever been
+demonstrated. The owner paused commissioning for filming. The teammate handoff
+does not resume it; execution examples below record the earlier experiment,
+not standing approval. See the
+[current hardware handoff](../../handoff/2026-10-26_TEAMMATE_HANDOFF.md).
+
+Later checks established 5.1 V idle at the servo-side power joints and steady
+signal-wire continuity. They did not prove loaded power stability, a 50 Hz
+waveform, signal compatibility, or a working servo. PG.06 readback `0x00000400`
+is not itself a pinmux fault; comparison `0x404` differs in pull-down. Do not
+rewrite registers or clocks from that difference. An AUTO meter is not an
+oscilloscope, and a TXB-buffered header input is not a valid assumed loopback
+load. No new raw-register, static-output, pull-up or bit-banged experiment is
+authorized. Keep all normal pan safety flags false and use a separately
+reviewed, supervised diagnostic plan if the human later resumes this work.
+
 Originally prepared on `codex/jetson-direct-camera-pan`, based on the latest
 dashboard, readable activity, conversation and listening work. Controller and
 dashboard source are now installed on the Jetson; normal pan remains OFF.

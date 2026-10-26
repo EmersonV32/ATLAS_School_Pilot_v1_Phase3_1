@@ -15,6 +15,27 @@ assert SPEC and SPEC.loader
 LAYOUT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(LAYOUT)
 
+HANDOFF_FILES = {
+    "handoff/2026-10-26_TEAMMATE_HANDOFF.md",
+    "handoff/DEPLOYMENT_RUNBOOK.md",
+    "handoff/NEW_CODEX_PROMPT.md",
+}
+
+
+def test_teammate_entrypoints_have_navigation_validation() -> None:
+    assert HANDOFF_FILES <= set(LAYOUT.NAVIGATION)
+
+
+def test_teammate_entrypoints_are_required_for_recovery() -> None:
+    spec = importlib.util.spec_from_file_location(
+        "handoff_recovery_verifier",
+        Path(__file__).resolve().parents[1] / "scripts/verify_recovery_bundle.py",
+    )
+    assert spec and spec.loader
+    recovery = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recovery)
+    assert HANDOFF_FILES <= set(recovery.REPOSITORY_REQUIRED)
+
 
 @pytest.fixture
 def repository(tmp_path: Path) -> Path:

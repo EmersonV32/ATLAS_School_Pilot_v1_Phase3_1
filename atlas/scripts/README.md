@@ -9,7 +9,7 @@ or send data; use only for an explicitly requested operation.
 | --- | --- |
 | Safe laptop regression | `run_deployment_pytest.py`, `check_no_secrets.py`, `verify_recovery_bundle.py`, `verify_repository_layout.py` |
 | Jetson installation/startup | `bootstrap_jetson.sh`, `install_user_service.sh`, `start_device.sh`, `atlas.service`; see [rebuild manual](../../handoff/jetson/REBUILD_FROM_FRESH_FLASH.md) |
-| Current source-only deployment | `deploy/source_release.py`, `prepare_onsite_settings.py`; see [onsite runbook](../docs/2026-10-18_ONSITE_DEPLOYMENT.md). Earlier `DEPLOY_ATLAS.ps1`/visitor transaction also changes models/firmware/unit; do not use blindly for this update. |
+| Current source-only deployment | `deploy/source_release.py`; see the [current deployment/rollback runbook](../../handoff/DEPLOYMENT_RUNBOOK.md). `prepare_onsite_settings.py` is a separate settings migration requiring its own approval. Earlier `DEPLOY_ATLAS.ps1`/visitor transaction also changes models/firmware/unit; do not use for routine source updates. |
 | Network and credentials | `configure_personal_wifi.py`, `configure_school_wifi.py`, `verify_school_firmware.ps1`, `configure_cloud_keys.sh`; see [onsite runbook](../docs/2026-10-18_ONSITE_DEPLOYMENT.md) and [school guide](../docs/SCHOOL_WIFI_SETUP.md) |
 | Device readiness | `preflight_device.sh`, `check_arducam.sh` |
 | Model recovery/export | `restore_models.sh`, `verify_yolo_checkpoint.py`, `export_tensorrt.py`, `promote_staged_engine.py`; see [model guide](../models/README.md) |
@@ -23,3 +23,7 @@ while allowing synthetic test fixtures. It does not flash cameras or exercise
 physical devices. Run `ruff check src tests scripts` alongside it. Training
 recipes and frozen release scripts have separate reproducibility requirements
 and are not included in this maintained-code lint scope.
+
+SG90 commissioning is paused without successful movement. The optional
+`commission_camera_pan.py` helper is not a normal startup or readiness step;
+its historical execution example is not standing approval to use hardware.

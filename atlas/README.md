@@ -5,6 +5,11 @@ museum guide. The repository-level overview is in `../README.md`; continuity,
 architecture, operations, privacy, and Jetson recovery documents are in
 `../handoff/`.
 
+For the October 26 teammate takeover, read the
+[current handoff](../handoff/2026-10-26_TEAMMATE_HANDOFF.md) and
+[new Codex prompt](../handoff/NEW_CODEX_PROMPT.md). Continue from
+`codex/camera-offline-demo-2026-10-25`; its later fixes are not on `main` yet.
+
 ## Requirements
 
 - Python 3.10 or newer
@@ -19,10 +24,10 @@ architecture, operations, privacy, and Jetson recovery documents are in
 python -m venv .venv
 source .venv/bin/activate                 # Windows: .venv\Scripts\activate
 python -m pip install -e ".[dev]"
-cp .env.example .env                      # Windows: Copy-Item .env.example .env
 ```
 
-Keep real credentials only in the ignored `.env` file. The optional dependency
+Mock development needs no private `.env`. Never read or overwrite an inherited
+environment file; humans configure real credentials privately. The optional dependency
 groups are `rag`, `vision`, `audio`, `audio-cloud`, `llm`, `dev`, and `all`.
 The optional `camera-pan` group is only for the retained PCA9685 backend;
 [direct SG90 camera pan](docs/CAMERA_PAN.md) needs no additional Python package.
@@ -30,11 +35,13 @@ The optional `camera-pan` group is only for the retained PCA9685 backend;
 ## Verify
 
 ```bash
-python -m pytest -q
+python scripts/run_deployment_pytest.py
+ruff check src tests scripts
 python -m compileall -q src scripts
 python -m pip check
 python scripts/check_no_secrets.py
 python scripts/verify_recovery_bundle.py
+python scripts/verify_repository_layout.py
 ```
 
 These commands validate the laptop-safe software and repository recovery
@@ -43,6 +50,9 @@ systemd behavior on the Jetson. Use `../handoff/VALIDATION_CHECKLIST.md` for
 the physical acceptance gate.
 
 ## Run
+
+These commands are for an isolated laptop development checkout without private
+device configuration. Do not launch a second runtime on the installed Jetson.
 
 Run mock pipeline cycles:
 
@@ -92,12 +102,13 @@ Important package boundaries:
 
 ## Deployment
 
-Fresh Jetson recovery starts at
-`../handoff/jetson/REBUILD_FROM_FRESH_FLASH.md`. The maintained incremental
-deployment command is `powershell -ExecutionPolicy Bypass -File
-.\DEPLOY_ATLAS.ps1`. It delegates to the rollback-capable runtime script and
-accepts `-SshKeyPath` or the `ATLAS_SSH_KEY` environment variable. Never commit
-the key, `.env`, live databases, logs, recordings, generated vector stores,
+For an explicitly approved update to the working device, follow the
+[source-only deployment and rollback runbook](../handoff/DEPLOYMENT_RUNBOOK.md).
+Use `scripts/deploy/source_release.py`; the older broad `DEPLOY_ATLAS.ps1`
+installer can also change models, firmware, and the service unit. Fresh Jetson
+recovery is a separate project starting at the
+[rebuild guide](../handoff/jetson/REBUILD_FROM_FRESH_FLASH.md). Never commit
+keys, `.env`, live databases, logs, recordings, generated vector stores,
 model caches, or target-specific TensorRT artifacts.
 
 ## Documentation

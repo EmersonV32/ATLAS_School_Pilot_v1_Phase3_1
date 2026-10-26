@@ -1,5 +1,22 @@
 # ATLAS branch guide and cleanup ledger
 
+## Current continuation — 2026-10-26
+
+Use `codex/camera-offline-demo-2026-10-25` for the teammate takeover. Its later
+working fixes have not been promoted to `main`. See the
+[current handoff](2026-10-26_TEAMMATE_HANDOFF.md) and
+[deployment runbook](DEPLOYMENT_RUNBOOK.md). Do not merge or delete branches
+as part of this handoff. Git source and installed runtime are separate facts.
+
+The handoff also preserves `codex/arducam-sg90-pan` at `bbf934e`, containing four
+older development commits previously local-only. It is historical recovery
+material, not a deployment candidate or evidence of successful servo motion.
+Other local branch tips were already reachable from published history at the
+start of this handoff. Publication does not integrate an experimental branch.
+
+The remainder is the **October 11 historical cleanup ledger**. Its five-branch
+inventory and `main` authority describe that date, not today's continuation.
+
 Audit date: 2026-10-11.
 
 ## Publication status

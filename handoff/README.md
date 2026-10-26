@@ -6,10 +6,12 @@ museum operator, or replacement Jetson. It describes the active source in
 
 ## Current authority
 
-`main` is the maintained release and recovery branch. The only active runtime
-is [`../atlas/`](../atlas/). Work on a `codex/` feature branch, validate changes,
-and merge them into `main`; a branch name or dated handoff never supersedes the
-current source. Repository cleanup does not deploy to or validate the Jetson.
+For the October 26 teammate takeover, continue from
+`codex/camera-offline-demo-2026-10-25`. Its latest fixes are not on `main` yet;
+do not start from `main` and lose those changes. The only active runtime is
+[`../atlas/`](../atlas/). Publish reviewed feature-branch commits without
+force-pushing; promotion to `main` needs an explicit request and validation.
+Documentation publication does not deploy to or validate the Jetson.
 
 The latest operating observations remain dated in
 [`CURRENT_STATE.md`](CURRENT_STATE.md). The October 4 model handoff,
@@ -17,6 +19,10 @@ The latest operating observations remain dated in
 continuation stage, not a requirement to keep using that feature branch.
 
 ## Read first
+
+**Current takeover:** [two-week handoff](2026-10-26_TEAMMATE_HANDOFF.md),
+[new Codex prompt](NEW_CODEX_PROMPT.md), and
+[deployment/rollback runbook](DEPLOYMENT_RUNBOOK.md).
 
 1. [`START_HERE.md`](START_HERE.md) - authority, first commands, and the safest
    continuation path.

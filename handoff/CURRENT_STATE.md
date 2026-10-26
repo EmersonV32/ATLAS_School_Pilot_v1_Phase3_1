@@ -1,7 +1,56 @@
 # Current state
 
-Source status date: 2026-10-25. Physical observations below retain their actual
-dates; repository cleanup is not a hardware deployment or a fresh health check.
+## Current continuation — 2026-10-26
+
+Read the [two-week teammate handoff](2026-10-26_TEAMMATE_HANDOFF.md),
+[new Codex prompt](NEW_CODEX_PROMPT.md), and
+[deployment/rollback runbook](DEPLOYMENT_RUNBOOK.md) first.
+
+- Continue from `codex/camera-offline-demo-2026-10-25`, active source `atlas/`.
+  Later working fixes are not promoted to `main`. This handoff changes no
+  live device state.
+- Last verified runtime deployment: `4b2233c` on October 25; `d7b6ded` records
+  that deployment. Later handoff commits are documentation/tooling, not a new
+  runtime deployment. All 195 installed managed source files matched the
+  release; the user service was active with zero unexpected restarts.
+- Latest local runtime gate before this handoff: **3,789 passed, two skipped**
+  across all 55 test files; 182 focused tests passed. Native pronunciation
+  tests: 36 passed. These are dated results, not today's hardware acceptance.
+- October 26 handoff gate: **3,791 passed, two skipped** across the same 55
+  files, plus 25 focused checks, 106 synthetic admin JavaScript checks and
+  42 synthetic visitor keyboard transitions. Recovery, navigation, lint,
+  dependencies, compile, obvious-secret and whitespace checks passed.
+  No live Jetson action or fresh physical acceptance was performed.
+- Cartesia payloads normalize standalone `ATLAS` to `Atlas`, retaining the
+  selected voice/model/language and uppercase UI branding. The owner's
+  **audible pronunciation check remains pending**. See the
+  [pronunciation record](../atlas/docs/CARTESIA_NAME_PRONUNCIATION.md).
+- The same release includes the visitor navigation fix (`38e2c69`, shell v30),
+  conversation/wake-pause fixes (`5d577d9`), and voice recovery (`f90bf48`).
+  Provider timbre consistency still needs audible acceptance.
+- Primary wearable camera is offline (owner reports damaged BAT+ contact).
+  Camera-free conversation can start; capture still requires fresh frames.
+  Configured cloud services still require internet. Separate CSI preview is
+  independent and needs a fresh physical check when that feature is used.
+- **SG90 pan is PAUSED, NOT WORKING, and DISABLED.** Servo-side idle power
+  (5.1 V) and signal-wire continuity were checked, but there has never been
+  successful movement or a verified waveform. Do not repeat motor tests or
+  bypass safety flags. See the current handoff's hardware section.
+- October 26: owner reports the Jetson connected to the teammate's Windows
+  mobile hotspot sharing school Wi-Fi, at `192.168.137.193`. DHCP may change
+  this. Direct school discovery/root cause is unresolved; home Wi-Fi previously
+  worked. No hardware fault or regulatory fix is established.
+
+The present teammate can authorize scoped work during the owner's absence.
+Deployment, restarts, network changes, and physical outputs still need a
+coordinated operator window. Credentials/admin codes stay outside Git.
+
+## Earlier snapshots — historical evidence
+
+The material below retains earlier observations and superseded candidate
+instructions. Earlier installed revisions, counts, branch names, and pending
+checks describe their original date; they do not override the summary above.
+Source status date of the following snapshot: 2026-10-25.
 
 **Read [October 25 voice recovery and greeting update](../atlas/docs/2026-10-25_VOICE_AND_GREETING.md),
 then [October 25 camera-free deployment](../atlas/docs/2026-10-25_CAMERA_FREE_DEMO.md)

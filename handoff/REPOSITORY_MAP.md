@@ -44,6 +44,8 @@ visitor-runtime-bridge/
 
 | Task | Read first |
 | --- | --- |
+| Take over during the owner's absence | [Teammate handoff](2026-10-26_TEAMMATE_HANDOFF.md), [new Codex prompt](NEW_CODEX_PROMPT.md) |
+| Deploy or roll back a source change | [Deployment runbook](DEPLOYMENT_RUNBOOK.md) |
 | Understand today's source and device evidence | [Current state](CURRENT_STATE.md) |
 | Continue development | [Start here](START_HERE.md), then [developer guide](DEVELOPER_GUIDE.md) |
 | Rebuild or operate the Jetson | [Jetson rebuild](jetson/REBUILD_FROM_FRESH_FLASH.md) |
@@ -54,7 +56,8 @@ visitor-runtime-bridge/
 | Prepare competition evidence | [Competition binder](../comp_info/README.md) |
 | Recover removed files or branches | [Cleanup record](2026-10-11_REPOSITORY_CLEANUP.md), [branch ledger](BRANCHES.md) |
 
-`main` is the sole maintained deployment source. Its stable runtime directory
-remains `atlas/`. The existing Jetson installation is intentionally still at
+The current continuation branch is `codex/camera-offline-demo-2026-10-25`;
+its later fixes are not promoted to `main`. The runtime directory remains
+`atlas/`. The existing Jetson installation is intentionally still at
 `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`; cleaning Git does not
 rename that installation or change running services.

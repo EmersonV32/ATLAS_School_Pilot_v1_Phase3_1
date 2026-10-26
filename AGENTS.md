@@ -1,5 +1,18 @@
 # ATLAS repository instructions
 
+## Teammate continuation (2026-10-26)
+
+- Read `handoff/START_HERE.md`, `handoff/2026-10-26_TEAMMATE_HANDOFF.md`,
+  and `handoff/DEPLOYMENT_RUNBOOK.md` before changing this project.
+- Continue from `codex/camera-offline-demo-2026-10-25`; its later fixes have
+  not been promoted to `main`. Preserve inherited edits before switching refs.
+- The teammate operating the device can authorize scoped work. A handoff is
+  not standing approval to deploy, restart, change networking, or move hardware.
+- SG90 commissioning is paused without successful physical movement. Do not
+  enable pan or bypass its safety gates as part of software/demo work.
+- Credentials and admin/safety codes must be transferred privately between
+  humans, never recorded in Git, chat, or agent-readable handoff material.
+
 ## Source of truth
 
 - The maintained application is `atlas/`. Implement, test, and deploy current

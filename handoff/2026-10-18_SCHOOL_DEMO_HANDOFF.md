@@ -1,5 +1,10 @@
 # School director demo: teammate/Codex handoff
 
+**Historical October 18 record.** For the current takeover use the
+[October 26 handoff](2026-10-26_TEAMMATE_HANDOFF.md) and
+[deployment runbook](DEPLOYMENT_RUNBOOK.md). Older branch, installed revision,
+network assumptions, and test counts below describe their original date.
+
 Status: October 18, 2026 evening (America/Toronto). Read this and
 [CURRENT_STATE.md](CURRENT_STATE.md) first. Work only from `atlas/`, following
 both repository and application `AGENTS.md`. This is an honest acceptance

@@ -3,6 +3,20 @@
 Git is the recovery source for ATLAS code and versioned content, but it is not a
 backup for credentials or visitor data.
 
+## Two-week access handover
+
+The owner and teammate must privately confirm GitHub write access, Jetson SSH
+authentication, the dashboard admin/safety code, provider account access and
+billing, and permitted network credentials. A new Codex must not inspect the
+existing secret files or receive these values in chat. Do not weaken admin
+authentication to make takeover easier. Record only whether human access was
+confirmed, never the value.
+
+Protected device backups, downloaded models, local camera credentials, and
+ignored files outside this repository are not uploaded by a Git push. Agree
+on their private recovery location; preserve live files rather than replacing
+them with examples. See the [current handoff](2026-10-26_TEAMMATE_HANDOFF.md).
+
 ## Never commit
 
 - `.env` files and provider API keys;

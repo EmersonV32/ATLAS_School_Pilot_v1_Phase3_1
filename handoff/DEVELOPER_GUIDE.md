@@ -2,11 +2,16 @@
 
 ## Setup (Windows PowerShell shown; macOS/Linux equivalent in parentheses)
 
+Start from the branch and instructions in the
+[current teammate handoff](2026-10-26_TEAMMATE_HANDOFF.md). Run these commands
+from `atlas/` in a fresh laptop checkout, never inside the installed Jetson
+runtime. Mock development needs no private `.env`; do not overwrite or read
+an inherited private environment file.
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1          # (source .venv/bin/activate)
 pip install -e ".[dev]"               # core + pytest + ruff + httpx
-copy .env.example .env                # (cp .env.example .env)
 ```
 
 Optional heavy extras (never needed for dev mode):
@@ -15,18 +20,21 @@ Optional heavy extras (never needed for dev mode):
 pip install -e ".[rag]"      # ChromaDB + sentence-transformers + BM25
 pip install -e ".[vision]"   # ultralytics (YOLO)
 pip install -e ".[audio]"    # faster-whisper + piper
-pip install -e ".[llm]"      # google-generativeai (Gemini)
+pip install -e ".[llm]"      # Gemini client dependencies declared in pyproject.toml
 ```
 
 ## Daily commands
 
 ```powershell
-python -m pytest -q                                # test suite
+python scripts/run_deployment_pytest.py            # guarded test suite
 python -m atlas.app.main --run 3                   # 3 full mock cycles
 python -m atlas.rag.ingest --pack data/content_packs/demo_pack --mode dev --reset
 python -m atlas.rag.evaluator                      # RAG guardrail eval
 python -m uvicorn atlas.dashboard.api:app --host 127.0.0.1 --port 8765
-ruff check src tests
+ruff check src tests scripts
+python scripts/check_no_secrets.py
+python scripts/verify_recovery_bundle.py
+python scripts/verify_repository_layout.py
 ```
 
 ## Code map
@@ -62,8 +70,9 @@ src/atlas/
 - Privacy: never log raw audio/images, names, keys, or prompts. The
   `EventLogger` blocklist is the last line of defence, not the first.
 - Secrets only via environment variables (`.env`, never committed).
-- Keep mock/dev mode green after every change:
-  `python -m pytest -q && python -m atlas.app.main --run 3`.
+- Keep mock/dev mode green after every change. Use the guarded runner above;
+  see the [complete validation gate](VALIDATION_CHECKLIST.md) for Windows
+  temporary directories, browser checks, and publication evidence.
 - No hard-coded OS-specific paths; use `pathlib`.
 
 ## Adding a real adapter

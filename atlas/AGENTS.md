@@ -2,6 +2,10 @@
 
 These instructions apply to the maintained application in this directory.
 
+Read `../handoff/2026-10-26_TEAMMATE_HANDOFF.md` and the deployment runbook
+before continuation. Git HEAD and the last verified installed revision are
+different facts; verify them separately. Normal pan remains disabled.
+
 ## Architecture and compatibility
 
 - Preserve FastAPI, Pydantic, server-rendered HTML, CSS, and vanilla
@@ -33,6 +37,9 @@ These instructions apply to the maintained application in this directory.
 - Add focused tests for every dashboard/API/privacy behavior.
 - Before delivery run focused tests, the full test suite, Ruff,
   `scripts/check_no_secrets.py`, and `git diff --check`.
+- Run tests through `scripts/run_deployment_pytest.py` so dotenv loading is
+  disabled before collection. Follow `../handoff/VALIDATION_CHECKLIST.md` for
+  Windows temporary-directory handling and the complete publication gate.
 - Validate the visitor flow at 1024x768 landscape, with reduced motion and
   keyboard navigation.
 - Clearly label mock behavior and physical Jetson/iPad validation still due.

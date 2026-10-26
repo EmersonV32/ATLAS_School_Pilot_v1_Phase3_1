@@ -1,5 +1,23 @@
 # Offline school Wi-Fi preparation — 2026-10-05
 
+## October 26 operating update
+
+The teammate reports successful Jetson connectivity through a Windows laptop
+mobile hotspot sharing school Wi-Fi; the reported Jetson address was
+`192.168.137.193` (DHCP, recheck locally). Direct school Wi-Fi discovery is
+unresolved. Home Wi-Fi previously worked; no hardware fault is established.
+See the [current handoff](../../handoff/2026-10-26_TEAMMATE_HANDOFF.md) for the
+observations and browser/SSH access. Preserve the working connection.
+
+The Enterprise/PEAP candidate below is an **older unconfirmed assumption**,
+not instructions to replace the working profile or disable certificate
+verification. A later Windows scan showed a school AP using WPA2-Personal on
+5 GHz channel 40; that does not establish every school network's settings.
+Obtain the intended SSID/security/certificate policy from school IT. Do not
+change drivers, regulatory settings, or networking over the only remote link.
+
+## Historical October 5 candidate
+
 Assumption requested by the user: SSID `CBourget`, username/password entered
 directly in Wi-Fi settings. Implemented candidate: WPA2-Enterprise PEAP with
 MSCHAPv2. This is **not confirmation** of Bourget's actual EAP method. A browser

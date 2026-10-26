@@ -2,9 +2,14 @@
 
 ## Source of truth
 
-The maintained branch is `main`, and the only active ATLAS implementation is
-`../atlas/`. Use `codex/` feature branches for reviewed changes; do not deploy
-from an old branch merely because a dated handoff names it.
+For the October 26 teammate takeover, start with the
+[two-week handoff](2026-10-26_TEAMMATE_HANDOFF.md) and give a new Codex the
+[continuation prompt](NEW_CODEX_PROMPT.md). Read both
+[repository](../AGENTS.md) and [application](../atlas/AGENTS.md) instructions.
+
+The current continuation branch is `codex/camera-offline-demo-2026-10-25`;
+its latest working fixes have not been promoted to `main`. The only active
+ATLAS implementation is `../atlas/`.
 
 `../archive/` is historical evidence and must not be used as a deployment
 source. The handoff directory contains documentation only. The pre-cleanup
@@ -28,7 +33,8 @@ python scripts/verify_repository_layout.py
 
 Do not edit or deploy until the first two commands confirm which branch and
 working-tree changes you inherited. Do not discard changes you did not create.
-For a fresh checkout, explicitly select `main`. For an existing dirty checkout,
+For a fresh checkout, explicitly select the continuation branch above using
+the clone command in the current handoff. For an existing dirty checkout,
 preserve/review its changes before changing branches. Laptop validation is not
 physical-device acceptance.
 
@@ -58,12 +64,12 @@ service uses `/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated`. Do not
 rename the live installation merely to match the GitHub folder or change it
 as part of repository cleanup.
 
-When the user explicitly authorizes deployment, use the validated `main`
-checkout's `atlas/DEPLOY_ATLAS.ps1`, retain its rollback backup, and then verify
-the systemd unit, private environment, audio devices, cameras, headset, and
-dashboard. Follow [`jetson/OPERATIONS_MANUAL.md`](jetson/OPERATIONS_MANUAL.md)
-for normal operation. No October 11 hardware acceptance is implied by these
-documentation changes.
+When the present human operator explicitly authorizes deployment, coordinate
+with any peer chat and follow the
+[source-only deployment/rollback runbook](DEPLOYMENT_RUNBOOK.md). Do not use
+the broad installer for an ordinary source update. Follow the
+[operations manual](jetson/OPERATIONS_MANUAL.md) for normal operation.
+Documentation publication does not authorize or perform a device change.
 
 ## Non-negotiable boundaries
 
@@ -71,6 +77,9 @@ documentation changes.
   caches, virtual environments, or generated vector stores.
 - Never treat a passing laptop test suite as proof that Jetson hardware works.
 - Never deploy from `archive/`.
+- Keep SG90 pan disabled: commissioning is paused without successful movement.
+- Transfer credentials and admin/safety codes privately between humans;
+  never read or publish them in Git or chat.
 - Preserve museum-content priority without forcing irrelevant retrieval into a
   general question.
 - Keep one TTS provider and voice for an entire spoken response.
