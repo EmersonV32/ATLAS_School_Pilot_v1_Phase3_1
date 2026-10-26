@@ -49,8 +49,10 @@ recovery-bundle verification and `git diff --check` pass. Browser QA completes
 
 ## Still required on the physical installation
 
-These changes are local until a separately coordinated deployment. Do not
-restart or deploy while the mechanical chat holds the Jetson test window.
+The owner subsequently authorized deployment for filming. Revision
+`5d577d9e5e4e801f453b4f2da3e234ac3cd0f50a` is now installed; the physical
+speech checks below are still pending. Do not restart or deploy during filming
+or while another chat holds a device test window.
 
 1. With a charged OpenComm, start from both admin and visitor dashboards.
    Hear one complete introduction; ensure ATLAS does not transcribe itself.
@@ -73,3 +75,37 @@ restart or deploy while the mechanical chat holds the Jetson test window.
    No TTS provider, voice ID, fallback policy, audio route or Deepgram timing
    setting was changed here. Cloud answer quality and physical audio timing
    cannot be proven by mocked tests.
+
+## Applied Jetson release — October 25
+
+- Built and verified the existing allowlisted source-only release: 202 archive
+  entries, including eight validation-only public fixtures. Archive SHA-256:
+  `3dd6053b19f5369b17bb90bea1c262f93b2f3bdc03d5dbfa0c8697450ae5a83f`.
+- The transaction passed isolated native dependency, compilation and regression
+  checks before replacing sources. It performed one controlled user-service
+  stop/start; no reboot, package installation, GPIO/PWM or network change.
+- All 194 installed managed files match the approved manifest, with zero
+  mismatches. Validation-only fixtures did not replace the museum content.
+- Post-deployment service: active/running, `NRestarts=0`, `ExecMainStatus=0`;
+  public process health is `ok`. Visitor/admin/static routes return 200, and
+  the actual admin audio/pan routes return 401 without authentication.
+- Settings and override YAML hashes, checkpoint, TensorRT engine and installed
+  service-unit hashes match the pre-deployment baseline. Credential-file inode,
+  mode, size and modification time are unchanged; its contents were not opened.
+  Existing venv, databases, museum content and voice/provider settings remain.
+- All pan enable/confirmation flags remain false and no PWM outputs are
+  exported. The servo remains physically disconnected; no movement is claimed.
+- Additional installed-source synthetic checks: **99 passed**. Their first
+  attempt hit the running dashboard's occupied port in the fake-device test.
+  Rerunning with only that test process's port-availability probe mocked passed;
+  production port protection and the running service were not changed/stopped.
+- Live readiness at handoff: headset unavailable, language pending, camera
+  degraded/offline; unit, connection, content, profile and safety ready. The
+  owner must connect/charge the OpenComm, select the language/profile and check
+  one spoken question before filming. Process health is not audible acceptance
+  or proof that Gemini/recognition works without internet.
+
+Retained source rollback backup:
+`/home/super-alex/atlas/backups/conversation-20261025/atlas-source-20261025-200535-156386fb`.
+Keep it until physical acceptance. Rollback is a separately coordinated service
+stop and compatible source restore, never a live partial overwrite.
