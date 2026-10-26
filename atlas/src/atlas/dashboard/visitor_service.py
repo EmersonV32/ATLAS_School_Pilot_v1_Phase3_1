@@ -151,7 +151,7 @@ class VisitorService:
             "updated_at": now,
         }
 
-    def bootstrap(self) -> dict:
+    def bootstrap(self, *, include_readiness: bool = True) -> dict:
         with self._lock:
             return {
                 "mode": self.mode,
@@ -165,7 +165,9 @@ class VisitorService:
                 "preview_languages": ["ar"],
                 "interest_manifest_url": "/static/visitor/interests.json",
                 "state": self._projection(),
-                "readiness": self._readiness(),
+                # Navigation/polling needs only public state, not repeated
+                # audio-device and hardware probes under the onboarding lock.
+                "readiness": self._readiness() if include_readiness else None,
             }
 
     def progress(self, request: VisitorProgressRequest) -> dict:

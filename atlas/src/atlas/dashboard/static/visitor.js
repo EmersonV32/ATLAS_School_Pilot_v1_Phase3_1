@@ -17,7 +17,7 @@ const visitor = {
   helpContext: "onboarding",
   helpRequestId: null,
   acknowledgedHelpRequestId: null,
-  timeoutSeconds: 120,
+  timeoutSeconds: 0,
 };
 const ENGLISH_STRINGS = {
   "document.title": "ATLAS Museum Guide",
@@ -190,6 +190,14 @@ let connectionState = "connecting";
 let readinessSnapshot = null;
 let readinessRefreshTimer = null;
 let readinessRefreshInFlight = false;
+let statePollInFlight = false;
+let progressRunning = false;
+let progressQueued = null;
+let progressRevision = 0;
+let progressWaiters = [];
+let localeRevision = 0;
+let progressIdlePromise = Promise.resolve();
+let resetInFlight = false;
 
 function format(template, values = {}) {
   return String(template).replace(/\{(\w+)\}/g, (_, key) => (
@@ -202,14 +210,24 @@ function t(key, fallback = "") {
 }
 
 async function api(path, options = {}) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-  const response = await fetch(path, { ...options, headers, cache: "no-store" });
+  const { timeoutMs = 8000, ...request } = options;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  const headers = { "Content-Type": "application/json", ...(request.headers || {}) };
+  try {
+  const response = await fetch(path, { ...request, headers, signal: controller.signal, cache: "no-store" });
   let body = null;
   try { body = await response.json(); } catch (_) { /* empty response */ }
   if (!response.ok) {
     throw new Error(body && body.detail ? String(body.detail) : t("error.unavailable"));
   }
   return body;
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error(t("error.unavailable"));
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 function notice(message, bad = false) {
@@ -237,11 +255,36 @@ function progressPayload(step) {
   };
 }
 
-async function saveProgress(step) {
-  return api("/api/visitor/onboarding/progress", {
-    method: "POST",
-    body: JSON.stringify(progressPayload(step)),
+function saveProgress(step) {
+  const revision = ++progressRevision;
+  progressQueued = { revision, body: JSON.stringify(progressPayload(step)) };
+  const saved = new Promise((resolve, reject) => {
+    progressWaiters.push({ revision, resolve, reject });
   });
+  if (!progressRunning) progressIdlePromise = drainProgress();
+  return saved;
+}
+
+async function drainProgress() {
+  if (progressRunning) return;
+  progressRunning = true;
+  try {
+    while (progressQueued) {
+      const packet = progressQueued;
+      progressQueued = null;
+      let failure = null;
+      try {
+        await api("/api/visitor/onboarding/progress", {
+          method: "POST", body: packet.body,
+        });
+      } catch (error) { failure = error; }
+      const completed = progressWaiters.filter(waiter => waiter.revision <= packet.revision);
+      progressWaiters = progressWaiters.filter(waiter => waiter.revision > packet.revision);
+      completed.forEach(waiter => failure ? waiter.reject(failure) : waiter.resolve());
+    }
+  } finally {
+    progressRunning = false;
+  }
 }
 
 function reduceAge() {
@@ -310,9 +353,10 @@ function applyTranslations() {
 }
 
 async function setLocale(locale) {
-  const response = await fetch(`/static/visitor/locales/${encodeURIComponent(locale)}.json`, { cache: "no-store" });
-  if (!response.ok) throw new Error(t("error.unavailable"));
-  const localeData = await response.json();
+  const revision = ++localeRevision;
+  visitor.language = locale;
+  const localeData = await api(`/static/visitor/locales/${encodeURIComponent(locale)}.json`);
+  if (revision !== localeRevision) return;
   activeStrings = { ...ENGLISH_STRINGS, ...(localeData.strings || {}) };
   activeDirection = localeData.direction === "rtl" ? "rtl" : "ltr";
   visitor.language = locale;
@@ -377,35 +421,28 @@ function startWelcomeSlideshow() {
 }
 
 async function goNext() {
-  if (navigationInFlight || !validateStep()) return;
+  if (resetInFlight || navigationInFlight || !validateStep()) return;
   captureStep();
   const next = steps[Math.min(visitor.step + 1, steps.length - 1)];
   navigationInFlight = true;
-  try {
-    // The admin monitor must receive the screen the visitor is entering.
-    await saveProgress(next);
-    showScreen(next);
-    if (next === "readiness") await refreshReadiness();
-  } catch (error) {
-    notice(error.message, true);
-  } finally {
-    navigationInFlight = false;
-  }
+  // Queue the destination immediately; never freeze the screen on network I/O.
+  const saved = saveProgress(next);
+  showScreen(next);
+  window.setTimeout(() => { navigationInFlight = false; }, 180);
+  void saved.then(() => {
+    if (steps[visitor.step] === "readiness") return refreshReadiness();
+  }).catch(error => notice(error.message, true));
 }
 
 async function goBack() {
-  if (navigationInFlight) return;
+  if (resetInFlight || navigationInFlight) return;
   captureStep();
   const previous = steps[Math.max(visitor.step - 1, 0)];
   navigationInFlight = true;
-  try {
-    await saveProgress(previous);
-    showScreen(previous);
-  } catch (error) {
-    notice(error.message, true);
-  } finally {
-    navigationInFlight = false;
-  }
+  const saved = saveProgress(previous);
+  showScreen(previous);
+  window.setTimeout(() => { navigationInFlight = false; }, 180);
+  void saved.catch(error => notice(error.message, true));
 }
 
 function readinessIcon(status) {
@@ -484,6 +521,7 @@ async function refreshReadiness({ silent = false } = {}) {
 }
 
 async function startExperience() {
+  if (resetInFlight) return;
   const button = $("btn-start-experience");
   const label = button.querySelector("[data-i18n]");
   const errorNode = $("start-error");
@@ -520,6 +558,11 @@ function closeVisitorDialogs() {
 }
 
 async function resetExperience(timedOut = false) {
+  if (resetInFlight) return;
+  resetInFlight = true;
+  clearSensitiveBrowserState();
+  // Serialize reset after old progress so a delayed save cannot restore it.
+  await progressIdlePromise;
   try { await api("/api/visitor/reset", { method: "POST" }); } catch (_) { /* local reset still proceeds */ }
   clearSensitiveBrowserState();
   visitor.language = null;
@@ -534,6 +577,7 @@ async function resetExperience(timedOut = false) {
   updateChoiceStyles();
   showScreen("welcome");
   if (timedOut) notice(t("notice.timeout"));
+  resetInFlight = false;
   restartInactivityTimer();
 }
 
@@ -609,7 +653,7 @@ function renderInterests() {
 }
 
 async function loadInterests() {
-  interestManifest = await fetch("/static/visitor/interests.json", { cache: "no-store" }).then((response) => response.json());
+  interestManifest = await api("/static/visitor/interests.json");
   renderInterests();
 }
 
@@ -705,8 +749,10 @@ async function requestHelp() {
 }
 
 async function pollServerState() {
+  if (statePollInFlight) return;
+  statePollInFlight = true;
   try {
-    const bootstrap = await api("/api/visitor/bootstrap");
+    const bootstrap = await api("/api/visitor/bootstrap?include_readiness=false", { timeoutMs: 2500 });
     const state = bootstrap.state;
     if (state.phase === "thank_you") {
       clearSensitiveBrowserState();
@@ -724,15 +770,20 @@ async function pollServerState() {
   } catch (_) {
     connectionState = "offline";
     updateConnectionStatus();
+  } finally {
+    statePollInFlight = false;
   }
 }
 
 async function initialize() {
   bindChoiceControls();
   bindAgeKeypad();
-  await setLocale("en");
-  await loadInterests();
-  const bootstrap = await api("/api/visitor/bootstrap");
+  bindNavigationControls();
+  applyTranslations();
+  void loadInterests().catch(error => notice(error.message, true));
+  window.setInterval(pollServerState, 1500);
+  startWelcomeSlideshow();
+  const bootstrap = await api("/api/visitor/bootstrap?include_readiness=false");
   visitor.timeoutSeconds = Number(bootstrap.inactivity_timeout_seconds || 0);
   const visibleLanguages = new Set([
     ...(bootstrap.public_languages || []),
@@ -752,6 +803,11 @@ async function initialize() {
   }
   connectionState = "online";
   updateConnectionStatus();
+  if (!["in_use", "thank_you"].includes(bootstrap.state.phase)) restartInactivityTimer();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+}
+
+function bindNavigationControls() {
   document.querySelectorAll("[data-next]").forEach((button) => button.addEventListener("click", goNext));
   document.querySelectorAll("[data-back]").forEach((button) => button.addEventListener("click", goBack));
   document.querySelectorAll("[data-reset]").forEach((button) => button.addEventListener("click", () => resetExperience()));
@@ -760,10 +816,6 @@ async function initialize() {
   $("btn-send-help").addEventListener("click", requestHelp);
   $("btn-start-experience").addEventListener("click", startExperience);
   ["pointerdown", "keydown", "touchstart"].forEach((eventName) => document.addEventListener(eventName, restartInactivityTimer, { passive: true }));
-  if (!["in_use", "thank_you"].includes(bootstrap.state.phase)) restartInactivityTimer();
-  window.setInterval(pollServerState, 1500);
-  startWelcomeSlideshow();
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js").catch(() => {});
 }
 
 initialize().catch((error) => notice(error.message, true));

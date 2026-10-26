@@ -18,6 +18,12 @@ const readiness = {
   })),
 };
 const report = { synthetic: true, viewport: "1024x768", reducedMotion: true, keyboardTransitions: 0, errors: [] };
+let releaseStartup;
+const startupGate = new Promise(resolve => { releaseStartup = resolve; });
+let progressPending = 0;
+let maxProgressPending = 0;
+let lastActivation = 0;
+report.navigationLatencyMs = [];
 
 (async () => {
   const browser = await chromium.launch({ headless: true, ...(process.argv[3] ? { executablePath: process.argv[3] } : {}) });
@@ -34,16 +40,25 @@ const report = { synthetic: true, viewport: "1024x768", reducedMotion: true, key
       if (url.pathname === "/") return route.fulfill({ contentType: "text/html", body: fs.readFileSync(path.join(root, "templates/index.html")) });
       if (url.pathname === "/favicon.ico") return route.fulfill({ status: 204 });
       if (url.pathname.startsWith("/static/")) {
+        if (url.pathname === "/static/visitor/interests.json") await startupGate;
         const target = path.resolve(root, "." + url.pathname);
         assert(target.startsWith(path.join(root, "static") + path.sep));
         const mime = { ".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".webp": "image/webp", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json" };
         return route.fulfill({ contentType: mime[path.extname(target)] || "application/octet-stream", body: fs.readFileSync(target) });
       }
-      if (url.pathname === "/api/visitor/bootstrap") return json({ state, readiness, public_languages: ["en", "fr", "es", "it", "zh-Hant"], preview_languages: ["ar"], inactivity_timeout_seconds: 0 });
+      if (url.pathname === "/api/visitor/bootstrap") {
+        assert.equal(url.searchParams.get("include_readiness"), "false");
+        await startupGate;
+        return json({ state, readiness, public_languages: ["en", "fr", "es", "it", "zh-Hant"], preview_languages: ["ar"], inactivity_timeout_seconds: 0 });
+      }
       if (url.pathname === "/api/visitor/readiness") return json(readiness);
       if (url.pathname === "/api/visitor/onboarding/progress") {
+        progressPending++;
+        maxProgressPending = Math.max(maxProgressPending, progressPending);
+        await new Promise(resolve => setTimeout(resolve, 500));
         state.step = request.postDataJSON().step;
         state.phase = "onboarding";
+        progressPending--;
         return json({ state, readiness });
       }
       if (url.pathname === "/api/visitor/onboarding/start") {
@@ -55,11 +70,12 @@ const report = { synthetic: true, viewport: "1024x768", reducedMotion: true, key
       throw new Error(`Unexpected endpoint ${url.pathname}`);
     });
     await page.goto("http://atlas.test/");
-    await page.waitForFunction(() => document.querySelector("#connection-status").classList.contains("is-online"));
     // Navigate only with Tab/Space/Enter, not programmatic click/focus.
     const activate = async selector => {
+      await page.waitForFunction(() => !navigationInFlight);
       for (let attempt = 0; attempt < 90; attempt++) {
         if (await page.locator(selector).evaluate(node => node === document.activeElement)) {
+          lastActivation = Date.now();
           await page.keyboard.press(selector.includes("input") ? "Space" : "Enter");
           report.keyboardTransitions++;
           return;
@@ -70,12 +86,19 @@ const report = { synthetic: true, viewport: "1024x768", reducedMotion: true, key
       throw new Error(`Not keyboard reachable: ${selector}`);
     };
     const checkScreen = async name => {
-      await page.locator(`[data-screen="${name}"].is-active`).waitFor();
+      await page.locator(`[data-screen="${name}"].is-active`).waitFor({ timeout: 1000 });
+      if (name !== "in_use") {
+        const latency = Date.now() - lastActivation;
+        report.navigationLatencyMs.push(latency);
+        assert(latency < 450, `${name}: screen waited for a slow progress response (${latency}ms)`);
+      }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name}: horizontal overflow`);
       assert.equal(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches), true);
     };
     await activate("#screen-welcome [data-next]");
     await checkScreen("language");
+    releaseStartup();
+    await page.waitForFunction(() => document.querySelector("#connection-status").classList.contains("is-online"));
     await activate('input[name="language"][value="en"]');
     await activate("#btn-continue");
     for (const name of ["about", "expertise", "interests", "accessibility", "headset", "readiness"]) {
@@ -92,6 +115,8 @@ const report = { synthetic: true, viewport: "1024x768", reducedMotion: true, key
     await activate("#btn-start-experience");
     await checkScreen("in_use");
     assert.equal(state.phase, "in_use");
+    assert.equal(maxProgressPending, 1, "Progress saves must not overlap or reorder");
+    report.maxProgressPending = maxProgressPending;
     assert.deepEqual(await context.cookies(), []);
     assert.deepEqual(await page.evaluate(async () => ({ local: localStorage.length, session: sessionStorage.length, databases: (await indexedDB.databases()).length })), { local: 0, session: 0, databases: 0 });
     assert.deepEqual(report.errors, []);

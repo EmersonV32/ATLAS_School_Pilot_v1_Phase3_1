@@ -135,8 +135,10 @@ def create_app(
 
     # -- visitor onboarding (mock in dev, runtime-backed on device) --------
     @app.get("/api/visitor/bootstrap")
-    def visitor_bootstrap() -> dict:
-        return app.state.visitor_service.bootstrap()
+    def visitor_bootstrap(include_readiness: bool = True) -> dict:
+        return app.state.visitor_service.bootstrap(
+            include_readiness=include_readiness,
+        )
 
     @app.post("/api/visitor/onboarding/progress")
     def visitor_progress(req: VisitorProgressRequest) -> dict:

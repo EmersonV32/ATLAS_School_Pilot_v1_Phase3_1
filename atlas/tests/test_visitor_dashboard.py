@@ -185,8 +185,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v29"' in response.text
-        assert '"/static/visitor.js?v=29"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v30"' in response.text
+        assert '"/static/visitor.js?v=30"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/assets/expertise-mona.webp"' in response.text
@@ -198,8 +198,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=29" in html
-        assert "/static/visitor.js?v=29" in html
+        assert "/static/visitor.css?v=30" in html
+        assert "/static/visitor.js?v=30" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
@@ -323,7 +323,7 @@ class TestVisitorShell:
             path = STATIC_DIR / item["asset"].removeprefix("/static/")
             assert path.is_file()
 
-    def test_journey_publishes_the_destination_screen_before_rendering_it(self):
+    def test_journey_queues_destination_without_waiting_for_network(self):
         source = (STATIC_DIR / "visitor.js").read_text(encoding="utf-8")
         go_next = source.split("async function goNext() {", 1)[1].split(
             "\n}\n\nasync function goBack()",
@@ -334,15 +334,38 @@ class TestVisitorShell:
             1,
         )[0]
 
-        assert "await saveProgress(next);" in go_next
+        assert "const saved = saveProgress(next);" in go_next
         assert "saveProgress(current)" not in go_next
-        assert go_next.index("await saveProgress(next);") < go_next.index(
+        assert go_next.index("saveProgress(next);") < go_next.index(
             "showScreen(next);"
         )
-        assert "await saveProgress(previous);" in go_back
-        assert go_back.index("await saveProgress(previous);") < go_back.index(
+        assert "await saveProgress" not in go_next
+        assert "const saved = saveProgress(previous);" in go_back
+        assert go_back.index("saveProgress(previous);") < go_back.index(
             "showScreen(previous);"
         )
+        assert "await saveProgress" not in go_back
+
+    def test_lightweight_bootstrap_skips_hardware_readiness(
+        self, visitor_client, monkeypatch,
+    ):
+        service = visitor_client.app.state.visitor_service
+        monkeypatch.setattr(
+            service, "_readiness",
+            lambda: pytest.fail("No hardware probe for navigation"),
+        )
+        response = visitor_client.get("/api/visitor/bootstrap?include_readiness=false")
+        assert response.status_code == 200
+        assert response.json()["readiness"] is None
+        assert response.json()["state"]["phase"] == "idle"
+
+    def test_controls_bind_before_startup_network_requests(self):
+        source = (STATIC_DIR / "visitor.js").read_text(encoding="utf-8")
+        initialize = source.split("async function initialize() {", 1)[1]
+        assert initialize.index("bindNavigationControls();") < initialize.index(
+            "await api("
+        )
+        assert "if (statePollInFlight) return;" in source
 
 
 class TestVisitorContract:
