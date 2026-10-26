@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import os
+import re
 import threading
 import time
 import uuid
@@ -44,9 +45,13 @@ def build_cartesia_request(
     continue_: bool = False,
 ) -> dict[str, Any]:
     language = normalize_language_code(language)
+    # Keep the public brand spelling unchanged elsewhere. Sonic can interpret
+    # all-caps words as initialisms; speak our name as the ordinary word Atlas.
+    # Normalize only this complete token, not other acronyms or localized names.
+    transcript = re.sub(r"\bATLAS\b", "Atlas", text)
     return {
         "model_id": model,
-        "transcript": text,
+        "transcript": transcript,
         "voice": {"mode": "id", "id": voice_id},
         "language": language,
         "context_id": context_id,
