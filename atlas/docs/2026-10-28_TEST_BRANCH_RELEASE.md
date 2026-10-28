@@ -3,6 +3,33 @@
 The owner explicitly authorized deploying the pending changes from a separate
 test branch on 2026-10-28. Main must remain unchanged until hardware acceptance.
 
+## Installed test release — confirmed 2026-10-28
+
+Deployment succeeded from source commit `a1a81543684b7bdc3490b6f0853ddd37145fa784` on the
+separate test branch. Main was not merged or modified. Archive SHA-256:
+`c18b889bf6d38bead59f6b38eda9dbf1a0dc945e1f779fef6cfde9bf1785f965`. Its 208 entries include eight validation-only public fixtures;
+all 200 installed managed files exactly match the reviewed manifest.
+
+The source-only transaction passed native staging validation and restarted
+only the existing user service. Afterward the four new-feature test files
+passed **2,994 native mocked tests**; independent collection confirms the same
+count. No real visitor question, microphone recording, or provider speech was
+used by those tests. Final service state: active/running, ExecMainStatus 0,
+NRestarts 0; public health and visitor/admin pages HTTP 200; real protected
+routes reject unauthenticated access with HTTP 401. The PC-to-Jetson health
+request also returned HTTP 200. Boot ID stayed unchanged. Metadata of excluded
+settings, models, credential file and service unit remained unchanged; no
+credential contents or hashes were read.
+
+Rollback backup retained:
+`/home/super-alex/atlas/backups/faq-20261028-581a9e5b/atlas-source-20261028-170622-be3a7aad`.
+
+Hardware/audible acceptance remains pending with the owner. Start a fresh visit
+and follow the acceptance steps below. Detailed public deployment evidence is
+retained outside Git in `ATLAS/deliverables/faq-runtime-review/deployment-20261028/`.
+A later documentation-only branch commit records this result; it does not
+change the installed source revision above or require another restart.
+
 ## Scope
 
 Branch: `codex/faq-wake-french-dates-runtime`, based on the current continuation

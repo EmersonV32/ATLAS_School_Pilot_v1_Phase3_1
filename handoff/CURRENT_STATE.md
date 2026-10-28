@@ -1,13 +1,17 @@
 # Current state
 
-## Authorized test release preparation — 2026-10-28
+## Test-branch deployment — 2026-10-28
 
-The owner authorized source-only Jetson deployment from the separate
-`codex/faq-wake-french-dates-runtime` test branch, without updating main. See
-[the release record](../atlas/docs/2026-10-28_TEST_BRANCH_RELEASE.md). Preparation
-includes the recommendation acceptance routing fix. Installed state and final
-acceptance must be recorded after the transaction; earlier local-only notes
-below describe their original stage.
+The owner-authorized source-only release `a1a8154` is installed on the Jetson
+from `codex/faq-wake-french-dates-runtime`, with no main promotion. All 200
+installed managed files match its manifest; 2,994 new-feature mocked tests
+passed natively. Service active/running, public health HTTP 200, zero unexpected
+restarts, unchanged boot ID and excluded-file metadata; rollback is retained.
+See [the deployment record](../atlas/docs/2026-10-28_TEST_BRANCH_RELEASE.md).
+The release includes FAQ bypass, explicit private named introduction, French
+spoken dates, recommendation policy and acceptance-to-recommended-artwork
+routing. Physical/audible/model-quality acceptance remains with the owner.
+The local-only notes below are historical stages superseded by this release.
 
 ## Local review pending — 2026-10-27
 

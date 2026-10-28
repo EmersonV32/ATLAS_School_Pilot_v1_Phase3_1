@@ -4,7 +4,7 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
-## 2026-10-28 - Test-branch source release preparation
+## 2026-10-28 - Test-branch source release deployed
 
 The owner authorized deploying the combined pending conversation changes from
 `codex/faq-wake-french-dates-runtime`, preserving main. Review caught and fixed
@@ -14,6 +14,12 @@ questions, camera identification, cancellation or reset. The existing source
 matched the recorded continuation on the Jetson. The final guarded local suite
 passed 4,357 tests with three skips; lint, secret/recovery/navigation checks pass. See
 `2026-10-28_TEST_BRANCH_RELEASE.md` for validation and deployment evidence.
+
+**Deployment result:** Source `a1a8154` installed through the source-only
+transaction. All 200 managed files match; 2,994 new-feature mock tests pass on
+the Jetson, service/public health good, excluded metadata and boot ID unchanged,
+rollback retained. Main unchanged. Audible/model-quality acceptance pending.
+
 
 ## 2026-10-28 - Contextual artwork recommendation policy (local only)
 
