@@ -353,6 +353,7 @@ class Container:
                         min_speech_ms=speech.silero_min_speech_ms,
                         min_silence_ms=speech.silero_min_silence_ms,
                         hesitation_silence_ms=speech.silero_hesitation_silence_ms,
+                        scripted_faq_silence_ms=speech.silero_scripted_faq_silence_ms,
                         max_utterance_s=speech.max_utterance_s,
                         pre_roll_ms=speech.silero_pre_roll_ms,
                         final_timeout_s=speech.deepgram_final_timeout_s,

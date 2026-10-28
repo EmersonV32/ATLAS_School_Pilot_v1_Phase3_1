@@ -97,6 +97,8 @@ class CartesiaTTS(BaseTTS):
         self._whole_player = None
         self.playback_started = False
         self.last_first_audio_ms: float | None = None
+        # PCM submitted to the playback process, not measured audible onset.
+        self.last_first_audio_monotonic_s: float | None = None
         self.last_total_ms: float | None = None
         self._utterance_context_id: str | None = None
         self._utterance_language = "en"
@@ -184,6 +186,7 @@ class CartesiaTTS(BaseTTS):
             self._utterance_completed = False
             self.playback_started = False
             self.last_first_audio_ms = None
+            self.last_first_audio_monotonic_s = None
             self.last_total_ms = None
             logger.info(
                 "[Cartesia] Continuous context opened "
@@ -227,17 +230,6 @@ class CartesiaTTS(BaseTTS):
                             player.kill()
                             return
                         self.playback_started = True
-                        started = self._utterance_started_at or time.perf_counter()
-                        self.last_first_audio_ms = (
-                            time.perf_counter() - started
-                        ) * 1000.0
-                        logger.info(
-                            "[Cartesia] First audio received "
-                            "[voice=%s language=%s first_audio_ms=%.0f]",
-                            self._voice_id,
-                            self._utterance_language,
-                            self.last_first_audio_ms,
-                        )
                     if player.stdin is None:
                         raise RuntimeError("audio player stdin is unavailable")
                     player.stdin.write(
@@ -246,6 +238,20 @@ class CartesiaTTS(BaseTTS):
                             self._volume_percent,
                         )
                     )
+                    player.stdin.flush()
+                    if self.last_first_audio_ms is None:
+                        started = self._utterance_started_at or time.perf_counter()
+                        self.last_first_audio_ms = (
+                            time.perf_counter() - started
+                        ) * 1000.0
+                        self.last_first_audio_monotonic_s = time.monotonic()
+                        logger.info(
+                            "[Cartesia] First PCM flushed to player "
+                            "[voice=%s language=%s first_audio_ms=%.0f]",
+                            self._voice_id,
+                            self._utterance_language,
+                            self.last_first_audio_ms,
+                        )
                 if payload.get("done") or message_type == "done":
                     break
             self._utterance_completed = bool(
@@ -423,6 +429,7 @@ class CartesiaTTS(BaseTTS):
     def _speak_once(self, text: str, language: str, generation: int) -> bool:
         started = time.perf_counter()
         self.last_first_audio_ms = None
+        self.last_first_audio_monotonic_s = None
         self.last_total_ms = None
         self.playback_started = False
         connection = self._ensure_connection()
@@ -474,9 +481,6 @@ class CartesiaTTS(BaseTTS):
                             player.kill()
                             return False
                         self.playback_started = True
-                        self.last_first_audio_ms = (
-                            time.perf_counter() - started
-                        ) * 1000.0
                     if player.stdin is None:
                         raise RuntimeError("audio player stdin is unavailable")
                     player.stdin.write(
@@ -485,6 +489,12 @@ class CartesiaTTS(BaseTTS):
                             self._volume_percent,
                         )
                     )
+                    player.stdin.flush()
+                    if self.last_first_audio_ms is None:
+                        self.last_first_audio_ms = (
+                            time.perf_counter() - started
+                        ) * 1000.0
+                        self.last_first_audio_monotonic_s = time.monotonic()
                 if payload.get("done") or message_type == "done":
                     break
             completed = bool(player and finish_raw_player(player))

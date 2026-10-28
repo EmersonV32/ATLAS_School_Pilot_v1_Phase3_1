@@ -9,6 +9,7 @@ import logging
 import queue
 import sys
 import threading
+import time
 import types
 from urllib.parse import parse_qs, urlparse
 
@@ -25,6 +26,7 @@ from atlas.audio.deepgram_stt import (
     parse_deepgram_result,
 )
 from atlas.audio.fallback import FallbackSTT, FallbackTTS
+from atlas.audio.playback import _FanoutWriter
 from atlas.audio.silero_vad import SileroVAD
 from atlas.audio.stt import BaseSTT, TranscriptResult
 from atlas.audio.tts import BaseTTS
@@ -285,9 +287,18 @@ def test_cartesia_records_first_audio_and_total_timing(monkeypatch):
             assert timeout == 15.0
             return json.dumps(self.messages.pop(0))
 
+    class FlushCapture(io.BytesIO):
+        flushed_at = None
+
+        def flush(self):
+            assert tts.last_first_audio_ms is None
+            assert tts.last_first_audio_monotonic_s is None
+            self.flushed_at = time.monotonic()
+            super().flush()
+
     class FakePlayer:
         def __init__(self):
-            self.stdin = io.BytesIO()
+            self.stdin = FlushCapture()
 
     player = FakePlayer()
     monkeypatch.setattr(
@@ -305,8 +316,32 @@ def test_cartesia_records_first_audio_and_total_timing(monkeypatch):
     assert player.stdin.getvalue() == b"\x00\x00"
     assert tts.last_first_audio_ms is not None
     assert tts.last_first_audio_ms >= 0
+    assert player.stdin.flushed_at is not None
+    assert tts.last_first_audio_monotonic_s >= player.stdin.flushed_at
     assert tts.last_total_ms is not None
     assert tts.last_total_ms >= tts.last_first_audio_ms
+
+
+def test_fanout_flushes_every_player_even_after_one_output_fails():
+    flushed = []
+
+    class Output:
+        def __init__(self, name, fail=False):
+            self.name, self.fail = name, fail
+
+        def flush(self):
+            flushed.append(self.name)
+            if self.fail:
+                raise OSError("synthetic flush failure")
+
+    writer = _FanoutWriter([Output("first", fail=True), Output("second")])
+    try:
+        writer.flush()
+    except OSError as exc:
+        assert str(exc) == "synthetic flush failure"
+    else:
+        raise AssertionError("flush failure was hidden")
+    assert flushed == ["first", "second"]
 
 
 def test_cartesia_continuous_utterance_reuses_one_context(monkeypatch):
@@ -334,9 +369,18 @@ def test_cartesia_continuous_utterance_reuses_one_context(monkeypatch):
         def recv(self, timeout: float) -> str:
             return json.dumps(self.messages.get(timeout=timeout))
 
+    class FlushCapture(io.BytesIO):
+        flushed_at = None
+
+        def flush(self):
+            assert tts.last_first_audio_ms is None
+            assert tts.last_first_audio_monotonic_s is None
+            self.flushed_at = time.monotonic()
+            super().flush()
+
     class FakePlayer:
         def __init__(self):
-            self.stdin = io.BytesIO()
+            self.stdin = FlushCapture()
 
         def poll(self):
             return None
@@ -367,6 +411,8 @@ def test_cartesia_continuous_utterance_reuses_one_context(monkeypatch):
     assert len({request["context_id"] for request in connection.requests}) == 1
     assert player.stdin.getvalue() == b"\x01\x02"
     assert tts.last_first_audio_ms is not None
+    assert player.stdin.flushed_at is not None
+    assert tts.last_first_audio_monotonic_s >= player.stdin.flushed_at
 
 
 def test_fallback_tts_keeps_primary_for_continuous_utterance():
@@ -501,6 +547,17 @@ class _FakeTTS(BaseTTS):
     def speak(self, text: str, language: str = "en") -> bool:
         self.spoken.append(text)
         return self.result
+
+
+def test_fallback_timing_reports_only_the_adapter_that_spoke():
+    primary, fallback = _FakeTTS(False), _FakeTTS(True)
+    primary.last_first_audio_monotonic_s = 1.0
+    tts = FallbackTTS(primary, fallback)
+    tts.warm_up()
+    assert tts.speak("Synthetic timing case")
+    assert tts.last_first_audio_monotonic_s is None
+    fallback.last_first_audio_monotonic_s = 2.0
+    assert tts.last_first_audio_monotonic_s == 2.0
 
 
 def test_stt_failure_switches_next_question_to_local_fallback(caplog):

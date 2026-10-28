@@ -564,6 +564,10 @@ class FallbackTTS(BaseTTS):
         return getattr(self._last_adapter, "last_first_audio_ms", None)
 
     @property
+    def last_first_audio_monotonic_s(self):
+        return getattr(self._last_adapter, "last_first_audio_monotonic_s", None)
+
+    @property
     def last_total_ms(self):
         return getattr(self._last_adapter, "last_total_ms", None)
 

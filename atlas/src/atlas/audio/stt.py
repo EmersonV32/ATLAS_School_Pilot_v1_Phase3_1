@@ -12,6 +12,9 @@ class TranscriptResult:
     confidence: float = 1.0
     age_hint: str = "adult"    # "child" | "teen" | "adult"
     duration_ms: float | None = None  # STT latency, for telemetry
+    # Process-local timing only; neither field contains transcript or audio data.
+    speech_end_monotonic_s: float | None = None  # Last locally voiced VAD frame.
+    transcript_ready_monotonic_s: float | None = None
 
 
 class BaseSTT(ABC):

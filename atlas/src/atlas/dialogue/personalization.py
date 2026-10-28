@@ -225,12 +225,16 @@ class SessionPersonalization:
     explanation_styles: list[str] = field(default_factory=list)
     completed_turns: int = 0
     awaiting_preference_answer: bool = False
+    last_follow_up_turn: int = -2
+    follow_up_count: int = 0
 
     def reset(self) -> None:
         self.interests.clear()
         self.explanation_styles.clear()
         self.completed_turns = 0
         self.awaiting_preference_answer = False
+        self.last_follow_up_turn = -2
+        self.follow_up_count = 0
 
     def configure(
         self,
@@ -279,12 +283,20 @@ class SessionPersonalization:
                 self._add(self.explanation_styles, style, STYLE_LABELS)
 
     def should_ask_preference_question(self) -> bool:
-        """Request no more than two useful preference questions per session."""
-        if self.completed_turns == 0 and not self.explanation_styles:
-            return True
-        return self.completed_turns == 2 and len(self.interests) < 2
+        """Keep invitations available throughout the visit, with breathing room."""
+        return self.completed_turns - self.last_follow_up_turn >= 2
+
+    def follow_up_direction(self) -> str:
+        return (
+            "Offer one concrete next detail connected to this answer.",
+            "Invite a short explanation of a relevant technique or meaning.",
+            "Ask one brief open question about what art topic interests them next.",
+        )[self.follow_up_count % 3]
 
     def complete_turn(self, *, preference_question_requested: bool) -> None:
+        if preference_question_requested:
+            self.last_follow_up_turn = self.completed_turns
+            self.follow_up_count += 1
         self.completed_turns += 1
         self.awaiting_preference_answer = preference_question_requested
 

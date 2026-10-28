@@ -10,9 +10,11 @@ import pytest
 from atlas.dialogue.scripted_faq import (
     _ARTWORKS,
     _COMPLETE_QUESTIONS,
+    _EXACT_STANDALONE_QUESTIONS,
     _QUESTION_PHRASES,
     PUBLIC_SCRIPTED_LANGUAGES,
     SCRIPTED_FAQ_INTENTS,
+    is_exact_scripted_question,
     match_scripted_intent,
     resolve_scripted_faq,
     scripted_catalog_artwork_ids,
@@ -73,6 +75,7 @@ def test_every_named_question_form_uses_its_named_artwork(language, intent, artw
         assert result is not None, question
         assert result.intent == intent, question
         assert result.artwork_id == artwork_id, question
+        assert is_exact_scripted_question(question, language), question
 
 
 def test_who_is_the_mona_lisa_answers_the_subject_without_camera_context():
@@ -165,6 +168,9 @@ def test_every_artwork_language_profile_and_intent_has_an_answer(
     assert result.artwork_id == artwork_id
     assert result.intent == intent
     assert result.response.strip()
+    assert result.base_response.strip()
+    assert result.response.startswith(result.base_response)
+    assert result.follow_up_intent in SCRIPTED_FAQ_INTENTS
     assert result.source_ids
     if language != "en":
         assert "Would you" not in result.response
@@ -220,6 +226,8 @@ def test_deictic_faq_without_artwork_asks_for_clarification():
     assert result is not None
     assert result.artwork_id is None
     assert result.response == "Which artwork are you looking at?"
+    assert result.base_response == result.response
+    assert result.follow_up_intent is None
 
 
 def test_unmatched_question_and_preview_language_use_deeper_path():
@@ -276,3 +284,146 @@ def test_early_child_and_adult_follow_ups_use_different_language():
     assert child is not None and adult is not None
     assert child.response.endswith("Want to hear how they made it?")
     assert adult.response.endswith("Would you like to know how it was made?")
+
+
+@pytest.mark.parametrize(
+    ("question", "intent"),
+    [
+        ("C'est quoi la Joconde ?", "identify"),
+        ("En quelle année la Joconde a été peinte ?", "date"),
+        ("Quand est-ce que la Joconde a été peinte ?", "date"),
+        ("Comment la Joconde a été réalisée ?", "technique"),
+        ("Qu'est-ce qu'elle représente ?", "subject"),
+        ("Quand est-ce qu'elle a été faite ?", "date"),
+        ("Quand est-ce qu'il a été peint ?", "date"),
+        ("Comment elle a été réalisée ?", "technique"),
+        ("Comment il a été fait ?", "technique"),
+        ("C'est quoi cette œuvre ?", "identify"),
+    ],
+)
+def test_common_spoken_french_forms_use_prepared_answer(question, intent):
+    result = resolve_scripted_faq(
+        question, artwork_id="mona_lisa", language="fr", profile="adult_beginner"
+    )
+    assert result is not None
+    assert result.artwork_id == "mona_lisa"
+    assert result.intent == intent
+    assert is_exact_scripted_question(question, "fr")
+
+
+@pytest.mark.parametrize(
+    "question", ["Qui est-il ?", "Qui est-elle ?", "Pourquoi il est célèbre ?"]
+)
+def test_french_person_pronouns_do_not_invent_an_artwork_subject(question):
+    assert not is_exact_scripted_question(question, "fr")
+    assert resolve_scripted_faq(
+        question, artwork_id="mona_lisa", language="fr", profile="adult_beginner"
+    ) is None
+
+
+def test_french_artist_then_person_identity_keeps_history_aware_fallback():
+    from atlas.dialogue.dialogue_engine import DialogueEngine
+
+    class NoCloud:
+        def generate(self, _messages):
+            raise AssertionError("Only the local-routing decision is under test")
+
+    engine = DialogueEngine(NoCloud())
+    question = "Qui a peint la Joconde ?"
+    focus = engine.prepare_turn(question, "mona_lisa")
+    artist = engine.resolve_local_response(
+        question, artwork_id=focus.retrieval_artwork_id, language="fr", focus=focus,
+        resolved_subject=True,
+    )
+    assert artist is not None and artist.intent == "artist"
+    assert "Leonardo da Vinci" in artist.base_response
+    assert engine.remember_local_response(
+        question, artist.response, focus=focus,
+        follow_up_intent=artist.follow_up_intent,
+    )
+    followup = "Qui est-il ?"
+    followup_focus = engine.prepare_turn(followup, "mona_lisa")
+    assert engine.resolve_local_response(
+        followup, artwork_id=followup_focus.retrieval_artwork_id, language="fr",
+        focus=followup_focus, resolved_subject=True,
+    ) is None
+    assert not is_exact_scripted_question(followup, "fr")
+    assert engine._memory.recent[-1].answer == artist.response
+
+
+@pytest.mark.parametrize(
+    ("question", "language"),
+    [
+        ("Who is the Mona Lisa?", "en"),
+        ("Who painted this?", "en"),
+        ("When was this created?", "en"),
+        ("Qui a peint la Joconde ?", "fr-CA"),
+        ("¿Quién pintó la Mona Lisa?", "es"),
+        ("Chi ha dipinto la Gioconda?", "it"),
+        ("這件作品是誰畫的？", "zh-Hant"),
+    ],
+)
+def test_stt_exact_predicate_accepts_complete_finite_questions(question, language):
+    assert is_exact_scripted_question(question, language)
+
+
+@pytest.mark.parametrize("language", PUBLIC_SCRIPTED_LANGUAGES)
+def test_every_vetted_standalone_question_has_a_prepared_answer(language):
+    for question in _EXACT_STANDALONE_QUESTIONS[language]:
+        assert is_exact_scripted_question(question, language), question
+        result = resolve_scripted_faq(
+            question, artwork_id="mona_lisa", language=language,
+            profile="adult_beginner",
+        )
+        assert result is not None, question
+        assert result.artwork_id == "mona_lisa", question
+
+
+@pytest.mark.parametrize(
+    ("question", "language"),
+    [
+        ("Who painted", "en"),
+        ("what year", "en"),
+        ("when was", "en"),
+        ("when did the artist", "en"),
+        ("Qui a peint", "fr"),
+        ("Quelle année", "fr"),
+        ("Who painteed this picture?", "en"),
+        ("Who painted this and", "en"),
+        ("Who painted this and why?", "en"),
+        ("Who painted this, actually tell me who restored it", "en"),
+        ('"Who painted this?"', "en"),
+        ("'Who painted this?'", "en"),
+        ("Who painted this? Tell me more", "en"),
+        ("When was the Mona Lisa stolen?", "en"),
+        ("Quand est-ce que la Joconde a été volée ?", "fr"),
+        ("What year was the protective glass installed?", "en"),
+        ("Who painted this?", "ar"),
+        ("Who painted this?", "xx"),
+        ("Who painted this?", ""),
+    ],
+)
+def test_stt_exact_predicate_rejects_fragments_fuzzy_quotes_and_deep_questions(
+    question, language
+):
+    assert not is_exact_scripted_question(question, language)
+
+
+@pytest.mark.parametrize("language", PUBLIC_SCRIPTED_LANGUAGES)
+@pytest.mark.parametrize("profile", ["adult_beginner", "child", "expert"])
+def test_base_response_metadata_preserves_facts_without_legacy_invitation(
+    language, profile
+):
+    result = resolve_scripted_faq(
+        _QUESTION_PHRASES["artist"][language][1],
+        artwork_id="mona_lisa", language=language, profile=profile,
+    )
+    assert result is not None
+    assert result.base_response
+    assert result.response.startswith(result.base_response)
+    assert result.follow_up_intent == "technique"
+    assert _ARTWORKS["mona_lisa"]["artist"] in result.base_response
+    if profile == "expert":
+        assert result.base_response == result.response
+    else:
+        assert result.base_response != result.response

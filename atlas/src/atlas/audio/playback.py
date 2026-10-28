@@ -50,6 +50,16 @@ class _FanoutWriter:
             raise error
         return len(data)
 
+    def flush(self) -> None:
+        error: OSError | None = None
+        for stream in self._streams:
+            try:
+                stream.flush()
+            except OSError as exc:
+                error = exc
+        if error is not None:
+            raise error
+
     def close(self) -> None:
         for stream in self._streams:
             if not stream.closed:

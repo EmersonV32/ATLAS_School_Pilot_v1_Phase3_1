@@ -172,6 +172,8 @@ speech:
   silero_min_speech_ms: 250
   silero_min_silence_ms: 2000
   silero_hesitation_silence_ms: 4000
+  # Exact complete prepared questions only; 0 disables this shorter stable pause.
+  silero_scripted_faq_silence_ms: 600
   silero_pre_roll_ms: 250
   cartesia_api_key_env: CARTESIA_API_KEY
   cartesia_model: sonic-3.5

@@ -15,6 +15,7 @@ from atlas.audio.deepgram_stt import (
 )
 from atlas.audio.fallback import FallbackSTT
 from atlas.audio.mock_stt import MockSTT
+from atlas.config.settings import SpeechSettings
 
 
 def result_payload(text, *, final=True, start=0, duration=1, flush=False):
@@ -181,6 +182,153 @@ def test_complete_question_uses_normal_pause_not_incomplete_question_grace(monke
     )
     assert 2.4 <= clock.now < 2.7
     assert state.reads < 90
+
+
+@pytest.mark.parametrize(
+    ("question", "language"),
+    [("Who painted the Mona Lisa?", "en"), ("Qui a peint la Joconde?", "fr")],
+)
+def test_exact_final_prepared_question_uses_stable_short_pause(
+    monkeypatch, question, language
+):
+    answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (5, False)],
+        language=language,
+        live_payloads={17: [result_payload(question, duration=0.512)]},
+        payloads=[result_payload("", start=0.512, duration=0, flush=True)],
+    )
+    assert answer.text == question
+    assert 1.1 <= clock.now < 1.2
+    assert 0.6 <= clock.now - answer.speech_end_monotonic_s < 0.65
+    assert answer.transcript_ready_monotonic_s == clock.now
+
+
+def test_prepared_question_waits_for_final_receipt_stability(monkeypatch):
+    _answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (5, False)],
+        live_payloads={36: [result_payload("Who painted the Mona Lisa?")]},
+        payloads=[result_payload("", flush=True)],
+    )
+    assert 1.75 <= clock.now < 1.85
+
+
+def test_duplicate_final_does_not_restart_prepared_question_stability(monkeypatch):
+    final = result_payload("Who painted the Mona Lisa?", duration=0.512)
+    _answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (5, False)],
+        live_payloads={17: [final], 25: [final]},
+        payloads=[result_payload("", flush=True)],
+    )
+    assert 1.1 <= clock.now < 1.2
+
+
+@pytest.mark.parametrize("continuation", ["interim", "voice"])
+def test_continuation_invalidates_prepared_question_shortcut(monkeypatch, continuation):
+    live = {17: [result_payload("Who painted the Mona Lisa?", duration=0.512)]}
+    segments = [(0.5, True), (5, False)]
+    if continuation == "interim":
+        live[22] = [result_payload("and why", final=False, start=0.4, duration=0.4)]
+    else:
+        # No fresh transcript arrives: resumed VAD alone must invalidate it.
+        segments = [(0.5, True), (0.3, False), (0.5, True), (5, False)]
+    _answer, _state, clock = capture(
+        monkeypatch,
+        segments,
+        live_payloads=live,
+        payloads=[result_payload("", start=1, duration=0, flush=True)],
+    )
+    assert clock.now >= (2.5 if continuation == "interim" else 3.3)
+
+
+@pytest.mark.parametrize("text", ["", "Who painted"])
+def test_empty_or_stale_interim_does_not_invalidate_complete_final(monkeypatch, text):
+    _answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (5, False)],
+        live_payloads={
+            17: [result_payload("Who painted the Mona Lisa?", duration=0.512)],
+            24: [result_payload(text, final=False, duration=0.2)],
+        },
+        payloads=[result_payload("", flush=True)],
+    )
+    assert 1.1 <= clock.now < 1.2
+
+
+def test_delayed_old_final_cannot_rearm_shortcut_during_resumed_speech(monkeypatch):
+    _answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (0.3, False), (0.5, True), (5, False)],
+        live_payloads={
+            27: [result_payload("Who painted the Mona Lisa?", duration=0.512)]
+        },
+        payloads=[result_payload("and why", start=0.512, duration=0.8, flush=True)],
+    )
+    assert 3.3 <= clock.now < 3.5
+
+
+@pytest.mark.parametrize("untimed", [False, True])
+def test_final_must_cover_latest_sent_voiced_frame(monkeypatch, untimed):
+    final = result_payload("Who painted the Mona Lisa?", duration=0.4)
+    if untimed:
+        del final["start"]
+        del final["duration"]
+    _answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (5, False)],
+        live_payloads={17: [final]},
+        payloads=[result_payload("", flush=True)],
+    )
+    assert 2.4 <= clock.now < 2.7
+
+
+def test_final_coverage_uses_sent_pcm_offsets_including_pre_roll(monkeypatch):
+    answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, False), (0.5, True), (5, False)],
+        live_payloads={
+            33: [result_payload("Who painted the Mona Lisa?", duration=0.736)]
+        },
+        payloads=[result_payload("", flush=True)],
+    )
+    assert 1.6 <= clock.now < 1.7
+    assert 0.6 <= clock.now - answer.speech_end_monotonic_s < 0.65
+
+
+@pytest.mark.parametrize("final", [False, True])
+def test_fuzzy_or_interim_prepared_question_keeps_general_pause(monkeypatch, final):
+    question = "Who painted the Mna Lisa?" if final else "Who painted the Mona Lisa?"
+    _answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (5, False)],
+        live_payloads={12: [result_payload(question, final=final, duration=0.4)]},
+        payloads=[result_payload("", flush=True)],
+    )
+    assert 2.4 <= clock.now < 2.7
+
+
+def test_prepared_question_shortcut_can_be_disabled(monkeypatch):
+    _answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (5, False)],
+        scripted_faq_silence_ms=0,
+        live_payloads={
+            12: [result_payload("Who painted the Mona Lisa?", duration=0.4)]
+        },
+        payloads=[result_payload("", flush=True)],
+    )
+    assert 2.4 <= clock.now < 2.7
+
+
+def test_existing_private_speech_settings_get_safe_prepared_question_default():
+    settings = SpeechSettings.model_validate(
+        {"silero_min_silence_ms": 2300, "silero_hesitation_silence_ms": 4500}
+    )
+    assert settings.silero_scripted_faq_silence_ms == 600
+    assert settings.silero_min_silence_ms == 2300
+    assert settings.silero_hesitation_silence_ms == 4500
 
 
 def test_incomplete_question_allows_longer_hesitation_and_resumption(monkeypatch):

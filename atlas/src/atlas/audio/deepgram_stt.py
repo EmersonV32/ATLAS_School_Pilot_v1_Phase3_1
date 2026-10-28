@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import queue
 import re
@@ -14,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
 
+from atlas.dialogue.scripted_faq import is_exact_scripted_question
 from atlas.models.languages import ADMIN_LANGUAGE_CODES
 
 from .devices import find_sounddevice_input
@@ -212,6 +214,7 @@ class DeepgramSTT(BaseSTT):
         min_speech_ms: int = 250,
         min_silence_ms: int = 2000,
         hesitation_silence_ms: int = 4000,
+        scripted_faq_silence_ms: int = 600,
         max_utterance_s: float = 45.0,
         pre_roll_ms: int = 250,
         final_timeout_s: float = 3.0,
@@ -230,6 +233,7 @@ class DeepgramSTT(BaseSTT):
         self._min_speech_ms = min_speech_ms
         self._min_silence_ms = min_silence_ms
         self._hesitation_silence_ms = max(min_silence_ms, hesitation_silence_ms)
+        self._scripted_faq_silence_ms = max(0, scripted_faq_silence_ms)
         self._max_utterance_s = max(1.0, max_utterance_s)
         self._pre_roll_ms = pre_roll_ms
         self._final_timeout_s = final_timeout_s
@@ -394,18 +398,52 @@ class DeepgramSTT(BaseSTT):
         speech_started = False
         speech_started_at = 0.0
         last_voice_at = 0.0
+        last_voice_pcm_end_s = 0.0
         speech_deadline = 0.0
+        previous_frame_voiced = False
+        scripted_final_at: float | None = None
+        scripted_final_pcm_end_s: float | None = None
+        result: TranscriptResult | None = None
         transcript = QuestionTranscript(
             self._language if self._language != "multi" else "en"
         )
 
         def receive_available() -> None:
+            nonlocal scripted_final_at, scripted_final_pcm_end_s
             while True:
                 try:
                     payload = messages.get_nowait()
                 except queue.Empty:
                     return
+                before = (len(transcript.parts), transcript.interim)
+                before_interim = (transcript.interim, transcript.interim_end)
                 transcript.consume(payload)
+                if payload.get("type") != "Results":
+                    continue
+                # Only a new final segment may qualify. Interim continuations
+                # invalidate the shortcut; speech_final alone is never enough.
+                if not payload.get("is_final"):
+                    if transcript.interim and before_interim != (
+                        transcript.interim, transcript.interim_end
+                    ):
+                        scripted_final_at = scripted_final_pcm_end_s = None
+                elif before != (len(transcript.parts), transcript.interim):
+                    scripted_final_at = (
+                        time.monotonic()
+                        if self._scripted_faq_silence_ms > 0
+                        and "start" in payload
+                        and "duration" in payload
+                        and math.isfinite(transcript.final_end)
+                        and not transcript.interim
+                        and not question_needs_more_speech(transcript.text)
+                        and is_exact_scripted_question(
+                            transcript.text, transcript.language
+                        )
+                        else None
+                    )
+                    scripted_final_pcm_end_s = (
+                        transcript.final_end if scripted_final_at is not None else None
+                    )
 
         try:
             connection = self._prepared_connection or self._connect()
@@ -450,6 +488,12 @@ class DeepgramSTT(BaseSTT):
                     pcm = bytes(raw)
                     probability = self._vad.probability(pcm)
                     now = time.monotonic()
+                    voiced = probability >= self._vad.threshold
+                    if voiced and not previous_frame_voiced:
+                        # A visitor resuming after a pause must get a fresh
+                        # complete final, even before its interim arrives.
+                        scripted_final_at = scripted_final_pcm_end_s = None
+                    previous_frame_voiced = voiced
                     receive_available()
 
                     if not speech_started:
@@ -472,6 +516,9 @@ class DeepgramSTT(BaseSTT):
                         for buffered in pre_roll:
                             sent_frames.append(buffered)
                             connection.send(buffered)
+                        last_voice_pcm_end_s = (
+                            len(sent_frames) * self._FRAME_SAMPLES / self._sample_rate
+                        )
                         pre_roll.clear()
                         continue
 
@@ -479,6 +526,9 @@ class DeepgramSTT(BaseSTT):
                     connection.send(pcm)
                     if probability >= self._vad.threshold:
                         last_voice_at = now
+                        last_voice_pcm_end_s = (
+                            len(sent_frames) * self._FRAME_SAMPLES / self._sample_rate
+                        )
 
                     speech_ms = (now - speech_started_at) * 1000.0
                     silence_ms = (now - last_voice_at) * 1000.0
@@ -487,6 +537,21 @@ class DeepgramSTT(BaseSTT):
                         transcript.text
                     ):
                         silence_limit = self._hesitation_silence_ms
+                    if (
+                        scripted_final_at is not None
+                        and scripted_final_pcm_end_s is not None
+                        # A delayed final from before resumed speech must not
+                        # rearm the shortcut. Compare offsets in sent PCM, not
+                        # wall time, so capture/VAD scheduling cannot skew it.
+                        and scripted_final_pcm_end_s + 1e-6 >= last_voice_pcm_end_s
+                    ):
+                        stable_silence_ms = (
+                            now - max(last_voice_at, scripted_final_at)
+                        ) * 1000.0
+                        if stable_silence_ms >= self._scripted_faq_silence_ms:
+                            silence_limit = min(
+                                silence_limit, self._scripted_faq_silence_ms
+                            )
                     if speech_ms >= self._min_speech_ms and silence_ms >= silence_limit:
                         break
 
@@ -521,12 +586,14 @@ class DeepgramSTT(BaseSTT):
                 if transcript.confidences
                 else 0.0
             )
-            return TranscriptResult(
+            result = TranscriptResult(
                 text=text,
                 language=transcript.language,
                 confidence=confidence,
                 duration_ms=(time.perf_counter() - started) * 1000.0,
+                speech_end_monotonic_s=last_voice_at,
             )
+            return result
         except DeepgramError as exc:
             if self._capture_cancelled(generation):
                 return None
@@ -548,6 +615,8 @@ class DeepgramSTT(BaseSTT):
                     pass
             if receiver is not None:
                 receiver.join(timeout=0.5)
+            if result is not None:
+                result.transcript_ready_monotonic_s = time.monotonic()
 
     def close(self) -> None:
         self.cancel_listen()

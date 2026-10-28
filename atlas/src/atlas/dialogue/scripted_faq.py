@@ -75,6 +75,18 @@ _INTENT_FIELD = {
     "detail": "detail",
     "fun_fact": "fun_fact",
 }
+_FOLLOW_UP_INTENTS = {
+    "identify": "artist",
+    "artist": "technique",
+    "date": "fun_fact",
+    "subject": "detail",
+    "technique": "detail",
+    "meaning": "detail",
+    "importance": "fun_fact",
+    "location": "fun_fact",
+    "detail": "meaning",
+    "fun_fact": "technique",
+}
 
 
 @dataclass(frozen=True)
@@ -83,6 +95,8 @@ class ScriptedFaqAnswer:
     intent: str
     artwork_id: str | None
     source_ids: tuple[str, ...] = ()
+    base_response: str = ""
+    follow_up_intent: str | None = None
 
 
 def _facts(*values: str) -> dict[str, str]:
@@ -789,11 +803,11 @@ _COMPLETE_QUESTIONS = {
         "fun_fact": ("tell me a fun fact about artwork", "tell me something surprising about artwork", "tell me an interesting fact about artwork"),
     },
     "fr": {
-        "identify": ("qu est ce que artwork", "quelle est artwork", "presente moi artwork", "parle moi de artwork", "qu est ce que je regarde artwork"),
+        "identify": ("c est quoi artwork", "qu est ce que artwork", "quelle est artwork", "presente moi artwork", "parle moi de artwork", "qu est ce que je regarde artwork"),
         "artist": ("qui a peint artwork", "qui a fait artwork", "qui a cree artwork", "quel artiste a peint artwork", "qui est l artiste de artwork"),
-        "date": ("quand a ete peint artwork", "quand a ete peinte artwork", "quand a ete realisee artwork", "quand artwork a t elle ete peinte", "en quelle annee artwork a t elle ete peinte", "de quand date artwork"),
-        "subject": ("qui est artwork", "que montre artwork", "que represente artwork", "que voit on dans artwork", "decris artwork", "decris la scene de artwork"),
-        "technique": ("comment artwork a t elle ete realisee", "comment a ete fait artwork", "comment a ete peint artwork", "comment a ete peinte artwork", "quelle technique a ete utilisee pour artwork", "quels materiaux composent artwork"),
+        "date": ("en quelle annee artwork a ete peint", "en quelle annee artwork a ete peinte", "quand est ce que artwork a ete peint", "quand est ce que artwork a ete peinte", "quand est ce que artwork a ete fait", "quand est ce que artwork a ete faite", "quand artwork a ete peint", "quand artwork a ete peinte", "quand a ete peint artwork", "quand a ete peinte artwork", "quand a ete realisee artwork", "quand artwork a t elle ete peinte", "en quelle annee artwork a t elle ete peinte", "de quand date artwork"),
+        "subject": ("qu est ce que artwork represente", "qu est ce qu artwork represente", "qui est artwork", "que montre artwork", "que represente artwork", "que voit on dans artwork", "decris artwork", "decris la scene de artwork"),
+        "technique": ("comment artwork a ete realisee", "comment artwork a ete realise", "comment artwork a ete peint", "comment artwork a ete peinte", "comment artwork a ete fait", "comment artwork a ete faite", "comment artwork a t elle ete realisee", "comment a ete fait artwork", "comment a ete peint artwork", "comment a ete peinte artwork", "quelle technique a ete utilisee pour artwork", "quels materiaux composent artwork"),
         "meaning": ("que signifie artwork", "quel est le sens de artwork", "que symbolise artwork", "quel est le message de artwork"),
         "importance": ("pourquoi artwork est elle celebre", "pourquoi artwork est celebre", "pourquoi artwork est elle importante", "pourquoi artwork est elle speciale"),
         "location": ("ou est artwork", "ou est artwork maintenant", "ou se trouve artwork", "dans quel musee se trouve artwork", "ou est conservee artwork"),
@@ -849,7 +863,7 @@ _DEICTIC_REFERENCES = {
 
 def _normalize(text: str) -> str:
     text = str(text).translate(_TO_SIMPLIFIED)
-    normalized = unicodedata.normalize("NFKD", text.casefold())
+    normalized = unicodedata.normalize("NFKD", text.casefold().replace("œ", "oe"))
     normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
     normalized = re.sub(r"[^\w\u3400-\u9fff]+", " ", normalized)
     return " ".join(normalized.split())
@@ -927,6 +941,62 @@ def _whole_question_match(normalized: str, phrase_index: tuple, *, fuzzy: bool =
     return None
 
 
+_EXACT_STANDALONE_QUESTIONS = {
+    "en": frozenset({"what am i looking at", "name the artist", "what is happening", "what can i see", "describe the scene", "tell me a fun fact", "show me a detail", "what should i notice", "where should i look"}),
+    "fr": frozenset({"qu est ce que c est", "que regardons nous", "que voit on", "decris la scene", "que dois je remarquer", "ou dois je regarder", "raconte un fait amusant", "montre moi un detail"}),
+    "es": frozenset({"que estoy mirando", "que esta pasando", "que puedo ver", "describe la escena", "dime un dato curioso", "muestrame un detalle"}),
+    "it": frozenset({"cosa sto guardando", "cosa sta succedendo", "cosa vedo", "descrivi la scena", "dimmi una curiosita", "mostrami un dettaglio"}),
+    "zh": frozenset({"这是什么", "我在看什么", "这件作品叫什么", "这是哪件作品", "谁画的", "作者是谁", "发生了什么", "我能看到什么", "描述画面", "告诉我一个细节"}),
+}
+_FRENCH_ARTWORK_PRONOUN_QUESTIONS = frozenset(
+    _normalize(question)
+    for intent in ("date", "technique")
+    for question in _COMPLETE_QUESTIONS["fr"][intent]
+) | {"qu est ce que artwork represente"}
+
+
+def _canonical_scripted_question(normalized: str, language: str) -> str | None:
+    mentions = _artwork_mentions(normalized)
+    if len(mentions) > 1:
+        return None
+    for _artwork_id, pattern in _artwork_aliases():
+        normalized = pattern.sub("artwork", normalized)
+    if not mentions:
+        if language == "fr":
+            # A person pronoun can refer to the artist just mentioned. Only
+            # complete artwork predicates may borrow the current artwork;
+            # "Qui est-il ?" must retain its normal history-aware route.
+            candidate = re.sub(r"\b(?:elle|il)\b", "artwork", normalized)
+            candidate = re.sub(r"\bqu artwork\b", "que artwork", candidate)
+            if candidate in _FRENCH_ARTWORK_PRONOUN_QUESTIONS:
+                normalized = candidate
+        normalized = re.sub(_DEICTIC_REFERENCES[language], "artwork", normalized)
+    if language == "fr":
+        normalized = re.sub(r"\bqu artwork\b", "que artwork", normalized)
+    return re.sub(r"\b(?:the|la|le|l|el|il) artwork\b", "artwork", normalized)
+
+
+def is_exact_scripted_question(question: str, language: str) -> bool:
+    """Recognize only complete cached FAQ forms for conservative STT finality.
+
+    This is not the fuzzy answer matcher. It cannot authorize a shortened
+    utterance such as 'who painted', a compound question, or a quotation.
+    The STT caller must still require final transcription and actual silence.
+    """
+    lang = normalize_language_code(language, fallback="")
+    if lang not in PUBLIC_SCRIPTED_LANGUAGES:
+        return False
+    if re.search(r"""["“”«»]|(?<!\w)['’]|['’](?!\w)""", question):
+        return False
+    normalized = _normalize(question)
+    if normalized in _EXACT_STANDALONE_QUESTIONS[lang]:
+        return True
+    canonical = _canonical_scripted_question(normalized, lang)
+    return canonical is not None and _whole_question_match(
+        canonical, _complete_question_index(lang), fuzzy=False
+    ) is not None
+
+
 def match_scripted_intent(question: str, language: str) -> str | None:
     """Match a common question, including close paraphrases, without a model."""
     lang = normalize_language_code(language)
@@ -942,14 +1012,9 @@ def match_scripted_intent(question: str, language: str) -> str | None:
     # Other word-meaning requests keep the existing vocabulary route.
     if asks_word_meaning(question) and not named_artwork_ids(question):
         return None
-    mentions = _artwork_mentions(normalized)
-    if len(mentions) > 1:
+    normalized = _canonical_scripted_question(normalized, lang)
+    if normalized is None:
         return None
-    for _artwork_id, pattern in _artwork_aliases():
-        normalized = pattern.sub("artwork", normalized)
-    if not mentions:
-        normalized = re.sub(_DEICTIC_REFERENCES[lang], "artwork", normalized)
-    normalized = re.sub(r"\b(?:the|la|le|l|el|il) artwork\b", "artwork", normalized)
     # Preserve every explicitly catalogued phrasing, while requiring a whole
     # question for named artworks, modifiers, and speech-recognition typos.
     intent = _whole_question_match(normalized, _complete_question_index(lang))
@@ -1078,6 +1143,7 @@ def resolve_scripted_faq(
     if selected_artwork not in _ARTWORKS:
         return ScriptedFaqAnswer(
             response=_CLARIFY_ARTWORK[lang],
+            base_response=_CLARIFY_ARTWORK[lang],
             intent=intent,
             artwork_id=None,
         )
@@ -1095,6 +1161,7 @@ def resolve_scripted_faq(
     )
     if visual_description and intent not in {"detail", "subject"}:
         response = f"{response} {facts['detail']}"
+    base_response = response.translate(_TO_TRADITIONAL) if lang == "zh" else response
     if profile != "expert":
         follow_ups = (
             _EARLY_CHILD_FOLLOW_UPS
@@ -1117,6 +1184,8 @@ def resolve_scripted_faq(
         intent=intent,
         artwork_id=selected_artwork,
         source_ids=record["sources"],
+        base_response=base_response,
+        follow_up_intent=_FOLLOW_UP_INTENTS[intent],
     )
 
 

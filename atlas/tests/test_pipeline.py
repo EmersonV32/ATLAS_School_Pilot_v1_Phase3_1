@@ -1,6 +1,7 @@
 """Tests for SessionRunner pipeline."""
 
 import logging
+import time
 
 import pytest
 
@@ -261,6 +262,70 @@ def test_unmatched_question_continues_to_hybrid_retrieval():
     assert calls == [
         ("mona_lisa", "Compare its composition with another work.", "en")
     ]
+
+
+@pytest.mark.parametrize("route", ["run_once", "respond_to_transcript"])
+def test_spoken_prepared_invitation_then_oui_stays_local(route):
+    class PreparedSTT(MockSTT):
+        questions = iter(("Qui a peint la Joconde ?", "Oui"))
+
+        def listen(self, duration_s=5.0):
+            return TranscriptResult(next(self.questions), "fr")
+
+    class ForbiddenModel:
+        def generate(self, *_args, **_kwargs):
+            pytest.fail("prepared followups must not call the model")
+
+        generate_stream = generate
+
+    def forbidden_retrieval(*_args, **_kwargs):
+        pytest.fail("prepared followups must not call retrieval")
+
+    engine = DialogueEngine(ForbiddenModel())
+    runner = _make_runner(
+        stt=PreparedSTT(), dialogue_engine=engine, retriever=forbidden_retrieval
+    )
+    runner.set_preferred_language("fr")
+    detection = ArtworkDetection(
+        artwork_id="mona_lisa", label="Mona Lisa", confidence=1.0, source="test"
+    )
+    results = [
+        runner.run_once(detection_override=detection)
+        if route == "run_once" else runner.respond_to_transcript(
+            TranscriptResult(question, "fr"), detection=detection
+        )
+        for question in ("Qui a peint la Joconde ?", "Oui")
+    ]
+    assert all(result.success and result.event == "scripted_faq" for result in results)
+    assert results[0].dialogue.response.endswith("?")
+    assert "sfumato" in results[1].dialogue.response
+    assert not results[1].dialogue.response.endswith("?")
+    assert engine._memory.turn_number == 2
+    assert engine._personalization.completed_turns == 2
+
+
+@pytest.mark.parametrize("timing", ["fresh", "stale", "missing", "failed"])
+def test_prepared_timing_reports_only_current_successful_pcm(timing, caplog):
+    class TimedTTS(MockTTS):
+        last_first_audio_monotonic_s = 0.0 if timing == "stale" else None
+
+        def speak(self, text, language="en"):
+            if timing in {"fresh", "failed"}:
+                self.last_first_audio_monotonic_s = time.monotonic()
+            return timing != "failed"
+
+    caplog.set_level(logging.INFO, logger="atlas.pipeline.session_runner")
+    runner = _make_runner(tts=TimedTTS())
+    runner.respond_to_transcript(TranscriptResult(
+        "Who painted the Mona Lisa?", "en",
+        speech_end_monotonic_s=time.monotonic() - 0.5,
+    ))
+    trace = next(
+        record.getMessage() for record in caplog.records
+        if "speech_end_to_first_pcm_ms=" in record.getMessage()
+    )
+    assert "metric=player_input_not_audible" in trace
+    assert ("speech_end_to_first_pcm_ms=n/a" in trace) is (timing != "fresh")
 
 
 @pytest.mark.parametrize("enabled", [False, True])

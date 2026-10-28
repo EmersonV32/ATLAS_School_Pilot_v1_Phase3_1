@@ -37,7 +37,6 @@ from atlas.dashboard.visitor_activation import (
     wake_phrase_matches,
 )
 from atlas.dialogue.conversation_memory import interleave_context
-from atlas.dialogue.scripted_faq import resolve_scripted_faq
 from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.languages import OUTPUT_LANGUAGE_NAMES, normalize_language_code
 from atlas.models.retrieval import RetrievalQuery
@@ -834,13 +833,15 @@ class RuntimeService:
         retrieval_id = focus.retrieval_artwork_id
 
         with Timer() as scripted_timer:
-            scripted = resolve_scripted_faq(
+            scripted = engine.resolve_local_response(
                 question,
                 artwork_id=retrieval_id,
                 language=lang.value,
                 profile=level.value,
                 accessibility=self._visitor_accessibility,
                 resolved_subject=True,
+                expected_generation=engine_generation,
+                focus=focus,
             )
         if scripted is not None:
             remember = getattr(
@@ -854,6 +855,7 @@ class RuntimeService:
                     scripted.response,
                     expected_generation=engine_generation,
                     focus=focus,
+                    follow_up_intent=scripted.follow_up_intent,
                 )
             answer = {
                 "answer": scripted.response,

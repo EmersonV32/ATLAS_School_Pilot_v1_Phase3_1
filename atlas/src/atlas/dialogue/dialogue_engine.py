@@ -31,10 +31,16 @@ import queue
 import re
 import threading
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from atlas.dialogue.conversation_memory import ArtworkFocus, ConversationMemory
+from atlas.dialogue.conversation_memory import (
+    ArtworkFocus,
+    ConversationMemory,
+    _accepts_recommendation,
+    _recommendation_text,
+)
 from atlas.dialogue.grounding_validator import GroundingValidator
+from atlas.dialogue.interactive_followups import declined_reply, invitation
 from atlas.dialogue.introduction_policy import (
     introduction_fallback,
     without_model_introduction,
@@ -46,8 +52,14 @@ from atlas.dialogue.prompt_builder import (
     _extract_chunk_id,
 )
 from atlas.dialogue.safety_filter import SafetyFilter
+from atlas.dialogue.scripted_faq import (
+    _QUESTION_PHRASES,
+    ScriptedFaqAnswer,
+    resolve_scripted_faq,
+)
 from atlas.dialogue.sentence_stream import SentenceAssembler
 from atlas.dialogue.vocabulary import asks_word_meaning
+from atlas.models.languages import normalize_language_code
 from atlas.safety.prompt_injection_filter import PromptInjectionFilter
 
 logger = logging.getLogger(__name__)
@@ -144,6 +156,7 @@ class DialogueEngine:
         self._personalization = SessionPersonalization()
         self._state_lock = threading.RLock()
         self._conversation_generation = 0
+        self._local_followup: tuple[str, str] | None = None
 
     @property
     def conversation_generation(self) -> int:
@@ -211,6 +224,7 @@ class DialogueEngine:
                 earlier_conversation=self._memory.earlier_context(focus),
                 visitor_interests=interests,
                 explanation_preferences=styles,
+                follow_up_direction=self._personalization.follow_up_direction(),
                 ask_preference_question=(
                     not asks_word_meaning(kwargs["question"])
                     and self._personalization.should_ask_preference_question()
@@ -228,9 +242,14 @@ class DialogueEngine:
         with self._state_lock:
             if generation != self._conversation_generation:
                 return self._cancelled(result.language)
+            self._local_followup = None
             if not result.error and not result.filtered:
                 self._remember(question, result.response, artwork_id)
-            self._personalization.complete_turn(preference_question_requested=ask)
+            self._personalization.complete_turn(
+                preference_question_requested=(
+                    not result.error and result.response.rstrip().endswith(("?", "？"))
+                )
+            )
             return result
 
     def reset_conversation(self) -> None:
@@ -240,6 +259,7 @@ class DialogueEngine:
             self._conversation_turns.clear()
             self._memory.reset()
             self._personalization.reset()
+            self._local_followup = None
 
     def configure_personalization(
         self,
@@ -250,6 +270,7 @@ class DialogueEngine:
     ) -> None:
         """Start a session with only coarse, allow-listed visitor choices."""
         with self._state_lock:
+            self._local_followup = None
             self._personalization.configure(
                 interests=interests,
                 accessibility=accessibility,
@@ -270,6 +291,7 @@ class DialogueEngine:
         expected_generation: int | None = None,
         artwork_id: str | None = None,
         focus: ArtworkFocus | None = None,
+        follow_up_intent: str | None = None,
     ) -> bool:
         """Keep a deterministic local answer in the same visit-only memory."""
         with self._state_lock:
@@ -285,8 +307,93 @@ class DialogueEngine:
                 return False
             self._personalization.observe(question)
             self._remember(question, answer, focus.artwork_id)
-            self._personalization.complete_turn(preference_question_requested=False)
+            self._local_followup = (
+                (focus.artwork_id, follow_up_intent)
+                if focus.artwork_id is not None and follow_up_intent is not None
+                else None
+            )
+            self._personalization.complete_turn(
+                preference_question_requested=answer.rstrip().endswith(("?", "？"))
+            )
             return True
+
+    def resolve_local_response(
+        self,
+        question: str,
+        *,
+        artwork_id: str | None = None,
+        language: str = "en",
+        profile: str = "adult_beginner",
+        accessibility=(),
+        resolved_subject: bool = False,
+        expected_generation: int | None = None,
+        focus: ArtworkFocus | None = None,
+    ) -> ScriptedFaqAnswer | None:
+        """Select prepared facts and optional invitations without a model call.
+
+        This does not commit memory or advance turn counts. The caller must
+        pass its returned follow_up_intent to remember_local_response only
+        after the same generation/focus is still valid.
+        """
+        language = normalize_language_code(language)
+        with self._state_lock:
+            generation = self._conversation_generation
+            if expected_generation is not None and expected_generation != generation:
+                return None
+            if focus is not None and focus.generation != generation:
+                return None
+            pending = self._local_followup
+            self._local_followup = None
+            invitation_index = self._personalization.follow_up_count
+            offer = self._personalization.should_ask_preference_question()
+        continuation = False
+        if pending is not None and pending[0] == artwork_id:
+            normalized = _recommendation_text(question)
+            if normalized in {
+                "no",
+                "no thanks",
+                "no thank you",
+                "non",
+                "non merci",
+                "no gracias",
+                "no grazie",
+                "不要",
+                "不用",
+                "不用了",
+            }:
+                return ScriptedFaqAnswer(
+                    response=declined_reply(language),
+                    intent="declined",
+                    artwork_id=artwork_id,
+                    base_response=declined_reply(language),
+                )
+            if _accepts_recommendation(question):
+                phrases = _QUESTION_PHRASES.get(pending[1], {}).get(language)
+                if phrases:
+                    question = phrases[0]
+                    resolved_subject = True
+                    continuation = True
+        result = resolve_scripted_faq(
+            question,
+            artwork_id=artwork_id,
+            language=language,
+            profile=profile,
+            accessibility=accessibility,
+            resolved_subject=resolved_subject,
+        )
+        if result is None:
+            return None
+        base = result.base_response or result.response
+        next_intent = result.follow_up_intent
+        if (
+            result.artwork_id is None
+            or not offer
+            or continuation
+            or next_intent is None
+        ):
+            return replace(result, response=base, follow_up_intent=None)
+        follow_up = invitation(language, next_intent, invitation_index, profile)
+        return replace(result, response=f"{base} {follow_up}")
 
     def respond(
         self,

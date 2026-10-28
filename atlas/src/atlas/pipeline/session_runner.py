@@ -636,14 +636,23 @@ class SessionRunner:
         """Share the prepared-answer bypass without losing conversation focus."""
         if self._generation_changed(generation):
             return self._cancelled_result(detection, transcript)
-        scripted = resolve_scripted_faq(
+        local_resolver = getattr(self._engine, "resolve_local_response", None)
+        interactive = callable(local_resolver)
+        resolve_options = (
+            {**self._generation_options(generation), **focus_options}
+            if interactive else {}
+        )
+        lookup_started = time.perf_counter()
+        scripted = (local_resolver if interactive else resolve_scripted_faq)(
             transcript.text,
             artwork_id=retrieval_id,
             language=transcript.language,
             profile=self._preferred_profile,
             accessibility=self._preferred_accessibility,
             resolved_subject="focus" in focus_options,
+            **resolve_options,
         )
+        lookup_ms = (time.perf_counter() - lookup_started) * 1000.0
         if scripted is not None:
             remember = getattr(self._engine, "remember_local_response", None)
             if callable(remember):
@@ -652,6 +661,8 @@ class SessionRunner:
                     scripted.response,
                     **self._generation_options(generation),
                     **focus_options,
+                    **({"follow_up_intent": scripted.follow_up_intent}
+                       if interactive else {}),
                 )
             if self._generation_changed(generation):
                 return self._cancelled_result(detection, transcript)
@@ -670,6 +681,7 @@ class SessionRunner:
             if self._log_llm_responses:
                 logger.info("[ATLAS final] %s", scripted.response)
             self._hw.set_status_led("green")
+            speech_requested_at = time.monotonic()
             try:
                 spoke = bool(
                     self._tts.speak(
@@ -683,6 +695,19 @@ class SessionRunner:
             finally:
                 self._hw.reset_exhibit()
                 self._hw.set_status_led("off")
+            speech_end = getattr(transcript, "speech_end_monotonic_s", None)
+            first_pcm = getattr(self._tts, "last_first_audio_monotonic_s", None)
+            end_to_pcm_ms = None
+            if (
+                spoke and speech_end is not None and first_pcm is not None
+                and first_pcm >= speech_requested_at and speech_end <= first_pcm
+            ):
+                end_to_pcm_ms = (first_pcm - speech_end) * 1000.0
+            logger.info(
+                "[Timing] Scripted FAQ lookup_ms=%.2f speech_end_to_first_pcm_ms=%s "
+                "[metric=player_input_not_audible]",
+                lookup_ms, _format_optional_ms(end_to_pcm_ms),
+            )
             logger.info(
                 "[Timing] Scripted FAQ cycle %.0f ms "
                 "[intent=%s artwork_id=%s tts_ok=%s]",

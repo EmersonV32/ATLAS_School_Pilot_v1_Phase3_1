@@ -4,6 +4,24 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-10-28 - Interactive prepared answers and shorter FAQ endpoint
+
+Prepared answers now offer varied relevant next details; accepted invitations
+deliver their promised facts without retrieval/model calls in typed and both
+spoken paths. Existing catalogue/source evidence is reused with more complete
+French forms. Exact timed final FAQs use a conservative 600 ms silence path,
+with final-span/resumed-speech guards; other questions keep existing pauses.
+Cartesia flushes PCM immediately and reports player-input timing explicitly.
+
+Changed dialogue engine/personalization/prompt builder/scripted FAQ, added
+interactive_followups, integrated runtime_service and session_runner, and
+updated Deepgram/Cartesia/playback/fallback/STT/settings/container plus focused
+and integration tests. See `2026-10-28_INTERACTIVE_FAQ_TEST_RELEASE.md` for the
+release record and owner retest. Final guarded local suite: 4,506 passed, three
+skipped, independently confirmed 4,509 collected. Lint, compile, dependencies,
+secret/recovery/layout and synthetic visitor/admin gates pass. Source deployment
+is pending; no main promotion or physical latency claim is made.
+
 ## 2026-10-28 - Test-branch source release deployed
 
 The owner authorized deploying the combined pending conversation changes from
