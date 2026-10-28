@@ -1,5 +1,23 @@
 # Current state
 
+## Interactive FAQ deployment — 2026-10-28
+
+The latest owner-authorized source-only test release is `d7ecce7`, from
+`codex/interactive-fast-faq`; it supersedes the earlier release below. All 202
+managed files match the archive; 3,334 new-feature mock tests pass natively.
+Local full gate: 4,506 passed, three skipped, independently 4,509 collected.
+Service active/running, NRestarts 0, ExecMainStatus 0, public health HTTP 200,
+protected routes HTTP 401; boot ID and excluded-file metadata unchanged.
+Rollback retained. Main was not changed.
+See [the release record](../atlas/docs/2026-10-28_INTERACTIVE_FAQ_TEST_RELEASE.md).
+
+This release adds varied prepared invitations and local Yes/Oui continuations,
+more complete French question forms, a conservative 600 ms exact-final FAQ
+silence path with resumed-speech coverage guards, and immediate PCM flushing.
+Long/ambiguous questions retain the deeper path and existing silence policy.
+Timing traces measure player input, not headset audibility; under-two-second
+audible acceptance and live model interaction remain with the owner.
+
 ## Test-branch deployment — 2026-10-28
 
 The owner-authorized source-only release `a1a8154` is installed on the Jetson

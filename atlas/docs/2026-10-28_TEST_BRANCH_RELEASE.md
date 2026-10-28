@@ -1,5 +1,9 @@
 # ATLAS test-branch source release
 
+This is the earlier release. It is superseded by the
+[interactive FAQ test release](2026-10-28_INTERACTIVE_FAQ_TEST_RELEASE.md),
+which records the latest installed source and owner acceptance steps.
+
 The owner explicitly authorized deploying the pending changes from a separate
 test branch on 2026-10-28. Main must remain unchanged until hardware acceptance.
 

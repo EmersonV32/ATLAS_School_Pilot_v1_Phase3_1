@@ -19,8 +19,14 @@ updated Deepgram/Cartesia/playback/fallback/STT/settings/container plus focused
 and integration tests. See `2026-10-28_INTERACTIVE_FAQ_TEST_RELEASE.md` for the
 release record and owner retest. Final guarded local suite: 4,506 passed, three
 skipped, independently confirmed 4,509 collected. Lint, compile, dependencies,
-secret/recovery/layout and synthetic visitor/admin gates pass. Source deployment
-is pending; no main promotion or physical latency claim is made.
+secret/recovery/layout and synthetic visitor/admin logic gates pass.
+
+**Deployment result:** Source `d7ecce7` installed from the separate test branch.
+All 202 managed files match; 3,334 new-feature mocked tests pass on the Jetson,
+independently collected. Service/public health good, protected endpoints reject
+unauthenticated access, excluded metadata and boot ID unchanged, rollback kept.
+Main unchanged. Physical interaction, French speech and first-audible response
+under two seconds remain owner acceptance tests.
 
 ## 2026-10-28 - Test-branch source release deployed
 

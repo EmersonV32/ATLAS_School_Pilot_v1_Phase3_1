@@ -44,12 +44,45 @@ pass in this release. A superseded full run was stopped after final review found
 the French person-pronoun ambiguity; the complete result above is the corrected
 source, including the new regression.
 
-Before apply, all 200 previous managed files and eight public fixtures match
+Before apply, all 200 previous managed files and eight public fixtures matched
 the previous archive; service is active/running, NRestarts 0, ExecMainStatus 0,
 visitor/admin/health HTTP 200 and protected routes HTTP 401. This baseline is
-not evidence of the new release being installed. Deployment result is pending.
+separate from the post-deployment evidence below.
 No packages, models, credentials, live configuration, service unit, firmware,
 networking or motor state are part of this release.
+
+## Installed release — confirmed 2026-10-28
+
+Source revision: `d7ecce77974b461b64545851abafd07b80f4bfca` on
+`codex/interactive-fast-faq`. Archive SHA-256:
+`c679384ac1e1d552034dc1ecb07cc2f17eda975062716169f0c3fc061f523a70`.
+The source-only transaction passed native staging checks, installed 202 managed
+files from the 210-entry archive (eight validation-only public fixtures), and
+restarted the existing user service. Every installed managed file matches the
+manifest. The public fixtures also match; private config and data were not
+replaced. Archive SHA-256 was independently checked on the laptop and verified
+again after transfer.
+
+Native new-feature mocked suite: **3,334 passed**, with independent collection
+confirming 3,334. The suite covers prepared answers, interactive continuations,
+endpoint/PCM handling, voice identity, spoken pipeline, French normalization
+and private visitor personalization. Staging additionally tested typed dashboard
+integration. No real visitor audio, provider synthesis or physical headset
+measurement was performed by these tests.
+
+Afterward: service active/running, NRestarts 0, ExecMainStatus 0; visitor/admin/
+health HTTP 200; protected audio/pan endpoints HTTP 401. PC-to-Jetson health
+also returned HTTP 200. Boot ID remained
+`f8ac966e-e204-4546-b63b-c748cbe5d699`. Stat metadata of the credential file,
+local settings/overrides, models and user service unit remained identical;
+credential contents and hashes were never read.
+
+Rollback retained:
+`/home/super-alex/atlas/backups/interactive-20261028-8a9b9096/atlas-source-20261028-174319-41c57358`.
+Sanitized evidence is retained outside Git in
+`ATLAS/deliverables/faq-runtime-review/interactive-deployment-20261028/`.
+Main remains `9dfe2606e907f85e2c9b626118a98e65e9f09e7a`. The later documentation
+commit records deployment only and requires no new service restart.
 
 Automated endpoint tests and resolver benchmarks do not prove an answer becomes
 audible within two seconds. Deepgram final delivery/cleanup, dispatch, cloud
