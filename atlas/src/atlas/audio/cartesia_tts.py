@@ -23,6 +23,7 @@ from .playback import (
     play_pcm,
     scale_pcm_s16le,
 )
+from .speech_text import normalize_speech_text
 from .tts import BaseTTS
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ def build_cartesia_request(
     # all-caps words as initialisms; speak our name as the ordinary word Atlas.
     # Normalize only this complete token, not other acronyms or localized names.
     transcript = re.sub(r"\bATLAS\b", "Atlas", text)
+    transcript = normalize_speech_text(transcript, language)
     return {
         "model_id": model,
         "transcript": transcript,

@@ -103,21 +103,20 @@ _INTRODUCTIONS = {
     ),
 }
 
-_WAKE_PHRASES = {
+_WAKE_PHRASES = ("hey atlas", "bonjour atlas")
+# Ordinary questions can still include a familiar address in the selected
+# language. Stripping it must never grant permission to introduce ATLAS.
+_ADDRESS_PHRASES = {
     "en": ("hello atlas", "hi atlas"),
-    "fr": ("bonjour atlas", "salut atlas"),
+    "fr": ("salut atlas",),
     "es": ("hola atlas",),
     "it": ("ciao atlas", "salve atlas"),
     "zh": ("你好 atlas", "你好atlas", "哈囉 atlas", "哈啰 atlas"),
 }
-
-# A familiar short address also works when the selected answer language is not
-# English. Other language-specific wake phrases retain their existing rules.
-_COMMON_WAKE_PHRASES = ("hey atlas",)
 _HESITATIONS = {"uh", "um", "erm", "er", "euh", "heu", "hmm", "hum", "eh"}
 
 _GREETINGS = {
-    "en": ("Hi {name}, I'm ATLAS.", "Hello, I'm ATLAS."),
+    "en": ("Hey {name}, I'm ATLAS.", "Hey, I'm ATLAS."),
     "fr": ("Bonjour {name}, je suis ATLAS.", "Bonjour, je suis ATLAS."),
     "es": ("Hola {name}, soy ATLAS.", "Hola, soy ATLAS."),
     "it": ("Ciao {name}, sono ATLAS.", "Ciao, sono ATLAS."),
@@ -135,7 +134,7 @@ _INVITATIONS = {
 
 def _language_root(language: str) -> str:
     root = str(language or "en").casefold().split("-", 1)[0]
-    return root if root in _WAKE_PHRASES else "en"
+    return root if root in _GREETINGS else "en"
 
 
 def _normalize_phrase(text: str) -> str:
@@ -145,8 +144,8 @@ def _normalize_phrase(text: str) -> str:
 
 
 def wake_phrase_matches(transcript: str, language: str) -> bool:
-    """Match a selected-language wake phrase without an LLM or network call."""
-    return wake_phrase_remainder(transcript, language) is not None
+    """Accept only an exact explicit greeting, regardless of answer language."""
+    return _normalize_phrase(transcript) in _WAKE_PHRASES
 
 
 def is_hesitation_only(text: str) -> bool:
@@ -156,15 +155,15 @@ def is_hesitation_only(text: str) -> bool:
 
 
 def wake_phrase_remainder(transcript: str, language: str) -> str | None:
-    """Return the request after an opening address, empty for an address alone.
+    """Strip an optional opening address without authorizing an introduction.
 
-    None means no wake phrase was present. Keep the original question's accents
+    None means no address was present. Keep the original question's accents
     and wording: normalization must not turn a French question into ASCII or
     drop a question spoken in the same breath as "Hey Atlas".
     """
     text = unicodedata.normalize("NFKC", str(transcript))
     root = _language_root(language)
-    for phrase in (*_WAKE_PHRASES[root], *_COMMON_WAKE_PHRASES):
+    for phrase in (*_ADDRESS_PHRASES[root], *_WAKE_PHRASES):
         prefix = r"[\W_]+".join(re.escape(word) for word in phrase.split())
         # Chinese can continue immediately after the Latin wake name.
         boundary = r"(?![A-Za-z0-9_])" if root == "zh" else r"(?!\w)"

@@ -624,6 +624,83 @@ class SessionRunner:
             error="session_cancelled",
         )
 
+    def _try_scripted_response(
+        self,
+        transcript: TranscriptResult,
+        detection: ArtworkDetection | None,
+        generation: int | None,
+        cycle_started: float,
+        retrieval_id: str | None,
+        focus_options: dict,
+    ) -> SessionResult | None:
+        """Share the prepared-answer bypass without losing conversation focus."""
+        if self._generation_changed(generation):
+            return self._cancelled_result(detection, transcript)
+        scripted = resolve_scripted_faq(
+            transcript.text,
+            artwork_id=retrieval_id,
+            language=transcript.language,
+            profile=self._preferred_profile,
+            accessibility=self._preferred_accessibility,
+            resolved_subject="focus" in focus_options,
+        )
+        if scripted is not None:
+            remember = getattr(self._engine, "remember_local_response", None)
+            if callable(remember):
+                remember(
+                    transcript.text,
+                    scripted.response,
+                    **self._generation_options(generation),
+                    **focus_options,
+                )
+            if self._generation_changed(generation):
+                return self._cancelled_result(detection, transcript)
+            dialogue_result = DialogueResult(
+                response=scripted.response,
+                language=normalize_language_code(transcript.language),
+                grounded=True,
+                grounding_reason=f"scripted_faq:{scripted.intent}",
+                filtered=False,
+                used_chunk_ids=list(scripted.source_ids),
+                confidence="high",
+                fallback_used=False,
+            )
+            # The readable dashboard also needs local FAQ responses, not only
+            # Gemini responses. Respect the existing opt-in text logging flag.
+            if self._log_llm_responses:
+                logger.info("[ATLAS final] %s", scripted.response)
+            self._hw.set_status_led("green")
+            try:
+                spoke = bool(
+                    self._tts.speak(
+                        scripted.response,
+                        language=normalize_language_code(transcript.language),
+                    )
+                )
+            except Exception as exc:
+                logger.exception("[TTS] Scripted FAQ failed: %s", exc)
+                spoke = False
+            finally:
+                self._hw.reset_exhibit()
+                self._hw.set_status_led("off")
+            logger.info(
+                "[Timing] Scripted FAQ cycle %.0f ms "
+                "[intent=%s artwork_id=%s tts_ok=%s]",
+                (time.perf_counter() - cycle_started) * 1000.0,
+                scripted.intent,
+                scripted.artwork_id or "none",
+                spoke,
+            )
+            return SessionResult(
+                detection=detection,
+                transcript=transcript,
+                dialogue=dialogue_result,
+                tts_ok=spoke,
+                event="scripted_faq",
+            )
+
+        return None
+
     def run_once(
         self,
         frame: Any = None,
@@ -715,6 +792,13 @@ class SessionRunner:
         retrieval_id, focus_options = self._prepare_focus(
             transcript.text, detection.artwork_id, generation
         )
+        scripted_result = self._try_scripted_response(
+            transcript, detection, generation, cycle_started,
+            retrieval_id, focus_options,
+        )
+        if scripted_result is not None:
+            return scripted_result
+
         retrieval_started = time.perf_counter()
         chunks = self._retrieve_context(retrieval_id, focus_options, transcript)
         if not chunks:
@@ -1014,68 +1098,12 @@ class SessionRunner:
         else:
             logger.info("[Vision] No active context; searching all artworks")
 
-        scripted = resolve_scripted_faq(
-            transcript.text,
-            artwork_id=retrieval_id,
-            language=transcript.language,
-            profile=self._preferred_profile,
-            accessibility=self._preferred_accessibility,
-            resolved_subject="focus" in focus_options,
+        scripted_result = self._try_scripted_response(
+            transcript, detection, generation, cycle_started,
+            retrieval_id, focus_options,
         )
-        if scripted is not None:
-            remember = getattr(self._engine, "remember_local_response", None)
-            if callable(remember):
-                remember(
-                    transcript.text,
-                    scripted.response,
-                    **self._generation_options(generation),
-                    **focus_options,
-                )
-            if self._generation_changed(generation):
-                return self._cancelled_result(detection, transcript)
-            dialogue_result = DialogueResult(
-                response=scripted.response,
-                language=normalize_language_code(transcript.language),
-                grounded=True,
-                grounding_reason=f"scripted_faq:{scripted.intent}",
-                filtered=False,
-                used_chunk_ids=list(scripted.source_ids),
-                confidence="high",
-                fallback_used=False,
-            )
-            # The readable dashboard also needs local FAQ responses, not only
-            # Gemini responses. Respect the existing opt-in text logging flag.
-            if self._log_llm_responses:
-                logger.info("[ATLAS final] %s", scripted.response)
-            self._hw.set_status_led("green")
-            try:
-                spoke = bool(
-                    self._tts.speak(
-                        scripted.response,
-                        language=normalize_language_code(transcript.language),
-                    )
-                )
-            except Exception as exc:
-                logger.exception("[TTS] Scripted FAQ failed: %s", exc)
-                spoke = False
-            finally:
-                self._hw.reset_exhibit()
-                self._hw.set_status_led("off")
-            logger.info(
-                "[Timing] Scripted FAQ cycle %.0f ms "
-                "[intent=%s artwork_id=%s tts_ok=%s]",
-                (time.perf_counter() - cycle_started) * 1000.0,
-                scripted.intent,
-                scripted.artwork_id or "none",
-                spoke,
-            )
-            return SessionResult(
-                detection=detection,
-                transcript=transcript,
-                dialogue=dialogue_result,
-                tts_ok=spoke,
-                event="scripted_faq",
-            )
+        if scripted_result is not None:
+            return scripted_result
 
         retrieval_started = time.perf_counter()
         chunks = self._retrieve_context(retrieval_id, focus_options, transcript)

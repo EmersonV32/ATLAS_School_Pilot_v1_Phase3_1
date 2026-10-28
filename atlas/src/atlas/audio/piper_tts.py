@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .devices import find_alsa_playback, find_pulse_playback
 from .playback import normalize_volume, scale_pcm_s16le, split_output_device_names
+from .speech_text import normalize_speech_text
 from .tts import BaseTTS
 
 logger = logging.getLogger(__name__)
@@ -237,7 +238,9 @@ class PiperTTS(BaseTTS):
                 synthesis = self._run_process(
                     self._resolve_command()
                     + ["--model", str(voice), "--output-file", output_path],
-                    input_data=(text.strip() + "\n").encode("utf-8"),
+                    input_data=(
+                        normalize_speech_text(text.strip(), language) + "\n"
+                    ).encode("utf-8"),
                     generation=generation,
                 )
                 if synthesis.returncode != 0 or not Path(output_path).stat().st_size:

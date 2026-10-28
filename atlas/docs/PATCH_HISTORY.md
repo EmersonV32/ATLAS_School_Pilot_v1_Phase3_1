@@ -4,6 +4,66 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-10-28 - Test-branch source release preparation
+
+The owner authorized deploying the combined pending conversation changes from
+`codex/faq-wake-french-dates-runtime`, preserving main. Review caught and fixed
+recommendation acceptance retrieving the previous artwork: supported pending
+recommendations now change retrieval after Yes/Oui, without overriding explicit
+questions, camera identification, cancellation or reset. The existing source
+matched the recorded continuation on the Jetson. The final guarded local suite
+passed 4,357 tests with three skips; lint, secret/recovery/navigation checks pass. See
+`2026-10-28_TEST_BRANCH_RELEASE.md` for validation and deployment evidence.
+
+## 2026-10-28 - Contextual artwork recommendation policy (local only)
+
+Added a shared typed/spoken generation policy to recommend one supported artwork
+using actual visit preferences and earlier questions, explain the connection,
+and ask whether the visitor wants to know more. Missing preferences use an
+honest general suggestion; no physical availability is invented. The invitation
+replaces other preference questions. Existing name/wake behavior is preserved.
+Prompt wiring is tested across five languages and both generation modes.
+Live model quality and Jetson audio acceptance remain pending. No deployment,
+commit, or push is part of this change.
+
+## 2026-10-27 - Prepared answers, explicit introductions, and French dates (not deployed)
+
+**Changed:** Added whole-question matching for named demo artworks, including
+"Who is the Mona Lisa?", while retaining every existing prepared phrasing.
+Specific event/correction/multiple-artwork questions fall through rather than
+receiving a misleading generic answer. Both spoken cycle entry points now
+check the same local FAQ before retrieval or a model. Only standalone "Hey
+Atlas" or "Bonjour Atlas" activates the one-time local introduction; the
+optional dashboard name stays on the private local speech route and is erased
+after successful greeting. Repeated greetings are consumed locally. Updated
+kiosk instructions and static shell version 31. Ordinary model answers receive
+a no-introduction policy and an explicit English/French output guard. French
+speech providers expand dates/numbers into words at synthesis boundaries,
+including standalone/streamed Cartesia and local Piper fallback.
+
+**Validation:** The guarded complete suite passes with 4,336 tests and three
+skips. Ruff, compile, dependency compatibility, secret, recovery, repository
+layout, JavaScript parsing, 106 synthetic admin logic checks and whitespace
+checks pass. Visitor reduced-motion/browser QA passes 42 keyboard transitions
+at 1024x768 with no errors. The optional unchanged admin browser harness fails
+its final assertion on two synthetic authentication-test HTTP 401 console
+messages; that result is not called a pass. See
+`2026-10-27_FAQ_WAKE_FRENCH_DATES.md` for source, inventory, timing, and Jetson
+acceptance details.
+
+**Deployment result:** Local review work only on `codex/faq-wake-french-dates-runtime`.
+No commit, push, main merge, Jetson connection, service restart, or deployment.
+Based on the current continuation at `9996dd7`, preserving camera-free
+operation, voice recovery, cancellation, navigation, and conversation focus.
+The user requested Jetson testing before committing to main.
+
+**Remaining limitation:** PC lookup timing excludes speech recognition,
+synthesis, playback, and Jetson load. Uncatalogued questions still use the
+normal deeper route. Real French pronunciation, both wake phrases through STT,
+and private local named speech need device acceptance. The deterministic model
+introduction guard covers explicit English/French forms; unusual paraphrases
+and other output languages still rely on the prompt policy.
+
 ## 2026-10-05 - School-first Wi-Fi preparation (not deployed)
 
 **Changed:** Added optional XIAO PEAP/MSCHAPv2 school selection before the

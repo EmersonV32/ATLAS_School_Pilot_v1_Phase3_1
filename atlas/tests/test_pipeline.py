@@ -77,7 +77,13 @@ def test_five_consecutive_cycles():
 
 def test_testing_mode_logs_question_answer_and_stage_timings(caplog):
     caplog.set_level(logging.INFO, logger="atlas.pipeline.session_runner")
-    runner = _make_runner(log_transcripts=True, log_llm_responses=True)
+    class DeeperQuestionSTT(MockSTT):
+        def listen(self, duration_s=5.0):
+            return TranscriptResult("Compare its composition with another work.", "en")
+
+    runner = _make_runner(
+        stt=DeeperQuestionSTT(), log_transcripts=True, log_llm_responses=True
+    )
     result = runner.run_once(frame=None)
 
     assert result.success
@@ -492,8 +498,13 @@ def test_rejected_stream_segment_is_not_reported_as_complete_speech(
             self.replays.append(text)
             return True
 
+    class CompositionSTT(MockSTT):
+        def listen(self, duration_s=5.0):
+            return TranscriptResult("Explain the diagonal composition")
+
     tts = PartialTTS()
     runner = _make_runner(
+        stt=CompositionSTT(),
         dialogue_engine=DialogueEngine(StreamingLLM()), tts=tts,
         stream_responses=True, retriever=lambda *_args: [],
     )
@@ -506,3 +517,50 @@ def test_rejected_stream_segment_is_not_reported_as_complete_speech(
     assert result.dialogue.response.endswith("The diagonal creates movement.")
     assert not result.tts_ok
     assert not tts.replays  # Never replay partial speech with a different voice.
+
+
+@pytest.mark.parametrize("route", ["run_once", "respond_to_transcript"])
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("Who is the Mona Lisa?", "Lisa Gherardini"),
+        ("Who painted this?", "Leonardo da Vinci"),
+        ("When was this created?", "1503"),
+    ],
+)
+def test_all_spoken_routes_use_prepared_answers_without_retrieval_or_model(
+    route, question, expected
+):
+    class PreparedQuestionSTT(MockSTT):
+        def listen(self, duration_s=5.0):
+            return TranscriptResult(question, "en")
+
+    class ForbiddenModel:
+        def generate(self, *args, **kwargs):
+            pytest.fail("prepared questions must not call a language model")
+
+        def generate_stream(self, *args, **kwargs):
+            pytest.fail("prepared questions must not stream from a language model")
+
+    def forbidden_retrieval(*args, **kwargs):
+        pytest.fail("prepared questions must not call retrieval")
+
+    engine = DialogueEngine(llm_client=ForbiddenModel())
+    runner = _make_runner(
+        stt=PreparedQuestionSTT(), dialogue_engine=engine,
+        retriever=forbidden_retrieval,
+    )
+    detection = ArtworkDetection(
+        artwork_id="mona_lisa", label="Mona Lisa", confidence=1.0, source="test"
+    )
+    result = (
+        runner.run_once(detection_override=detection)
+        if route == "run_once"
+        else runner.respond_to_transcript(
+            TranscriptResult(question, "en"), detection=detection
+        )
+    )
+    assert result.success
+    assert result.event == "scripted_faq"
+    assert expected in result.dialogue.response
+    assert engine._conversation_turns == [(question, result.dialogue.response)]

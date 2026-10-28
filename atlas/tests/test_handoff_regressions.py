@@ -287,7 +287,7 @@ def test_device_loop_handles_voice_and_session_stop_without_camera(
             pass
 
         def activate(self):
-            assert states["greeted"] == 1
+            assert states["greeted"] == 0, "Session start must stay silent"
             states["active"] = True
 
         def deactivate(self):
@@ -366,6 +366,7 @@ def test_device_loop_handles_voice_and_session_stop_without_camera(
             runtime.run()
         assert states["deactivated"] >= 1
         assert not states["active"]
+    assert states["greeted"] == 0, "An ordinary question must not introduce ATLAS"
 
 
 def test_listener_discards_recording_from_previous_session():

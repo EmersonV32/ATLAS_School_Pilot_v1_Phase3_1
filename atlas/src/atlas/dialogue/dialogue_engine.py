@@ -35,6 +35,10 @@ from dataclasses import dataclass, field
 
 from atlas.dialogue.conversation_memory import ArtworkFocus, ConversationMemory
 from atlas.dialogue.grounding_validator import GroundingValidator
+from atlas.dialogue.introduction_policy import (
+    introduction_fallback,
+    without_model_introduction,
+)
 from atlas.dialogue.personalization import SessionPersonalization
 from atlas.dialogue.prompt_builder import (
     DialogueContext,
@@ -366,6 +370,11 @@ class DialogueEngine:
                 if invalid:
                     logger.warning("LLM cited unknown chunk ids: %s", invalid)
 
+        spoken = without_model_introduction(spoken)
+        introduction_only = not spoken
+        if introduction_only:
+            spoken = introduction_fallback(language)
+
         # 3. Record retrieval overlap for observability only. A mismatch must
         # never replace a useful Gemini answer with a database-style refusal.
         is_grounded, grounding_reason = self._validator.validate(spoken, artwork_chunks)
@@ -380,6 +389,8 @@ class DialogueEngine:
                 grounding_reason,
             )
             fallback_used = False
+
+        fallback_used = fallback_used or introduction_only
 
         # 4. Safety filter (always speaks last).
         final_response, was_filtered = self._safety.filter(spoken, language)
@@ -472,6 +483,9 @@ class DialogueEngine:
                         events.put(("done", self._cancelled(language)))
                         return
                     for sentence in assembler.feed(text_chunk):
+                        sentence = without_model_introduction(sentence)
+                        if not sentence:
+                            continue
                         ok, reason = self._validator.validate(
                             sentence,
                             artwork_chunks,
@@ -495,6 +509,7 @@ class DialogueEngine:
                             raise StopIteration
 
                 remainder = assembler.flush()
+                remainder = without_model_introduction(remainder)
                 if remainder:
                     ok, reason = self._validator.validate(remainder, artwork_chunks)
                     if not ok:
@@ -526,6 +541,14 @@ class DialogueEngine:
                     )
                     accepted.append(fallback)
                     events.put(("sentence", fallback))
+
+            if not accepted:
+                fallback_used = True
+                grounded = False
+                grounding_reason = "introduction_removed"
+                fallback = introduction_fallback(language)
+                accepted.append(fallback)
+                events.put(("sentence", fallback))
 
             result = DialogueResult(
                 response=" ".join(accepted).strip(),

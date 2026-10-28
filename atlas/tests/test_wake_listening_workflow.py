@@ -21,15 +21,16 @@ from atlas.vision.detector import ArtworkDetection
     ["Hey Atlas, qui a peint la Joconde ?"],
     ["Bonjour Atlas", "Hey Atlas", "Qui a peint la Joconde ?"],
 ])
-def test_wake_waits_silently_and_retains_the_actual_question(
+def test_only_explicit_wake_introduces_and_retains_the_actual_question(
     monkeypatch, speech, legacy_gate, camera_online,
 ):
     events = []
+    speech = (["Hey Atlas"] if legacy_gate else []) + speech
     questions = iter(speech)
     service = SimpleNamespace(
         session_id="synthetic-visit", language="fr", profile="child",
         demo_active=True, wake_pending=legacy_gate,
-        greeting_pending=not legacy_gate,
+        greeting_pending=False, greeting_completed=False,
     )
     mic = {"open": False}
     frame = object() if camera_online else None
@@ -44,6 +45,7 @@ def test_wake_waits_silently_and_retains_the_actual_question(
             return False
         events.append("introduction")
         service.greeting_pending = False
+        service.greeting_completed = True
         return True
 
     def activate(text):
@@ -51,7 +53,7 @@ def test_wake_waits_silently_and_retains_the_actual_question(
             return False
         events.append("wake accepted silently")
         service.wake_pending = False
-        service.greeting_pending = True
+        service.greeting_pending = not service.greeting_completed
         return True
 
     service.speak_pending_greeting = greet
@@ -160,12 +162,12 @@ def test_wake_waits_silently_and_retains_the_actual_question(
     monkeypatch.setattr(runtime, "_start_terminal_capture_listener", lambda: None)
     monkeypatch.setattr(runtime, "_stop_dashboard", lambda: None)
     runtime.run(max_interactions=1)
-    assert events.count("introduction") == 1
+    expected_intro = int(any(wake_phrase_matches(text or "", "fr") for text in speech))
+    assert events.count("introduction") == expected_intro
+    assert events[0] == "listen"
     assert events[-1] == "answer"
-    last_heard = max(index for index, event in enumerate(events)
-                     if isinstance(event, tuple))
-    if legacy_gate:
-        assert last_heard < events.index("introduction") < events.index("answer")
-    else:
-        assert events[0:2] == ["introduction", "listen"]
-        assert not any(event == "introduction" for event in events[2:])
+    if expected_intro:
+        first_wake = next(index for index, event in enumerate(events)
+                          if isinstance(event, tuple)
+                          and wake_phrase_matches(event[1], "fr"))
+        assert first_wake < events.index("introduction") < events.index("answer")

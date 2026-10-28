@@ -18,6 +18,7 @@ from atlas.app.headset_button import HeadsetButtonListener
 from atlas.audio.stt import TranscriptResult
 from atlas.dashboard.visitor_activation import (
     is_hesitation_only,
+    wake_phrase_matches,
     wake_phrase_remainder,
 )
 from atlas.vision.detector import ArtworkDetection
@@ -631,19 +632,12 @@ class DeviceRuntime:
                     active_detection = None
                     clear_count = 0
                     print(f"[Session] Active: {active_session_id}")
-                    greet = getattr(
-                        self._dashboard_service, "speak_pending_greeting", None,
-                    )
-                    if callable(greet):
-                        # Greet on this speech-owning thread, before opening the
-                        # microphone. HTTP start stays fast; no self-transcription.
-                        greet()
                     if (
                         self._dashboard_service is not None
                         and self._dashboard_service.session_id != active_session_id
                     ):
-                        # A stop/restart during the greeting must not reactivate
-                        # the cancelled visit's listener.
+                        # A concurrent stop/restart must not reactivate the
+                        # cancelled visit's listener.
                         continue
                     runner.cue_listening()
                     listener.activate()
@@ -652,7 +646,7 @@ class DeviceRuntime:
                         and self._dashboard_service.wake_pending
                     ):
                         logger.info(
-                            "[Activation] Waiting for selected-language wake phrase"
+                            "[Activation] Waiting for Hey Atlas or Bonjour Atlas"
                         )
                     else:
                         logger.info(
@@ -715,6 +709,19 @@ class DeviceRuntime:
                     try:
                         if (
                             self._dashboard_service is not None
+                            and wake_phrase_matches(
+                                question.text, self._dashboard_service.language
+                            )
+                        ):
+                            if self._dashboard_service.activate_from_wake(
+                                question.text
+                            ):
+                                self._dashboard_service.speak_pending_greeting()
+                            awaiting_spoken_request = True
+                            vision_hold.reset()
+                            continue
+                        if (
+                            self._dashboard_service is not None
                             and self._dashboard_service.wake_pending
                         ):
                             activated = self._dashboard_service.activate_from_wake(
@@ -745,12 +752,6 @@ class DeviceRuntime:
                             logger.info("[Listening] Waiting for visitor request")
                             continue
                         awaiting_spoken_request = False
-                        if bool(getattr(
-                            self._dashboard_service, "greeting_pending", False,
-                        )):
-                            self._dashboard_service.speak_pending_greeting()
-                            if self._dashboard_service.session_id != active_session_id:
-                                continue
                         response_started = time.perf_counter()
                         result = runner.respond_to_transcript(
                             question,

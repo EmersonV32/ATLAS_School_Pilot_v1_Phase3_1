@@ -34,6 +34,64 @@ _CAMERA_QUESTION = re.compile(
 )
 
 
+def _recommendation_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text).casefold().replace("œ", "oe")
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return " ".join(re.sub(r"[^\w\s]", " ", normalized).split())
+
+
+def _asks_recommendation(question: str) -> bool:
+    text = _recommendation_text(question)
+    return bool(
+        re.search(
+            r"\b(?:recommend\w*|suggest\w*|recommand\w*|conseill\w*|"
+            r"recomiend\w*|sugier\w*|consigli\w*|raccomand\w*)\b|"
+            r"\b(?:another artwork|more artworks|autre oeuvre|autres oeuvres|"
+            r"otra obra|otras obras|altra opera|altre opere)\b|推荐|推薦|其他作品",
+            text,
+        )
+    )
+
+
+def _accepts_recommendation(question: str) -> bool:
+    text = _recommendation_text(question)
+    return text in {
+        "yes",
+        "yes please",
+        "yes tell me more",
+        "yes please tell me more",
+        "tell me more",
+        "tell me more about it",
+        "yes tell me more about it",
+        "i would like to know more",
+        "oui",
+        "oui s il vous plait",
+        "oui raconte",
+        "oui dites m en plus",
+        "dites m en plus",
+        "parle m en",
+        "oui parle m en",
+        "oui je veux en savoir plus",
+        "si",
+        "si por favor",
+        "si cuentame mas",
+        "cuentame mas",
+        "si grazie",
+        "certo",
+        "dimmi di piu",
+        "si dimmi di piu",
+        "好",
+        "好的",
+        "是",
+        "想",
+        "可以",
+        "请介绍",
+        "請介紹",
+        "我想了解更多",
+        "我想知道更多",
+    }
+
+
 @dataclass(frozen=True)
 class ArtworkFocus:
     generation: int
@@ -75,6 +133,7 @@ class ConversationMemory:
         self.archived: deque[MemoryTurn] = deque(maxlen=ARCHIVED_TURNS)
         self.anchors: OrderedDict[str | None, MemoryTurn] = OrderedDict()
         self.topic: str | None = None
+        self.pending_recommendation: str | None = None
         self.last_confirmed_camera: str | None = None
         self.pending_transition = "none"
         self.turn_number = 0
@@ -88,6 +147,8 @@ class ConversationMemory:
         force_camera: bool = False,
     ) -> ArtworkFocus:
         previous = self.topic
+        recommendation = self.pending_recommendation
+        self.pending_recommendation = None
         if live_artwork_id and live_artwork_id != self.last_confirmed_camera:
             self.topic = live_artwork_id
             self.last_confirmed_camera = live_artwork_id
@@ -102,6 +163,13 @@ class ConversationMemory:
             self.topic = live_artwork_id
         if len(named) == 1 and not camera_question:
             self.topic = named[0]
+        elif (
+            recommendation is not None
+            and not named
+            and not camera_question
+            and _accepts_recommendation(question)
+        ):
+            self.topic = recommendation
         if self.topic != previous and previous is not None:
             self.pending_transition = f"{previous} -> {self.topic}"
         # A missing frame doesn't erase the conversation. Conversely, remembered
@@ -114,6 +182,13 @@ class ConversationMemory:
     def remember(self, question: str, answer: str, artwork_id: str | None) -> None:
         if not question.strip() or not answer.strip():
             return
+        if _asks_recommendation(question):
+            suggested = tuple(
+                item for item in named_artwork_ids(answer, self.artwork_titles)
+                if item != artwork_id
+            )
+            # Only known catalog IDs may become a pending discussion subject.
+            self.pending_recommendation = suggested[0] if len(suggested) == 1 else None
         self.turn_number += 1
         turn = MemoryTurn(self.turn_number, question[:500], answer[:1000], artwork_id)
         self.recent.append(turn)

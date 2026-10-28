@@ -185,8 +185,8 @@ class TestVisitorShell:
         assert response.status_code == 200
         assert response.headers["service-worker-allowed"] == "/"
         assert "STATIC_ALLOWLIST" in response.text
-        assert 'CACHE_NAME = "atlas-visitor-shell-v30"' in response.text
-        assert '"/static/visitor.js?v=30"' in response.text
+        assert 'CACHE_NAME = "atlas-visitor-shell-v31"' in response.text
+        assert '"/static/visitor.js?v=31"' in response.text
         assert '"/static/visitor/assets/atlas-logo-v2.webp"' in response.text
         assert '"/static/visitor/assets/gallery-mona-lisa.webp"' in response.text
         assert '"/static/visitor/assets/expertise-mona.webp"' in response.text
@@ -198,8 +198,8 @@ class TestVisitorShell:
         self, visitor_client
     ):
         html = visitor_client.get("/").text
-        assert "/static/visitor.css?v=30" in html
-        assert "/static/visitor.js?v=30" in html
+        assert "/static/visitor.css?v=31" in html
+        assert "/static/visitor.js?v=31" in html
         assert 'rel="preload" as="image"' in html
 
     def test_visitor_shell_uses_artwork_led_visual_hierarchy(self):
@@ -270,8 +270,14 @@ class TestVisitorShell:
                 )
             )
             assert html_keys <= set(locale["strings"])
+            assert "Hey ATLAS" in locale["strings"]["in_use.title"]
+            assert "Bonjour ATLAS" in locale["strings"]["in_use.title"]
             if locale_name == "zh-Hant":
                 assert locale["status"] == "validated"
+
+        assert "Hey ATLAS” or “Bonjour ATLAS" in html
+        assert "Hey ATLAS” or “Bonjour ATLAS" in source
+        assert "ATLAS will greet you" not in html + source
 
     def test_age_is_entered_with_private_numeric_keypad(self, visitor_client):
         html = visitor_client.get("/").text

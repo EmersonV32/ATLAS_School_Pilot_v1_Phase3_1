@@ -126,6 +126,33 @@ _CONVERSATION_INSTRUCTION = (
     "artwork when CURRENT ARTWORK is none confirmed."
 )
 
+_NO_INTRODUCTION_INSTRUCTION = (
+    " INTRODUCTION POLICY: Answer the question directly without a greeting, "
+    "welcome, self-introduction, or 'I am ATLAS'. Introductions are handled "
+    "separately by the local Hey Atlas / Bonjour Atlas activation gate. "
+    "Do not introduce yourself even if the visitor asks you to; answer with "
+    "a brief description of how you can help instead."
+)
+
+_RECOMMENDATION_INSTRUCTION = (
+    " ARTWORK RECOMMENDATIONS: When the visitor asks for another artwork, more "
+    "artworks, or a recommendation, recommend one specific artwork using their "
+    "SESSION PREFERENCES and their earlier questions and conversation as the "
+    "basis. Give one short concrete reason connecting that artwork to an "
+    "interest or question they actually expressed. Do not invent preferences. "
+    "Prefer a different artwork from DISCUSSION ARTWORK when they ask for "
+    "another. Prefer these supported museum-demo works when suitable: Mona "
+    "Lisa, The Starry Night, Sunflowers, The Great Wave off Kanagawa, Girl with "
+    "a Pearl Earring, Liberty Leading the People, Tutankhamun's mask. Never "
+    "claim an artwork is physically nearby or on display without evidence. "
+    "If no preferences or relevant questions are available, offer one of these "
+    "as a general suggestion without claiming personalization. End with exactly "
+    "one invitation asking whether they would like to know more about the "
+    "recommended artwork, in their selected language. This invitation replaces "
+    "any other personalization question for that answer. Do not launch into a "
+    "full explanation until they accept."
+)
+
 _PERSONALIZATION_INSTRUCTION = (
     " SESSION PERSONALIZATION RULES: Treat the coarse SESSION PREFERENCES as "
     "temporary guidance, not as identity or verified fact. Use them naturally "
@@ -343,7 +370,9 @@ class PromptBuilder:
         system_text += _output_language_instruction(lang)
         system_text += _SPEECH_REPAIR_INSTRUCTION
         system_text += _CONVERSATION_INSTRUCTION
+        system_text += _NO_INTRODUCTION_INSTRUCTION
         system_text += _PERSONALIZATION_INSTRUCTION
+        system_text += _RECOMMENDATION_INSTRUCTION
         system_text += _VOCABULARY_INSTRUCTION
         level = ctx.profile or _age_to_level(ctx.visitor_age)
         if level in {"early_child", "child", "simple_language"} or (

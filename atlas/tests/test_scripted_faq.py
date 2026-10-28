@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 
 from atlas.dialogue.scripted_faq import (
+    _ARTWORKS,
+    _COMPLETE_QUESTIONS,
     _QUESTION_PHRASES,
     PUBLIC_SCRIPTED_LANGUAGES,
     SCRIPTED_FAQ_INTENTS,
@@ -51,8 +53,98 @@ def test_every_scripted_source_id_exists_on_its_content_pack_artwork():
 def test_every_scripted_question_is_available_in_every_public_language(
     language, intent
 ):
-    question = _QUESTION_PHRASES[intent][language][0]
-    assert match_scripted_intent(question, language) == intent
+    for question in _QUESTION_PHRASES[intent][language]:
+        assert match_scripted_intent(question, language) == intent, question
+
+
+@pytest.mark.parametrize("language", PUBLIC_SCRIPTED_LANGUAGES)
+@pytest.mark.parametrize("intent", SCRIPTED_FAQ_INTENTS)
+@pytest.mark.parametrize("artwork_id", tuple(sorted(scripted_catalog_artwork_ids())))
+def test_every_named_question_form_uses_its_named_artwork(language, intent, artwork_id):
+    title = _ARTWORKS[artwork_id]["title"][language]
+    for template in _COMPLETE_QUESTIONS[language][intent]:
+        question = template.replace("artwork", title)
+        result = resolve_scripted_faq(
+            question,
+            artwork_id="sunflowers" if artwork_id != "sunflowers" else "mona_lisa",
+            language=language,
+            profile="adult_beginner",
+        )
+        assert result is not None, question
+        assert result.intent == intent, question
+        assert result.artwork_id == artwork_id, question
+
+
+def test_who_is_the_mona_lisa_answers_the_subject_without_camera_context():
+    result = resolve_scripted_faq(
+        "Who is the Mona Lisa?",
+        artwork_id=None,
+        language="en",
+        profile="adult_beginner",
+    )
+    assert result is not None
+    assert result.artwork_id == "mona_lisa"
+    assert result.intent == "subject"
+    assert "Lisa Gherardini" in result.response
+    assert "src_ml_louvre_gallery" in result.source_ids
+
+
+@pytest.mark.parametrize(
+    "question",
+    (
+        "When was the Mona Lisa stolen?",
+        "When was the Mona Lisa treated?",
+        "What year was the Mona Lisa cleaned?",
+        "Who painted over the crack during restoration?",
+        "What year was the protective glass installed?",
+        "Where is it in the Thirty-six Views series?",
+        "How was it made famous by the theft?",
+        "Who painted this—actually, don't tell me the artist; "
+        "tell me who restored it most recently.",
+        "Who painted Guernica?",
+        "Who painted the Mona Lisa and Starry Night?",
+        "Why is the Mona Lisa smiling?",
+        "What materials were used for the frame of the Mona Lisa?",
+    ),
+)
+def test_specific_unknown_and_multiple_artwork_questions_use_deeper_path(question):
+    assert resolve_scripted_faq(
+        question,
+        artwork_id="mona_lisa",
+        language="en",
+        profile="adult_beginner",
+    ) is None
+
+
+@pytest.mark.parametrize(
+    ("question", "language"),
+    (
+        ("What does sfumato mean in Mona Lisa?", "en"),
+        ("Define the word portrait in Mona Lisa.", "en"),
+        ("Que signifie le mot sfumato dans la Joconde ?", "fr"),
+    ),
+)
+def test_named_artwork_does_not_override_the_vocabulary_route(question, language):
+    assert resolve_scripted_faq(
+        question,
+        artwork_id="mona_lisa",
+        language=language,
+        profile="child",
+    ) is None
+
+
+def test_resolved_camera_subject_wins_over_a_guessed_title():
+    result = resolve_scripted_faq(
+        "What am I looking at, is it Mona Lisa?",
+        artwork_id="starry_night",
+        language="en",
+        profile="adult_beginner",
+        resolved_subject=True,
+    )
+    assert result is not None
+    assert result.artwork_id == "starry_night"
+    assert result.intent == "identify"
+    assert "Starry Night" in result.response
 
 
 @pytest.mark.parametrize("language", PUBLIC_SCRIPTED_LANGUAGES)

@@ -772,6 +772,80 @@ _CLARIFY_ARTWORK = {
     "zh": "你正在看哪件作品？",
 }
 
+# Whole-question forms keep a specific question (for example, when a painting
+# was stolen) from being mistaken for the general creation-date question.
+# Artwork names and simple deictic references are replaced with ``artwork``.
+_COMPLETE_QUESTIONS = {
+    "en": {
+        "identify": ("what is artwork", "which artwork is artwork", "tell me about artwork", "introduce artwork", "what am i looking at artwork", "what am i looking at is it artwork"),
+        "artist": ("who painted artwork", "who made artwork", "who created artwork", "which artist painted artwork", "who is the artist of artwork"),
+        "date": ("when was artwork painted", "when was artwork made", "when was artwork created", "what year was artwork painted", "what year was artwork made", "what year was artwork created", "when did the artist paint artwork"),
+        "subject": ("who is artwork", "what does artwork show", "what is happening in artwork", "what can i see in artwork", "describe artwork", "describe the scene in artwork"),
+        "technique": ("how was artwork made", "how was artwork painted", "what is artwork made of", "what technique was used for artwork", "what materials were used for artwork"),
+        "meaning": ("what does artwork mean", "what is the meaning of artwork", "what does artwork symbolize", "what is the message of artwork"),
+        "importance": ("why is artwork famous", "why is artwork important", "why is artwork special", "what made artwork famous"),
+        "location": ("where is artwork", "where is artwork now", "where can i see artwork", "which museum has artwork", "where is artwork kept"),
+        "detail": ("what should i notice in artwork", "what detail should i notice in artwork", "where should i look in artwork", "show me a detail in artwork"),
+        "fun_fact": ("tell me a fun fact about artwork", "tell me something surprising about artwork", "tell me an interesting fact about artwork"),
+    },
+    "fr": {
+        "identify": ("qu est ce que artwork", "quelle est artwork", "presente moi artwork", "parle moi de artwork", "qu est ce que je regarde artwork"),
+        "artist": ("qui a peint artwork", "qui a fait artwork", "qui a cree artwork", "quel artiste a peint artwork", "qui est l artiste de artwork"),
+        "date": ("quand a ete peint artwork", "quand a ete peinte artwork", "quand a ete realisee artwork", "quand artwork a t elle ete peinte", "en quelle annee artwork a t elle ete peinte", "de quand date artwork"),
+        "subject": ("qui est artwork", "que montre artwork", "que represente artwork", "que voit on dans artwork", "decris artwork", "decris la scene de artwork"),
+        "technique": ("comment artwork a t elle ete realisee", "comment a ete fait artwork", "comment a ete peint artwork", "comment a ete peinte artwork", "quelle technique a ete utilisee pour artwork", "quels materiaux composent artwork"),
+        "meaning": ("que signifie artwork", "quel est le sens de artwork", "que symbolise artwork", "quel est le message de artwork"),
+        "importance": ("pourquoi artwork est elle celebre", "pourquoi artwork est celebre", "pourquoi artwork est elle importante", "pourquoi artwork est elle speciale"),
+        "location": ("ou est artwork", "ou est artwork maintenant", "ou se trouve artwork", "dans quel musee se trouve artwork", "ou est conservee artwork"),
+        "detail": ("que dois je remarquer dans artwork", "quel detail dois je regarder dans artwork", "ou dois je regarder dans artwork", "montre moi un detail de artwork"),
+        "fun_fact": ("raconte un fait amusant sur artwork", "dis moi quelque chose de surprenant sur artwork", "donne moi un fait interessant sur artwork"),
+    },
+    "es": {
+        "identify": ("que es artwork", "hablame de artwork"),
+        "artist": ("quien pinto artwork", "quien hizo artwork", "quien creo artwork"),
+        "date": ("cuando fue pintada artwork", "cuando fue creada artwork", "en que ano se pinto artwork"),
+        "subject": ("quien es artwork", "que muestra artwork", "describe artwork"),
+        "technique": ("como se hizo artwork", "como fue pintada artwork", "de que esta hecha artwork"),
+        "meaning": ("que significa artwork", "que simboliza artwork", "cual es el significado de artwork"),
+        "importance": ("por que es famosa artwork", "por que artwork es famosa", "por que es importante artwork"),
+        "location": ("donde esta artwork", "donde esta ahora artwork", "en que museo esta artwork"),
+        "detail": ("en que debo fijarme en artwork", "muestrame un detalle de artwork"),
+        "fun_fact": ("dime un dato curioso sobre artwork", "dime algo sorprendente sobre artwork"),
+    },
+    "it": {
+        "identify": ("che cos e artwork", "parlami di artwork"),
+        "artist": ("chi ha dipinto artwork", "chi ha fatto artwork", "chi ha creato artwork"),
+        "date": ("quando e stato dipinto artwork", "quando e stata dipinta artwork", "in che anno e stata creata artwork"),
+        "subject": ("chi e artwork", "cosa mostra artwork", "descrivi artwork"),
+        "technique": ("come e stato fatto artwork", "come e stata dipinta artwork", "di cosa e fatto artwork"),
+        "meaning": ("cosa significa artwork", "cosa simboleggia artwork", "qual e il significato di artwork"),
+        "importance": ("perche artwork e famoso", "perche artwork e famosa", "perche artwork e importante"),
+        "location": ("dove si trova artwork", "dove si trova ora artwork", "in quale museo si trova artwork"),
+        "detail": ("cosa dovrei notare in artwork", "mostrami un dettaglio di artwork"),
+        "fun_fact": ("dimmi una curiosita su artwork", "dimmi qualcosa di sorprendente su artwork"),
+    },
+    "zh": {
+        "identify": ("artwork是什么", "介绍artwork"),
+        "artist": ("artwork是谁画的", "谁画的artwork", "谁创作了artwork"),
+        "date": ("artwork是什么时候画的", "artwork是哪一年创作的", "artwork什么时候创作"),
+        "subject": ("artwork是谁", "artwork画了什么", "描述artwork"),
+        "technique": ("artwork是怎么画的", "artwork用了什么材料", "artwork如何制作"),
+        "meaning": ("artwork是什么意思", "artwork象征什么", "artwork想表达什么"),
+        "importance": ("artwork为什么有名", "artwork为什么重要", "artwork为什么特别"),
+        "location": ("artwork现在在哪里", "artwork在哪个博物馆", "artwork收藏在哪里"),
+        "detail": ("artwork有什么细节", "artwork应该注意什么"),
+        "fun_fact": ("artwork有什么有趣的事实", "告诉我artwork的有趣知识"),
+    },
+}
+
+_DEICTIC_REFERENCES = {
+    "en": r"\b(?:this (?:painting|picture|artwork|work)|the (?:painting|picture|artwork|work)|this|it)\b",
+    "fr": r"\b(?:cette (?:peinture|oeuvre)|ce tableau|cela)\b",
+    "es": r"\b(?:esta obra|esta pintura|este cuadro|esto)\b",
+    "it": r"\b(?:quest opera|questo dipinto|questa opera|questa pittura)\b",
+    "zh": r"这件作品|这幅画|它",
+}
+
 
 def _normalize(text: str) -> str:
     text = str(text).translate(_TO_SIMPLIFIED)
@@ -791,45 +865,97 @@ def _phrase_index(language: str) -> tuple[tuple[str, str, tuple[str, ...]], ...]
     )
 
 
+@lru_cache(maxsize=1)
+def _artwork_aliases() -> tuple[tuple[str, re.Pattern[str]], ...]:
+    aliases = {
+        (_normalize(alias), artwork_id)
+        for artwork_id, record in _ARTWORKS.items()
+        for alias in (*record["aliases"], *record["title"].values())
+    }
+    return tuple(
+        (
+            artwork_id,
+            re.compile(
+                re.escape(alias)
+                if re.search(r"[\u3400-\u9fff]", alias)
+                else r"(?<!\w)" + re.escape(alias) + r"(?!\w)"
+            ),
+        )
+        for alias, artwork_id in sorted(aliases, key=lambda item: -len(item[0]))
+    )
+
+
+def _artwork_mentions(normalized: str) -> set[str]:
+    return {
+        artwork_id
+        for artwork_id, pattern in _artwork_aliases()
+        if pattern.search(normalized)
+    }
+
+
+@lru_cache(maxsize=len(PUBLIC_SCRIPTED_LANGUAGES))
+def _complete_question_index(language: str) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
+    return tuple(
+        (intent, normalized, tuple(normalized.split()))
+        for intent in _MATCH_PRIORITY
+        for phrase in _COMPLETE_QUESTIONS[language][intent]
+        if (normalized := _normalize(phrase))
+    )
+
+
+def _whole_question_match(normalized: str, phrase_index: tuple, *, fuzzy: bool = True) -> str | None:
+    for intent, phrase, _words in phrase_index:
+        if normalized == phrase:
+            return intent
+    if not fuzzy or re.search(r"[\u3400-\u9fff]", normalized):
+        return None
+    words = normalized.split()
+    for intent, phrase, phrase_words in phrase_index:
+        # Similar-looking event verbs (created/treated/cleaned) can ask for
+        # entirely different dates. A creation-date answer needs an exact form.
+        if intent == "date":
+            continue
+        if len(words) != len(phrase_words) or len(normalized) < 8:
+            continue
+        if SequenceMatcher(None, normalized, phrase).ratio() < 0.84:
+            continue
+        if all(
+            SequenceMatcher(None, actual, expected).ratio() >= 0.70
+            for actual, expected in zip(words, phrase_words, strict=True)
+        ):
+            return intent
+    return None
+
+
 def match_scripted_intent(question: str, language: str) -> str | None:
     """Match a common question, including close paraphrases, without a model."""
     lang = normalize_language_code(language)
-    if lang not in PUBLIC_SCRIPTED_LANGUAGES or asks_word_meaning(question):
+    if lang not in PUBLIC_SCRIPTED_LANGUAGES:
         return None
     normalized = _normalize(question)
     if not normalized:
         return None
-    phrase_index = _phrase_index(lang)
-    for intent in _MATCH_PRIORITY:
-        if any(
-            phrase in normalized
-            for indexed_intent, phrase, _phrase_words in phrase_index
-            if indexed_intent == intent
-        ):
-            return intent
-    if len(normalized) < 8:
+    exact_intent = _whole_question_match(normalized, _phrase_index(lang), fuzzy=False)
+    if exact_intent is not None:
+        return exact_intent
+    # A full named-artwork form can resemble a one-word definition (Sunflowers).
+    # Other word-meaning requests keep the existing vocabulary route.
+    if asks_word_meaning(question) and not named_artwork_ids(question):
         return None
-    words = normalized.split()
-    word_set = set(words)
-    for intent, normalized_phrase, phrase_words in phrase_index:
-        if not word_set.intersection(phrase_words):
-            continue
-        phrase_word_count = len(phrase_words)
-        for start in range(max(0, len(words) - phrase_word_count + 1)):
-            window_words = words[start : start + phrase_word_count]
-            window = " ".join(window_words)
-            window_ratio = SequenceMatcher(
-                None,
-                window,
-                normalized_phrase,
-            ).ratio()
-            token_ratios = (
-                SequenceMatcher(None, actual, expected).ratio()
-                for actual, expected in zip(window_words, phrase_words, strict=True)
-            )
-            if window_ratio >= 0.84 and all(ratio >= 0.70 for ratio in token_ratios):
-                return intent
-    return None
+    mentions = _artwork_mentions(normalized)
+    if len(mentions) > 1:
+        return None
+    for _artwork_id, pattern in _artwork_aliases():
+        normalized = pattern.sub("artwork", normalized)
+    if not mentions:
+        normalized = re.sub(_DEICTIC_REFERENCES[lang], "artwork", normalized)
+    normalized = re.sub(r"\b(?:the|la|le|l|el|il) artwork\b", "artwork", normalized)
+    # Preserve every explicitly catalogued phrasing, while requiring a whole
+    # question for named artworks, modifiers, and speech-recognition typos.
+    intent = _whole_question_match(normalized, _complete_question_index(lang))
+    if intent is not None:
+        return intent
+    return _whole_question_match(_normalize(question), _phrase_index(lang))
 
 
 def named_artwork_ids(

@@ -88,8 +88,21 @@ def test_every_admin_language_keeps_child_guidance(language):
     ("Hello Atlas", "fr", None),
     ("I said hello Atlas yesterday", "en", None),
 ])
-def test_wake_prefix_preserves_the_question(text, language, remainder):
+def test_address_prefix_preserves_the_question_without_introducing(
+    text, language, remainder
+):
     assert wake_phrase_remainder(text, language) == remainder
+    if remainder:
+        assert not wake_phrase_matches(text, language)
+
+
+@pytest.mark.parametrize(("language", "address"), [
+    ("es", "Hola Atlas"),
+    ("zh", "你好Atlas"),
+])
+def test_other_language_addresses_do_not_authorize_an_introduction(language, address):
+    assert wake_phrase_remainder(address, language) == ""
+    assert not wake_phrase_matches(address, language)
 
 
 @pytest.mark.parametrize("text", ["euh", "um… uh", "", "…"])

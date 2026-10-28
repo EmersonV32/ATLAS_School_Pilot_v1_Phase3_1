@@ -189,6 +189,8 @@ class RuntimeService:
         self._wake_activated = True
         self._greeting_name: str | None = None
         self._greeting_pending = False
+        self._greeting_in_progress = False
+        self._greeting_completed = False
         hardware = container.settings.hardware
         configured_output = str(hardware.audio_output_name).strip()
         self._headset_output_name = str(hardware.headset_name).strip()
@@ -250,7 +252,9 @@ class RuntimeService:
         self._wake_required = bool(wake_required)
         self._wake_activated = not self._wake_required
         self._greeting_name = clean_greeting_name(greeting_name)
-        self._greeting_pending = not self._wake_required
+        self._greeting_pending = False
+        self._greeting_in_progress = False
+        self._greeting_completed = False
         self.session_id = new_session_id()
         self.container.logger.log(
             session_id=self.session_id,
@@ -286,6 +290,8 @@ class RuntimeService:
         self._wake_activated = True
         self._greeting_name = None
         self._greeting_pending = False
+        self._greeting_in_progress = False
+        self._greeting_completed = False
         self._visitor_interests = []
         self._visitor_accessibility = []
         self._visitor_expertise = None
@@ -332,28 +338,32 @@ class RuntimeService:
 
     @property
     def greeting_pending(self) -> bool:
-        """A deferred legacy-wake introduction waits for a real request."""
+        """An explicit visitor greeting queued one introduction for playback."""
         with self._session_lock:
             return bool(self.session_id and self._greeting_pending)
 
     def speak_pending_greeting(self) -> bool:
-        """Consume one new-session greeting on the device runtime thread.
+        """Consume only a greeting explicitly requested by a wake utterance.
 
-        HTTP session-start handlers only queue it; they never synthesize or
-        block on audio. Claim and erase the optional name before synthesis,
-        prevent duplicate greetings, and never retry a partial spoken greeting.
+        Keep the optional name private until local speech succeeds. A failed
+        attempt is never retried automatically; another exact wake is needed.
         The session-change callback aborts playback if staff stop or restart.
         """
         with self._session_lock:
-            if not self.session_id or not self._greeting_pending:
+            if (
+                not self.session_id
+                or not self._greeting_pending
+                or self._greeting_in_progress
+                or self._greeting_completed
+            ):
                 return False
             self._greeting_pending = False
-            name = self._greeting_name
-            self._greeting_name = None
-            generation = self._session_generation
-            language = self.language
             if bool(getattr(self.container.hardware, "emergency_stopped", False)):
                 return False
+            self._greeting_in_progress = True
+            name = self._greeting_name
+            generation = self._session_generation
+            language = self.language
         introduction = session_introduction(language, name)
         with self._session_lock:
             if generation != self._session_generation or self.session_id is None:
@@ -369,10 +379,14 @@ class RuntimeService:
             # Provider exceptions may contain request text; never log their
             # traceback because the named version is private local-only data.
             logger.warning("[Activation] Session introduction audio failed")
-            return False
+            spoken = False
         with self._session_lock:
             if generation != self._session_generation:
                 return False
+            self._greeting_in_progress = False
+            if spoken:
+                self._greeting_completed = True
+                self._greeting_name = None
         logger.info(
             "[Activation] Session introduction completed "
             "[language=%s audio_played=%s]", language, spoken,
@@ -380,23 +394,19 @@ class RuntimeService:
         return spoken
 
     def activate_from_wake(self, transcript: str) -> bool:
-        """Open a legacy wake gate silently; never talk over a wake-only pause.
-
-        The speech-owning device thread consumes the pending introduction only
-        when a substantive request arrives. Normal demo/session starts still
-        introduce ATLAS once before listening, as before.
-        """
+        """Queue the visit's introduction only after an exact allowed greeting."""
         with self._session_lock:
-            if not self.wake_pending:
-                return bool(self.session_id)
-            if not wake_phrase_matches(transcript, self.language):
+            if not self.session_id or not wake_phrase_matches(
+                transcript, self.language
+            ):
                 return False
             if bool(getattr(self.container.hardware, "emergency_stopped", False)):
                 return False
             self._wake_activated = True
-            self._greeting_pending = True
+            if not self._greeting_completed and not self._greeting_in_progress:
+                self._greeting_pending = True
         logger.info(
-            "[Activation] Wake phrase accepted; waiting for visitor request "
+            "[Activation] Explicit greeting accepted "
             "[language=%s]",
             self.language,
         )
@@ -783,6 +793,33 @@ class RuntimeService:
     ) -> dict[str, Any]:
         lang = _to_language(language or self.language)
         level = _to_level(profile or self.profile)
+        if wake_phrase_matches(question, lang.value):
+            activated = self.activate_from_wake(question)
+            if activated and self.greeting_pending:
+                self.speak_pending_greeting()
+            with self._session_lock:
+                ready = activated and self._greeting_completed
+            acknowledgements = {
+                "en": "Ready for your artwork questions.",
+                "fr": "Je suis prêt pour vos questions sur les œuvres.",
+                "es": "Estoy listo para tus preguntas sobre las obras.",
+                "it": "Sono pronto per le tue domande sulle opere.",
+                "zh": "我準備好回答您的藝術品問題了。",
+            }
+            return {
+                "answer": acknowledgements.get(lang.value, acknowledgements["en"])
+                if ready else "",
+                "language": lang.value,
+                "grounded": False,
+                "fallback_used": False,
+                "filtered": False,
+                "confidence": "high",
+                "used_chunk_ids": [],
+                "artwork_id": None,
+                "retrieval_latency_ms": 0.0,
+                "total_latency_ms": None,
+                "error": None if ready else "local_greeting_unavailable",
+            }
         settings = self.container.settings
         if settings.logging.log_transcripts:
             logger.info("[Typed question] %s", question)

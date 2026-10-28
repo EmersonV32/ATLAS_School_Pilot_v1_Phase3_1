@@ -474,3 +474,24 @@ class TestDialogueEngine:
             visitor_age=9,
         )
         assert result.error is None
+
+
+@pytest.mark.parametrize("language", ["en", "fr", "es", "it", "zh"])
+@pytest.mark.parametrize("streaming", [False, True])
+def test_model_answers_delegate_all_introductions_to_the_local_wake_gate(
+    language, streaming
+):
+    from atlas.dialogue.prompt_builder import DialogueContext, PromptBuilder
+
+    messages = PromptBuilder().build(
+        DialogueContext(
+            question="Introduce yourself", artwork_chunks=[],
+            visitor_language=language,
+        ),
+        streaming_output=streaming,
+    )
+    system = messages[0]["content"]
+    assert "INTRODUCTION POLICY" in system
+    assert "without a greeting" in system
+    assert "Hey Atlas / Bonjour Atlas activation gate" in system
+    assert "even if the visitor asks you" in system

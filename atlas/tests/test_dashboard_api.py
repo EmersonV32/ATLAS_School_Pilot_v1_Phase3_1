@@ -130,7 +130,7 @@ class TestHealthAndStatus:
 
 class TestSession:
     @pytest.mark.parametrize("entry_point", ["admin", "visitor"])
-    def test_introduction_is_queued_and_played_once_not_in_http(
+    def test_start_stays_silent_until_explicit_wake(
         self, client, monkeypatch, entry_point,
     ):
         service = client.app.state.service
@@ -161,7 +161,14 @@ class TestSession:
             response = client.post("/api/visitor/onboarding/start", json={})
         assert response.status_code == 200
         assert spoken == []
+        assert service.greeting_pending is False
+        assert service.speak_pending_greeting() is False
+        for phrase in ("Hello Atlas", "Salut Atlas", "Who is the Mona Lisa?"):
+            assert service.activate_from_wake(phrase) is False
+        assert spoken == []
+        assert service.activate_from_wake("Hey Atlas") is True
         assert service.speak_pending_greeting() is True
+        assert service.activate_from_wake("Bonjour Atlas") is True
         assert service.speak_pending_greeting() is False
         assert len(spoken) == 1
         assert spoken[0][1] == "fr"
@@ -178,6 +185,7 @@ class TestSession:
             lambda *args: spoken.append(args) or True,
         )
         service.start_session(demo=True)
+        assert service.activate_from_wake("Hey Atlas") is True
         service.stop_session()
         assert service.speak_pending_greeting() is False
         assert spoken == []
@@ -192,13 +200,16 @@ class TestSession:
         )
         service.set_profile(language="fr")
         service.start_session(demo=True)
+        assert service.activate_from_wake("Hey Atlas") is True
         service.set_profile(language="es")
         service.start_session(demo=True)
+        assert service.speak_pending_greeting() is False
+        assert service.activate_from_wake("Bonjour Atlas") is True
         assert service.speak_pending_greeting() is True
         assert len(spoken) == 1
         assert spoken[0][1] == "es"
 
-    def test_automatic_named_greeting_stays_local_and_erases_name(
+    def test_explicit_named_greeting_stays_local_and_erases_name_after_success(
         self,
         client,
         monkeypatch,
@@ -218,15 +229,22 @@ class TestSession:
             lambda *args: cloud.append(args) or True,
         )
         service.start_session(demo=True, greeting_name="Emerson")
+        assert service.speak_pending_greeting() is False
+        assert service._greeting_name == "Emerson"
+        assert service.activate_from_wake("Hey Atlas") is True
         assert service.speak_pending_greeting() is True
         assert len(local) == 1
-        assert "Emerson" in local[0][0]
+        assert local[0][0].startswith("Hey Emerson, I'm ATLAS.")
         assert cloud == []
         assert service._greeting_name is None
+        assert service._greeting_completed is True
+        assert service.activate_from_wake("Bonjour Atlas") is True
+        assert service.speak_pending_greeting() is False
+        assert len(local) == 1
         assert "Emerson" not in caplog.text
         assert "Emerson" not in str(service.status())
 
-    def test_failed_private_intro_never_cloud_falls_back_or_retries(
+    def test_failed_private_intro_preserves_name_without_automatic_retry(
         self,
         client,
         monkeypatch,
@@ -245,11 +263,20 @@ class TestSession:
             lambda *args: cloud.append(args) or True,
         )
         service.start_session(greeting_name="Emerson")
+        assert service.activate_from_wake("Bonjour Atlas") is True
         assert service.speak_pending_greeting() is False
         assert service.speak_pending_greeting() is False
-        assert service._greeting_name is None
+        assert service._greeting_name == "Emerson"
+        assert service._greeting_completed is False
         assert cloud == []
         assert "Emerson" not in caplog.text
+        monkeypatch.setattr(
+            service.container.tts, "speak_private_local", lambda *_args: True,
+        )
+        assert service.activate_from_wake("Hey Atlas") is True
+        assert service.speak_pending_greeting() is True
+        assert service._greeting_name is None
+        assert service._greeting_completed is True
 
     def test_intro_cancelled_during_audio_does_not_mark_old_session_complete(
         self,
@@ -264,6 +291,7 @@ class TestSession:
 
         monkeypatch.setattr(service.container.tts, "speak", stop_during_audio)
         service.start_session()
+        assert service.activate_from_wake("Hey Atlas") is True
         assert service.speak_pending_greeting() is False
         assert service.session_id is None
 
@@ -275,10 +303,14 @@ class TestSession:
             "speak",
             lambda *args: spoken.append(args) or True,
         )
-        service.start_session()
+        service.start_session(greeting_name="Emerson")
+        assert service.activate_from_wake("Hey Atlas") is True
         service.container.hardware.emergency_stop()
         assert service.speak_pending_greeting() is False
+        assert service._greeting_name == "Emerson"
         assert spoken == []
+        service.stop_session()
+        assert service._greeting_name is None
 
     def test_start_and_stop(self, client):
         started = client.post("/session/start", headers=_admin(client)).json()
@@ -330,11 +362,11 @@ class TestSession:
         assert service.status()["activation_state"] == "waiting_for_wake"
         assert service.activate_from_wake("Tell me about art") is False
         assert service.wake_pending is True
-        assert service.activate_from_wake("Hello ATLAS") is True
+        assert service.activate_from_wake("Hey ATLAS") is True
         assert service.wake_pending is False
-        assert spoken == [], "A wake-only pause must stay silent"
+        assert spoken == [], "Only the speech-owning thread plays the greeting"
         assert service.greeting_pending is True
-        # The device thread consumes this only after the actual request arrives.
+        # The device thread consumes this after the explicit wake utterance.
         assert service.speak_pending_greeting() is True
         assert len(spoken) == 1
         assert "Emerson" in spoken[0][0]
@@ -342,7 +374,7 @@ class TestSession:
         assert service.speak_pending_greeting() is False
         assert "Emerson" not in caplog.text
 
-    def test_failed_deferred_private_greeting_never_retries_or_uses_cloud(
+    def test_failed_wake_greeting_keeps_name_until_success_or_stop(
         self, client, monkeypatch
     ):
         service = client.app.state.service
@@ -356,12 +388,67 @@ class TestSession:
             service.container.tts, "speak",
             lambda *args: pytest.fail("A private name must never use cloud speech"),
         )
-        assert service.activate_from_wake("Hello ATLAS") is True
+        assert service.activate_from_wake("Bonjour ATLAS") is True
         assert service.wake_pending is False
         assert service.speak_pending_greeting() is False
-        assert service._greeting_name is None
+        assert service._greeting_name == "Emerson"
         assert service.greeting_pending is False
         assert service.speak_pending_greeting() is False
+        service.stop_session()
+        assert service._greeting_name is None
+
+    def test_ordinary_question_before_wake_never_introduces_or_uses_name(
+        self, client, monkeypatch
+    ):
+        service = client.app.state.service
+        spoken = []
+        monkeypatch.setattr(
+            service.container.tts, "speak_private_local",
+            lambda *args: spoken.append(args) or True,
+        )
+        monkeypatch.setattr(
+            service.container.tts, "speak",
+            lambda *args: spoken.append(args) or True,
+        )
+        service.start_session(greeting_name="Emerson")
+        answer = service.ask("Who painted the Mona Lisa?")
+        assert "Leonardo" in answer["answer"]
+        assert service.speak_pending_greeting() is False
+        assert service.greeting_pending is False
+        assert service._greeting_completed is False
+        assert service._greeting_name == "Emerson"
+        assert spoken == []
+        assert "Emerson" not in str(answer)
+
+    def test_typed_wake_and_repeat_use_only_local_name_greeting(
+        self, client, monkeypatch
+    ):
+        service = client.app.state.service
+        service.set_profile(language="fr")
+        spoken = []
+        monkeypatch.setattr(
+            service.container.tts, "speak_private_local",
+            lambda text, language: spoken.append((text, language)) or True,
+        )
+        monkeypatch.setattr(
+            service.container.dialogue_engine, "prepare_turn",
+            lambda *_args, **_kwargs: pytest.fail("Wake must bypass model context"),
+        )
+        monkeypatch.setattr(
+            service.container.retriever, "retrieve",
+            lambda *_args, **_kwargs: pytest.fail("Wake must bypass retrieval"),
+        )
+        service.start_session(greeting_name="Emerson")
+        first = service.ask("Hey Atlas")
+        repeat = service.ask("Bonjour Atlas !")
+        assert first["error"] is None and repeat["error"] is None
+        assert first["answer"] == "Je suis prêt pour vos questions sur les œuvres."
+        assert len(spoken) == 1
+        assert spoken[0][0].startswith("Bonjour Emerson, je suis ATLAS.")
+        assert spoken[0][1] == "fr"
+        assert service._greeting_name is None
+        assert service.greeting_pending is False
+        assert "Emerson" not in str(first) + str(repeat) + str(service.status())
 
     def test_profile_update(self, client):
         res = client.post(

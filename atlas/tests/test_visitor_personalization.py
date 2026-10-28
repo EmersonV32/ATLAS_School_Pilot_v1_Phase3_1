@@ -25,29 +25,37 @@ def test_named_introduction_is_one_local_greeting():
     assert session_introduction("fr", "Emerson") == local_greeting("fr", "Emerson")
 
 
-@pytest.mark.parametrize(
-    ("language", "phrase"),
-    [
-        ("en", "Hello ATLAS"),
-        ("fr", "Bonjour Atlas !"),
-        ("es", "Hola ATLAS"),
-        ("it", "Ciao Atlas"),
-        ("zh-Hant", "你好 ATLAS"),
-    ],
-)
-def test_wake_phrase_uses_the_selected_visitor_language(language, phrase):
+@pytest.mark.parametrize("language", sorted(ADMIN_LANGUAGE_CODES))
+@pytest.mark.parametrize("phrase", ["Hey ATLAS", "Bonjour Atlas !", "  HEY, Atlas. "])
+def test_only_explicit_wake_greetings_work_in_every_visitor_language(language, phrase):
     assert wake_phrase_matches(phrase, language) is True
 
 
-def test_unrelated_speech_does_not_activate_atlas():
-    assert wake_phrase_matches("Tell me about this painting", "en") is False
-    assert wake_phrase_matches("Hello ATLAS", "fr") is False
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "Tell me about this painting",
+        "Hello ATLAS",
+        "Hi Atlas",
+        "Salut Atlas",
+        "Hola ATLAS",
+        "Ciao Atlas",
+        "你好 ATLAS",
+        "Hey Atlas, who painted the Mona Lisa?",
+        "Bonjour Atlas, quelle est cette œuvre ?",
+        "Do I say Hey Atlas?",
+        "Hey Atlas um",
+        "",
+    ],
+)
+def test_other_greetings_mentions_and_questions_do_not_activate_atlas(phrase):
+    assert wake_phrase_matches(phrase, "en") is False
 
 
 def test_local_greeting_uses_the_optional_name_without_persisting_it():
     name = clean_greeting_name("  Émerson-Li  ")
     greeting = local_greeting("en", name)
-    assert greeting.startswith("Hi Émerson-Li, I'm ATLAS.")
+    assert greeting.startswith("Hey Émerson-Li, I'm ATLAS.")
     assert "ask me anything" in greeting
 
 

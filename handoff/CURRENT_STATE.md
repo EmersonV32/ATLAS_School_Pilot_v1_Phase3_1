@@ -1,5 +1,25 @@
 # Current state
 
+## Authorized test release preparation — 2026-10-28
+
+The owner authorized source-only Jetson deployment from the separate
+`codex/faq-wake-french-dates-runtime` test branch, without updating main. See
+[the release record](../atlas/docs/2026-10-28_TEST_BRANCH_RELEASE.md). Preparation
+includes the recommendation acceptance routing fix. Installed state and final
+acceptance must be recorded after the transaction; earlier local-only notes
+below describe their original stage.
+
+## Local review pending — 2026-10-27
+
+The uncommitted descendant `codex/faq-wake-french-dates-runtime` contains the
+requested prepared-answer matching/pipeline fixes, explicit Hey Atlas / Bonjour
+Atlas introductions, private dashboard-name greeting, and French spoken dates.
+See [the change and Jetson checklist](../atlas/docs/2026-10-27_FAQ_WAKE_FRENCH_DATES.md).
+No main promotion, push, deployment, restart, or fresh physical acceptance is
+part of this local work. The deployment observations below keep their dates.
+The new behavior intentionally removes automatic session-start introductions;
+ordinary camera-free questions remain available before a greeting.
+
 ## Current continuation — 2026-10-26
 
 Read the [two-week teammate handoff](2026-10-26_TEAMMATE_HANDOFF.md),
