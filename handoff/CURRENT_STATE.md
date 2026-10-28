@@ -1,5 +1,22 @@
 # Current state
 
+## Full wake introduction deployment — 2026-10-28
+
+Latest installed source: `228f4da` from `codex/full-wake-introduction`.
+The optional named greeting keeps the complete guide introduction; English/
+French finish the role/help explanation before an interest question. Both
+proactive camera invitation paths require successful current-visit introduction
+and recheck queued visit IDs. Names remain private/local and ephemeral.
+
+All 203 managed files match the release manifest. Local guarded suite: 4,537
+passed, three skipped, independently 4,540 collected. Installed mocked suite:
+306 passed after documented native test-port isolation. Service active/running,
+NRestarts 0, ExecMainStatus 0; public HTTP 200 and protected HTTP 401. Boot ID
+and excluded-file metadata unchanged; rollback kept. Main unchanged.
+See [release and retest steps](../atlas/docs/2026-10-28_FULL_WAKE_INTRODUCTION.md).
+Start a fresh visit for the once-per-visit greeting. Full audible playback and
+name pronunciation still require the owner's headset check.
+
 ## Interactive FAQ deployment — 2026-10-28
 
 The latest owner-authorized source-only test release is `d7ecce7`, from

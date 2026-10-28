@@ -1,5 +1,8 @@
 # Interactive FAQ test release
 
+This earlier release is superseded by the
+[full wake introduction release](2026-10-28_FULL_WAKE_INTRODUCTION.md).
+
 The owner requested more conversational invitations and faster prepared answers,
 then explicitly clarified that the result must be redeployed to the Jetson for
 retesting. This is a descendant test branch, `codex/interactive-fast-faq`.

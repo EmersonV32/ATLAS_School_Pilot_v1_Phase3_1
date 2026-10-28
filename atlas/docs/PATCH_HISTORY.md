@@ -16,7 +16,12 @@ runtime_service, device_runtime and focused/integration tests.
 See `2026-10-28_FULL_WAKE_INTRODUCTION.md`. Guarded local suite: 4,537 passed,
 three skipped; independently 4,540 collected. Lint, compile, dependencies,
 secret/recovery/layout and synthetic visitor/admin logic checks pass.
-Deployment pending; main promotion is outside the authorized test release.
+**Deployment result:** `228f4da` installed from the separate test branch; all
+203 managed files match. Additional mocked native suite: 306 passed after
+isolating the pre-existing wake-test port probe from the running dashboard;
+the release record documents the initial test/harness failures. Service and
+public/protected HTTP checks pass, preservation metadata/boot ID unchanged,
+rollback retained. Main unchanged; headset completeness/pronunciation pending.
 
 ## 2026-10-28 - Interactive prepared answers and shorter FAQ endpoint
 

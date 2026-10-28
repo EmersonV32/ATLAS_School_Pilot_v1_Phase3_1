@@ -38,8 +38,42 @@ limitation remains recorded in earlier release notes; no new pass is claimed.
 Before deployment, every previous managed file and public fixture matches the
 interactive FAQ archive. Service is active/running with NRestarts 0 and
 ExecMainStatus 0; public pages/health return HTTP 200, protected routes HTTP 401.
-Source-only deployment is pending. Local settings, packages, models, secrets,
-service units, firmware, networking and motor state are outside this release.
+Local settings, packages, models, secrets, service units, firmware, networking
+and motor state are outside this release.
+
+## Installed release — confirmed 2026-10-28
+
+Source `228f4daadcd3c193eba52a4be6733f9fc09bbdca`, branch
+`codex/full-wake-introduction`. Archive SHA-256:
+`35049b8dd2e6bf890b207c6d66ea32df42f9e7493cc87ef1b3ed7d11d59bd5bb`.
+Independent laptop hashing and remote archive verification agree. The
+source-only transaction passed staged validation, installed 203 managed files
+from the 211-entry archive (eight validation-only public fixtures), and
+restarted only the existing user service. All installed managed files match
+the manifest; the public fixtures also match.
+
+Additional installed-source mocked tests: **306 passed**, independently 306
+collected. The first native run had 294 pass and twelve wake-loop tests fail
+because their real port probe correctly found the running dashboard on 8765.
+The native harness now runs that module's real availability probe on ephemeral
+port 0 and immediately restores its test setting; dashboard startup in those
+tests was already mocked. A first wrapper attempt used the wrong settings
+member and also failed those twelve tests; that wrapper was corrected before
+the final complete pass. Production files, settings and the running service
+were untouched by this test isolation. These were test-environment/wrapper
+failures, not waived assertions or a claimed initial clean pass.
+
+Service active/running, ExecMainStatus 0, NRestarts 0; visitor/admin/health HTTP
+200, protected audio/pan routes HTTP 401. PC-to-Jetson health also HTTP 200.
+Boot ID and stat metadata of credentials, local settings/overrides, models and
+the service unit remained unchanged. No credential contents/hashes were read.
+
+Rollback retained:
+`/home/super-alex/atlas/backups/wakeintro-20261028-387fb151/atlas-source-20261028-180246-da8bff00`.
+Sanitized evidence and the native harness are outside Git in
+`ATLAS/deliverables/faq-runtime-review/wake-intro-deployment-20261028/`.
+Main remains `9dfe2606e907f85e2c9b626118a98e65e9f09e7a`. A subsequent
+documentation-only commit records this result; no additional restart is needed.
 
 ## Owner retest
 
