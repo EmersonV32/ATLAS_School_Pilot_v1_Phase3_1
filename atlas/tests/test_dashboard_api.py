@@ -234,7 +234,8 @@ class TestSession:
         assert service.activate_from_wake("Hey Atlas") is True
         assert service.speak_pending_greeting() is True
         assert len(local) == 1
-        assert local[0][0].startswith("Hey Emerson, I'm ATLAS.")
+        assert local[0][0].startswith("Hey Emerson, I'm ATLAS, your AI art guide.")
+        assert "I can help you discover artworks" in local[0][0]
         assert cloud == []
         assert service._greeting_name is None
         assert service._greeting_completed is True
@@ -444,11 +445,54 @@ class TestSession:
         assert first["error"] is None and repeat["error"] is None
         assert first["answer"] == "Je suis prêt pour vos questions sur les œuvres."
         assert len(spoken) == 1
-        assert spoken[0][0].startswith("Bonjour Emerson, je suis ATLAS.")
+        assert spoken[0][0].startswith(
+            "Bonjour Emerson, je suis ATLAS, votre guide artistique virtuel."
+        )
+        assert "Je peux vous faire découvrir" in spoken[0][0]
         assert spoken[0][1] == "fr"
         assert service._greeting_name is None
         assert service.greeting_pending is False
         assert "Emerson" not in str(first) + str(repeat) + str(service.status())
+
+    @pytest.mark.parametrize("language", ["en", "fr"])
+    @pytest.mark.parametrize("name", [None, "Emerson"])
+    def test_wake_plays_complete_intro_then_invitation_as_one_utterance(
+        self, client, monkeypatch, language, name, caplog
+    ):
+        service = client.app.state.service
+        service.set_profile(language=language)
+        spoken = []
+
+        def record(route):
+            def speak(text, selected_language):
+                spoken.append((route, text, selected_language))
+                return True
+            return speak
+
+        monkeypatch.setattr(service.container.tts, "speak", record("public"))
+        monkeypatch.setattr(
+            service.container.tts, "speak_private_local", record("private")
+        )
+        service.start_session(demo=True, wake_required=False, greeting_name=name)
+        assert service.speak_pending_greeting() is False
+        assert spoken == []
+        assert service.activate_from_wake("Bonjour Atlas")
+        assert service.speak_pending_greeting()
+        assert len(spoken) == 1
+        route, text, selected_language = spoken[0]
+        assert route == ("private" if name else "public")
+        assert selected_language == language
+        role = "your AI art guide" if language == "en" else "votre guide artistique"
+        invitation = (
+            "Are you interested" if language == "en" else "Est-ce qu'un artiste"
+        )
+        assert text.index("ATLAS") < text.index(role) < text.index(invitation)
+        assert ("Emerson" in text) is bool(name)
+        assert service._greeting_name is None
+        assert "Emerson" not in str(service.status()) + caplog.text
+        assert service.activate_from_wake("Hey Atlas")
+        assert service.speak_pending_greeting() is False
+        assert len(spoken) == 1
 
     def test_profile_update(self, client):
         res = client.post(

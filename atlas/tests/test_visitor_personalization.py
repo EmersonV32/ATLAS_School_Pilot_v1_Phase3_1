@@ -25,6 +25,39 @@ def test_named_introduction_is_one_local_greeting():
     assert session_introduction("fr", "Emerson") == local_greeting("fr", "Emerson")
 
 
+@pytest.mark.parametrize("language", ["en", "fr", "es", "it", "zh"])
+def test_name_does_not_remove_any_of_the_full_introduction(language):
+    anonymous = session_introduction(language)
+    named = session_introduction(language, "Emerson")
+    # Only the opening changes; the full guide explanation remains verbatim.
+    assert named.split("ATLAS", 1)[1] == anonymous.split("ATLAS", 1)[1]
+    assert named.count("Emerson") == 1
+    assert "Emerson" not in anonymous
+    assert named.count("ATLAS") == anonymous.count("ATLAS") == 1
+
+
+@pytest.mark.parametrize(
+    ("language", "role", "help_text", "invitation"),
+    [
+        ("en", "your AI art guide", "I can help you discover artworks",
+         "Are you interested"),
+        ("fr", "votre guide artistique virtuel", "Je peux vous faire découvrir",
+         "Est-ce qu'un artiste"),
+    ],
+)
+@pytest.mark.parametrize("name", [None, "", "Emerson"])
+def test_full_introduction_finishes_before_interest_question(
+    language, role, help_text, invitation, name
+):
+    introduction = session_introduction(language, name)
+    assert introduction.index("ATLAS") < introduction.index(role)
+    assert introduction.index(role) < introduction.index(help_text)
+    assert introduction.index(help_text) < introduction.index(invitation)
+    assert introduction.count("?") == 1
+    assert introduction.endswith("?")
+    assert ("Emerson" in introduction) is bool(name)
+
+
 @pytest.mark.parametrize("language", sorted(ADMIN_LANGUAGE_CODES))
 @pytest.mark.parametrize("phrase", ["Hey ATLAS", "Bonjour Atlas !", "  HEY, Atlas. "])
 def test_only_explicit_wake_greetings_work_in_every_visitor_language(language, phrase):
@@ -55,8 +88,11 @@ def test_other_greetings_mentions_and_questions_do_not_activate_atlas(phrase):
 def test_local_greeting_uses_the_optional_name_without_persisting_it():
     name = clean_greeting_name("  Émerson-Li  ")
     greeting = local_greeting("en", name)
-    assert greeting.startswith("Hey Émerson-Li, I'm ATLAS.")
-    assert "ask me anything" in greeting
+    assert greeting.startswith("Hey Émerson-Li, I'm ATLAS, your AI art guide.")
+    assert "I can help you discover artworks" in greeting
+    assert greeting.endswith(
+        "Are you interested in an artist or the story behind an artwork?"
+    )
 
 
 @pytest.mark.parametrize("value", ["Ada 123", "<script>", "A/B", "A_B"])

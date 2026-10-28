@@ -341,6 +341,12 @@ class RuntimeService:
         with self._session_lock:
             return bool(self.session_id and self._greeting_pending)
 
+    @property
+    def introduction_completed(self) -> bool:
+        """Allow proactive invitations only after this visit's spoken intro."""
+        with self._session_lock:
+            return bool(self.session_id and self._greeting_completed)
+
     def speak_pending_greeting(self) -> bool:
         """Consume only a greeting explicitly requested by a wake utterance.
 

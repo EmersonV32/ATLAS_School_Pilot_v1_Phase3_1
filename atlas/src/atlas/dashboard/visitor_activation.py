@@ -11,13 +11,17 @@ from atlas.models.languages import normalize_language_code
 # an LLM prompt. Every language exposed by the admin dashboard has its own text.
 _INTRODUCTIONS = {
     "en": (
-        "Hello, I'm ATLAS, your AI art guide. Ask me about an artwork by name, "
-        "or tell me what you would like to explore."
+        "Hello, I'm ATLAS, your AI art guide. I can help you discover artworks, "
+        "their artists, and the stories behind them. You can ask me about an "
+        "artwork by name or tell me what you would like to explore. "
+        "Are you interested in an artist or the story behind an artwork?"
     ),
     "fr": (
-        "Bonjour, je suis ATLAS, votre guide artistique virtuel. Posez-moi une "
-        "question sur une œuvre en donnant son nom, ou dites-moi ce que vous "
-        "souhaitez découvrir."
+        "Bonjour, je suis ATLAS, votre guide artistique virtuel. Je peux vous "
+        "faire découvrir les œuvres, leurs artistes et les histoires qui les "
+        "entourent. Vous pouvez me poser une question en donnant le nom d'une "
+        "œuvre ou me dire ce que vous souhaitez explorer. "
+        "Est-ce qu'un artiste ou l'histoire d'une œuvre vous intéresse?"
     ),
     "es": (
         "Hola, soy ATLAS, tu guía de arte con inteligencia artificial. "
@@ -116,19 +120,11 @@ _ADDRESS_PHRASES = {
 _HESITATIONS = {"uh", "um", "erm", "er", "euh", "heu", "hmm", "hum", "eh"}
 
 _GREETINGS = {
-    "en": ("Hey {name}, I'm ATLAS.", "Hey, I'm ATLAS."),
-    "fr": ("Bonjour {name}, je suis ATLAS.", "Bonjour, je suis ATLAS."),
-    "es": ("Hola {name}, soy ATLAS.", "Hola, soy ATLAS."),
-    "it": ("Ciao {name}, sono ATLAS.", "Ciao, sono ATLAS."),
-    "zh": ("你好，{name}，我是 ATLAS。", "你好，我是 ATLAS。"),
-}
-
-_INVITATIONS = {
-    "en": "Look at an artwork and ask me anything about it.",
-    "fr": "Regardez une œuvre et posez-moi toutes vos questions.",
-    "es": "Mira una obra y pregúntame lo que quieras sobre ella.",
-    "it": "Guarda un'opera e chiedimi quello che vuoi.",
-    "zh": "請看向一件藝術品，然後問我任何問題。",
+    "en": ("Hey {name},", "Hello,"),
+    "fr": ("Bonjour {name},", "Bonjour,"),
+    "es": ("Hola {name},", "Hola,"),
+    "it": ("Ciao {name},", "Ciao,"),
+    "zh": ("你好，{name}，", "你好，"),
 }
 
 
@@ -194,11 +190,13 @@ def clean_greeting_name(value: str | None) -> str | None:
 
 
 def local_greeting(language: str, name: str | None = None) -> str:
-    """Build the one-time greeting that must stay on the local Jetson."""
+    """Keep the complete introduction when adding a private optional name."""
     root = _language_root(language)
+    introduction = _INTRODUCTIONS[root]
     named, anonymous = _GREETINGS[root]
-    opening = named.format(name=name) if name else anonymous
-    return f"{opening} {_INVITATIONS[root]}"
+    if not name:
+        return introduction
+    return introduction.replace(anonymous, named.format(name=name), 1)
 
 
 def session_introduction(language: str, name: str | None = None) -> str:

@@ -121,8 +121,10 @@ def test_intro_only_answer_gets_one_non_introductory_fallback(
 
 
 def test_local_name_bearing_wake_greeting_remains_intact():
-    assert "Emerson, I'm ATLAS." in local_greeting("en", "Emerson")
-    assert local_greeting("fr", "Emerson").startswith("Bonjour Emerson, je suis ATLAS.")
+    assert "Emerson, I'm ATLAS, your AI art guide." in local_greeting("en", "Emerson")
+    assert local_greeting("fr", "Emerson").startswith(
+        "Bonjour Emerson, je suis ATLAS, votre guide artistique virtuel."
+    )
 
 
 def test_intro_cleanup_preserves_conversation_artwork_subject():

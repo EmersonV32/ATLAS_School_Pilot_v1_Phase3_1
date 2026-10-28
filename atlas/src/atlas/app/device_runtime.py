@@ -12,6 +12,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import replace
+from functools import partial
 
 from atlas.app.dependency_container import Container
 from atlas.app.headset_button import HeadsetButtonListener
@@ -488,6 +489,22 @@ class DeviceRuntime:
                 "host/port and stop any other ATLAS instance before starting."
             ) from exc
 
+    def _invite_after_introduction(
+        self,
+        runner,
+        detection: ArtworkDetection,
+        session_id: str,
+    ) -> bool:
+        """Recheck a queued prompt after any intervening session change."""
+        service = self._dashboard_service
+        if (
+            service is None
+            or service.session_id != session_id
+            or not service.introduction_completed
+        ):
+            return False
+        return runner.invite_about_artwork(detection, service.language)
+
     def run(
         self,
         max_interactions: int = 0,
@@ -685,16 +702,17 @@ class DeviceRuntime:
                             "[Capture] Context selected: "
                             f"{result.detection.label}; listening remains active"
                         )
-                        if demo_active and not awaiting_spoken_request and not (
-                            self._dashboard_service is not None
-                            and self._dashboard_service.wake_pending
+                        if (
+                            demo_active
+                            and not awaiting_spoken_request
+                            and self._dashboard_service.introduction_completed
                         ):
                             listener.request_prompt(
-                                lambda selected=result.detection: (
-                                    runner.invite_about_artwork(
-                                        selected,
-                                        self._dashboard_service.language,
-                                    )
+                                partial(
+                                    self._invite_after_introduction,
+                                    runner,
+                                    result.detection,
+                                    dashboard_session_id,
                                 )
                             )
                     else:
@@ -855,14 +873,17 @@ class DeviceRuntime:
                 logger.info(
                     "[Vision] Artwork context selected; continuous listening unchanged"
                 )
-                if demo_active and not awaiting_spoken_request and not (
-                    self._dashboard_service is not None
-                    and self._dashboard_service.wake_pending
+                if (
+                    demo_active
+                    and not awaiting_spoken_request
+                    and self._dashboard_service.introduction_completed
                 ):
                     listener.request_prompt(
-                        lambda selected=detection: runner.invite_about_artwork(
-                            selected,
-                            self._dashboard_service.language,
+                        partial(
+                            self._invite_after_introduction,
+                            runner,
+                            detection,
+                            dashboard_session_id,
                         )
                     )
                 vision_hold.reset()

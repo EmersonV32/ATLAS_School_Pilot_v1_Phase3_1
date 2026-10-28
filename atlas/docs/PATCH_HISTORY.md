@@ -4,6 +4,20 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-10-28 - Complete wake introduction before suggestions
+
+The private named greeting now retains the complete anonymous introduction,
+including the guide role/help explanation. English/French end with one optional
+interest invitation after that explanation. Both stable-camera and manual demo
+suggestions wait for successful introduction and recheck the queued visit.
+Optional-name privacy, exact wake gating, once-per-visit behavior, cancellation
+and ordinary pre-wake answers are retained. Changed visitor_activation,
+runtime_service, device_runtime and focused/integration tests.
+See `2026-10-28_FULL_WAKE_INTRODUCTION.md`. Guarded local suite: 4,537 passed,
+three skipped; independently 4,540 collected. Lint, compile, dependencies,
+secret/recovery/layout and synthetic visitor/admin logic checks pass.
+Deployment pending; main promotion is outside the authorized test release.
+
 ## 2026-10-28 - Interactive prepared answers and shorter FAQ endpoint
 
 Prepared answers now offer varied relevant next details; accepted invitations
