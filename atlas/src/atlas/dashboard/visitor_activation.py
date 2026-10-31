@@ -11,8 +11,7 @@ from atlas.models.languages import normalize_language_code
 # an LLM prompt. Every language exposed by the admin dashboard has its own text.
 _INTRODUCTIONS = {
     "en": (
-        "Hello, I'm ATLAS, your AI art guide. Ask me about an artwork by name, "
-        "or tell me what you would like to explore."
+        "Hello, I'm ATLAS, your museum guide. What can I do for you today?"
     ),
     "fr": (
         "Bonjour, je suis ATLAS, votre guide artistique virtuel. Posez-moi une "
@@ -125,7 +124,7 @@ _GREETINGS = {
 }
 
 _INVITATIONS = {
-    "en": "Look at an artwork and ask me anything about it.",
+    "en": "I'm your museum guide. What can I do for you today?",
     "fr": "Regardez une œuvre et posez-moi toutes vos questions.",
     "es": "Mira una obra y pregúntame lo que quieras sobre ella.",
     "it": "Guarda un'opera e chiedimi quello che vuoi.",

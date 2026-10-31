@@ -90,6 +90,21 @@ class DialogueResult:
     fallback_used: bool = False
 
 
+def _identity_answer(question: str, language: str) -> str | None:
+    """Answer direct English self-identification locally, even without cloud access."""
+    if language != "en":
+        return None
+    normalized = re.sub(r"[^a-z0-9\s]", "", question.lower())
+    normalized = " ".join(normalized.split())
+    normalized = re.sub(r"^(?:(?:hi|hello|hey|atlas)\s+)+", "", normalized)
+    if normalized in {
+        "what is your name", "whats your name", "who are you",
+        "tell me your name", "do you have a name", "what are you called",
+    }:
+        return "I'm ATLAS, your museum guide. How can I help you today?"
+    return None
+
+
 def _parse_structured(raw: str) -> dict | None:
     """Parse the LLM JSON contract if present; None means plain text.
 
@@ -320,6 +335,15 @@ class DialogueEngine:
                 confidence="high",
             )
 
+        identity = _identity_answer(question, language)
+        if identity is not None:
+            return self._commit_turn(
+                generation, question,
+                DialogueResult(identity, language, True, "self_identity", False,
+                               confidence="high"),
+                False, artwork_id,
+            )
+
         # 1. Learn only allow-listed preferences locally, then build one prompt.
         messages = self._prompt_builder.build(ctx, json_output=self._expect_json)
 
@@ -447,6 +471,18 @@ class DialogueEngine:
             if generation != self.conversation_generation:
                 return self._cancelled(language)
             on_sentence(result.response)
+            return result
+
+        identity = _identity_answer(question, language)
+        if identity is not None:
+            result = self._commit_turn(
+                generation, question,
+                DialogueResult(identity, language, True, "self_identity", False,
+                               confidence="high"),
+                False, artwork_id,
+            )
+            if not result.error:
+                on_sentence(result.response)
             return result
 
         messages = self._prompt_builder.build(ctx, streaming_output=True)

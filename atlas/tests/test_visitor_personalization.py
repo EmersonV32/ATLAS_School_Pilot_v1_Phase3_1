@@ -48,7 +48,14 @@ def test_local_greeting_uses_the_optional_name_without_persisting_it():
     name = clean_greeting_name("  Émerson-Li  ")
     greeting = local_greeting("en", name)
     assert greeting.startswith("Hi Émerson-Li, I'm ATLAS.")
-    assert "ask me anything" in greeting
+    assert "museum guide" in greeting
+    assert "What can I do for you today?" in greeting
+
+
+def test_english_session_introduction_names_atlas_and_invites_a_question():
+    assert session_introduction("en") == (
+        "Hello, I'm ATLAS, your museum guide. What can I do for you today?"
+    )
 
 
 @pytest.mark.parametrize("value", ["Ada 123", "<script>", "A/B", "A_B"])
