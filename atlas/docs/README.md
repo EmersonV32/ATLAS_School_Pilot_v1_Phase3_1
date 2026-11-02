@@ -6,6 +6,7 @@ proof of today's physical device health.
 
 | Document | Purpose |
 | --- | --- |
+| [Shorter question pauses](2026-11-02_SHORTER_QUESTION_PAUSES.md) | One/two-second pause defaults, prepared-answer-to-TTS verification, effective-setting application and pending Jetson acceptance. |
 | [October 26 teammate handoff](../../handoff/2026-10-26_TEAMMATE_HANDOFF.md) | Current branch, verified progress, operator priorities, paused hardware, hotspot access and safety boundaries. |
 | [New Codex prompt](../../handoff/NEW_CODEX_PROMPT.md) | Copyable continuation instructions for the teammate's new chat. |
 | [Deployment and rollback](../../handoff/DEPLOYMENT_RUNBOOK.md) | Existing user-service source-only releases, verification and recovery. |

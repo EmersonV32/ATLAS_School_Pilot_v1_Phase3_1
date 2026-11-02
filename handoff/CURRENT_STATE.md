@@ -1,5 +1,25 @@
 # Current state
 
+## Shorter question pauses applied on Jetson — 2026-11-02
+
+`codex/faster-question-endpoint` continues from `1654015` with one-second normal
+and two-second unfinished-question pause defaults, retaining the 600 ms exact
+prepared-question shortcut. Both spoken paths are checked for passing complete
+prepared answers directly to TTS without retrieval or a model. Guarded local
+suite: 4,547 passed/three skipped; independently 4,550 collected. The approved
+configuration-only update set both installed YAML layers to 1,000/2,000 ms,
+retained the effective 600 ms shortcut, and restarted the existing user service
+once. Service and public/protected HTTP checks pass; 17 mocked tests pass on
+the Jetson using effective pause values and the installed prepared-answer path.
+Physical first-audible latency remains pending.
+
+Fresh baseline found five greeting/identity source files different from the
+dated `228f4da` release. No source was replaced: all 203 managed public files
+and eight fixtures retain their fresh baseline hashes. Preserve/reconcile this
+drift before a future full source release; the local default-change branch is
+not a new complete installed revision. See [the change record](../atlas/docs/2026-11-02_SHORTER_QUESTION_PAUSES.md)
+for settings backup, evidence and acceptance. Main remains excluded.
+
 ## Full wake introduction deployment — 2026-10-28
 
 Latest installed source: `228f4da` from `codex/full-wake-introduction`.

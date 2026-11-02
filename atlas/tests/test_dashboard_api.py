@@ -945,7 +945,8 @@ class TestAdminConfig:
         assert response.status_code == 200
         speech = response.json()["config"]["speech"]
         assert speech["max_utterance_s"] == 45.0
-        assert speech["silero_hesitation_silence_ms"] == 4000
+        assert speech["silero_min_silence_ms"] == 1000
+        assert speech["silero_hesitation_silence_ms"] == 2000
         assert not any("key" in field or "password" in field for field in speech)
 
     @pytest.mark.parametrize(

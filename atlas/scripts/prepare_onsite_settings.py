@@ -21,8 +21,8 @@ import yaml
 SPEECH_PATCH = {
     "listen_duration_s": 8.0,
     "max_utterance_s": 45.0,
-    "silero_min_silence_ms": 2000,
-    "silero_hesitation_silence_ms": 4000,
+    "silero_min_silence_ms": 1000,
+    "silero_hesitation_silence_ms": 2000,
 }
 BACKUP_FOLDER = ".atlas-onsite-settings-backups"
 

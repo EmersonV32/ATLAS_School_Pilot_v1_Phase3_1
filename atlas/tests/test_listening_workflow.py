@@ -3,9 +3,11 @@
 import json
 import sys
 import threading
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from atlas.audio.deepgram_stt import (
     DeepgramError,
@@ -172,7 +174,7 @@ def test_server_speech_final_does_not_end_the_visitors_turn(monkeypatch):
 
 
 def test_complete_question_uses_normal_pause_not_incomplete_question_grace(monkeypatch):
-    _answer, state, clock = capture(
+    answer, state, clock = capture(
         monkeypatch,
         [(0.5, True), (5, False)],
         live_payloads={
@@ -180,8 +182,33 @@ def test_complete_question_uses_normal_pause_not_incomplete_question_grace(monke
         },
         payloads=[result_payload("", start=0.4, duration=0, flush=True)],
     )
-    assert 2.4 <= clock.now < 2.7
-    assert state.reads < 90
+    assert 1 <= clock.now - answer.speech_end_monotonic_s < 1.05
+    assert state.reads < 50
+
+
+def test_incomplete_question_ends_after_two_seconds_of_silence(monkeypatch):
+    answer, _state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (5, False)],
+        live_payloads={12: [result_payload("Qui a peint", duration=0.4)]},
+        payloads=[result_payload("", start=0.4, duration=0, flush=True)],
+    )
+    assert answer.text == "Qui a peint"
+    assert 2 <= clock.now - answer.speech_end_monotonic_s < 2.05
+
+
+def test_complete_question_can_resume_within_one_second(monkeypatch):
+    answer, state, clock = capture(
+        monkeypatch,
+        [(0.5, True), (0.7, False), (0.5, True), (3, False)],
+        live_payloads={
+            12: [result_payload("Why are the colours so vivid?", duration=0.4)]
+        },
+        payloads=[result_payload("And the sky?", start=0.4, duration=1.3, flush=True)],
+    )
+    assert state.reads * 0.032 > 1.7
+    assert answer.text == "Why are the colours so vivid? And the sky?"
+    assert 1 <= clock.now - answer.speech_end_monotonic_s < 1.05
 
 
 @pytest.mark.parametrize(
@@ -204,14 +231,15 @@ def test_exact_final_prepared_question_uses_stable_short_pause(
     assert answer.transcript_ready_monotonic_s == clock.now
 
 
-def test_prepared_question_waits_for_final_receipt_stability(monkeypatch):
-    _answer, _state, clock = capture(
+def test_late_prepared_final_does_not_extend_normal_pause(monkeypatch):
+    answer, _state, clock = capture(
         monkeypatch,
         [(0.5, True), (5, False)],
         live_payloads={36: [result_payload("Who painted the Mona Lisa?")]},
         payloads=[result_payload("", flush=True)],
     )
-    assert 1.75 <= clock.now < 1.85
+    assert answer.text == "Who painted the Mona Lisa?"
+    assert 1 <= clock.now - answer.speech_end_monotonic_s < 1.05
 
 
 def test_duplicate_final_does_not_restart_prepared_question_stability(monkeypatch):
@@ -240,7 +268,8 @@ def test_continuation_invalidates_prepared_question_shortcut(monkeypatch, contin
         live_payloads=live,
         payloads=[result_payload("", start=1, duration=0, flush=True)],
     )
-    assert clock.now >= (2.5 if continuation == "interim" else 3.3)
+    expected_end = 2.5 if continuation == "interim" else 2.3
+    assert expected_end <= clock.now < expected_end + 0.1
 
 
 @pytest.mark.parametrize("text", ["", "Who painted"])
@@ -266,7 +295,7 @@ def test_delayed_old_final_cannot_rearm_shortcut_during_resumed_speech(monkeypat
         },
         payloads=[result_payload("and why", start=0.512, duration=0.8, flush=True)],
     )
-    assert 3.3 <= clock.now < 3.5
+    assert 2.3 <= clock.now < 2.4
 
 
 @pytest.mark.parametrize("untimed", [False, True])
@@ -275,13 +304,13 @@ def test_final_must_cover_latest_sent_voiced_frame(monkeypatch, untimed):
     if untimed:
         del final["start"]
         del final["duration"]
-    _answer, _state, clock = capture(
+    answer, _state, clock = capture(
         monkeypatch,
         [(0.5, True), (5, False)],
         live_payloads={17: [final]},
         payloads=[result_payload("", flush=True)],
     )
-    assert 2.4 <= clock.now < 2.7
+    assert 1 <= clock.now - answer.speech_end_monotonic_s < 1.05
 
 
 def test_final_coverage_uses_sent_pcm_offsets_including_pre_roll(monkeypatch):
@@ -300,17 +329,17 @@ def test_final_coverage_uses_sent_pcm_offsets_including_pre_roll(monkeypatch):
 @pytest.mark.parametrize("final", [False, True])
 def test_fuzzy_or_interim_prepared_question_keeps_general_pause(monkeypatch, final):
     question = "Who painted the Mna Lisa?" if final else "Who painted the Mona Lisa?"
-    _answer, _state, clock = capture(
+    answer, _state, clock = capture(
         monkeypatch,
         [(0.5, True), (5, False)],
         live_payloads={12: [result_payload(question, final=final, duration=0.4)]},
         payloads=[result_payload("", flush=True)],
     )
-    assert 2.4 <= clock.now < 2.7
+    assert 1 <= clock.now - answer.speech_end_monotonic_s < 1.05
 
 
 def test_prepared_question_shortcut_can_be_disabled(monkeypatch):
-    _answer, _state, clock = capture(
+    answer, _state, clock = capture(
         monkeypatch,
         [(0.5, True), (5, False)],
         scripted_faq_silence_ms=0,
@@ -319,7 +348,22 @@ def test_prepared_question_shortcut_can_be_disabled(monkeypatch):
         },
         payloads=[result_payload("", flush=True)],
     )
-    assert 2.4 <= clock.now < 2.7
+    assert 1 <= clock.now - answer.speech_end_monotonic_s < 1.05
+
+
+def test_empty_and_repository_settings_use_requested_pause_defaults():
+    defaults = SpeechSettings()
+    configured = SpeechSettings.model_validate(
+        yaml.safe_load(
+            (Path(__file__).parents[1] / "config/settings.yaml").read_text(
+                encoding="utf-8"
+            )
+        )["speech"]
+    )
+    for settings in (defaults, configured):
+        assert settings.silero_min_silence_ms == 1000
+        assert settings.silero_hesitation_silence_ms == 2000
+        assert settings.silero_scripted_faq_silence_ms == 600
 
 
 def test_existing_private_speech_settings_get_safe_prepared_question_default():
@@ -334,7 +378,22 @@ def test_existing_private_speech_settings_get_safe_prepared_question_default():
 def test_incomplete_question_allows_longer_hesitation_and_resumption(monkeypatch):
     answer, state, _clock = capture(
         monkeypatch,
+        [(0.5, True), (1.5, False), (1, True), (5, False)],
+        live_payloads={12: [result_payload("Who painted", duration=0.4)]},
+        payloads=[
+            result_payload("this painting?", start=0.4, duration=2.6, flush=True)
+        ],
+    )
+    assert state.reads * 0.032 > 3
+    assert answer.text == "Who painted this painting?"
+
+
+def test_explicit_longer_pause_settings_still_allow_long_hesitation(monkeypatch):
+    answer, state, _clock = capture(
+        monkeypatch,
         [(0.5, True), (3.1, False), (1, True), (5, False)],
+        min_silence_ms=2000,
+        hesitation_silence_ms=4000,
         live_payloads={12: [result_payload("Who painted", duration=0.4)]},
         payloads=[result_payload("this painting?", start=0.4, duration=4, flush=True)],
     )

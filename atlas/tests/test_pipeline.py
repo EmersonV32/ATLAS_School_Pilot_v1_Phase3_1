@@ -586,19 +586,31 @@ def test_rejected_stream_segment_is_not_reported_as_complete_speech(
 
 @pytest.mark.parametrize("route", ["run_once", "respond_to_transcript"])
 @pytest.mark.parametrize(
-    ("question", "expected"),
+    ("question", "language", "expected"),
     [
-        ("Who is the Mona Lisa?", "Lisa Gherardini"),
-        ("Who painted this?", "Leonardo da Vinci"),
-        ("When was this created?", "1503"),
+        ("Who is the Mona Lisa?", "en", "Lisa Gherardini"),
+        ("Who painted this?", "en", "Leonardo da Vinci"),
+        ("When was this created?", "en", "1503"),
+        ("C'est quoi la Joconde ?", "fr", "un portrait"),
+        ("Qui a peint la Joconde ?", "fr", "Leonardo da Vinci"),
+        ("En quelle année elle a été peinte ?", "fr", "1503"),
     ],
 )
 def test_all_spoken_routes_use_prepared_answers_without_retrieval_or_model(
-    route, question, expected
+    route, question, language, expected
 ):
     class PreparedQuestionSTT(MockSTT):
         def listen(self, duration_s=5.0):
-            return TranscriptResult(question, "en")
+            return TranscriptResult(question, language)
+
+    class RecordingTTS(MockTTS):
+        def __init__(self):
+            super().__init__()
+            self.spoken = []
+
+        def speak(self, text, language="en"):
+            self.spoken.append((text, language))
+            return True
 
     class ForbiddenModel:
         def generate(self, *args, **kwargs):
@@ -611,10 +623,12 @@ def test_all_spoken_routes_use_prepared_answers_without_retrieval_or_model(
         pytest.fail("prepared questions must not call retrieval")
 
     engine = DialogueEngine(llm_client=ForbiddenModel())
+    tts = RecordingTTS()
     runner = _make_runner(
         stt=PreparedQuestionSTT(), dialogue_engine=engine,
-        retriever=forbidden_retrieval,
+        retriever=forbidden_retrieval, tts=tts,
     )
+    runner.set_preferred_language(language)
     detection = ArtworkDetection(
         artwork_id="mona_lisa", label="Mona Lisa", confidence=1.0, source="test"
     )
@@ -622,10 +636,11 @@ def test_all_spoken_routes_use_prepared_answers_without_retrieval_or_model(
         runner.run_once(detection_override=detection)
         if route == "run_once"
         else runner.respond_to_transcript(
-            TranscriptResult(question, "en"), detection=detection
+            TranscriptResult(question, language), detection=detection
         )
     )
     assert result.success
     assert result.event == "scripted_faq"
     assert expected in result.dialogue.response
+    assert tts.spoken == [(result.dialogue.response, language)]
     assert engine._conversation_turns == [(question, result.dialogue.response)]

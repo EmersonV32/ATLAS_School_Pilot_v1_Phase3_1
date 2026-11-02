@@ -4,6 +4,29 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-11-02 - Shorter question pauses (configuration applied on Jetson)
+
+The owner-requested normal pause is now 1,000 ms instead of 2,000 ms; the
+unfinished-question grace is 2,000 ms instead of 4,000 ms. YAML, settings model,
+Deepgram constructor and onsite preparation defaults agree. The guarded 600 ms
+prepared-question shortcut and explicit site overrides are preserved. Expanded
+English/French tests verify both spoken paths pass the complete prepared answer
+directly to TTS without retrieval or model calls. Deeper questions keep their
+existing fallback. See `2026-11-02_SHORTER_QUESTION_PAUSES.md` for validation,
+required effective-settings application and physical acceptance limitations.
+**Validation:** Guarded focused suite 3,186 passed/one skipped; full local suite
+4,547 passed/three skipped, independently 4,550 collected. Lint, compilation,
+offline dependencies, secret/recovery/layout and whitespace checks pass.
+**Deployment result:** Applied the two settings on the Jetson with backup and
+one user-service restart; effective values 1,000/2,000/600 ms verified. All
+203 managed public files and eight public fixtures retain their pre-change
+hashes. Five pre-existing greeting/identity source differences were reviewed
+and preserved; no full source replacement was made. Native mocked acceptance:
+17 passed. Service/public/protected HTTP and preservation checks pass.
+`codex/faster-question-endpoint` contains future source defaults and tests;
+reconcile live source drift before promoting a full source release. Main is
+unchanged. Headset audibility and response latency still require owner testing.
+
 ## 2026-10-28 - Complete wake introduction before suggestions
 
 The private named greeting now retains the complete anonymous introduction,
