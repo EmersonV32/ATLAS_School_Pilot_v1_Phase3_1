@@ -4,6 +4,23 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-11-02 - Persistent STT and input-ready cue (test branch)
+
+Added visit-scoped Deepgram connection reuse/keepalive, cumulative timestamp
+isolation, conservative flush/recovery and cancellation/language teardown.
+Added a local 80 ms buzz/beep/off cue at actual input-open readiness, including
+Whisper fallback, repeat suppression and protected configuration. The owner
+selected restoring wake-only introductions from the maintained branch when
+deploying, replacing the previously recorded greeting/identity drift. Existing
+prepared answers, private names and one/two-second pauses are retained.
+See `2026-11-02_PERSISTENT_STT_READY_CUE.md`. Final guarded local suite:
+4,618 passed/three skipped; independently 4,621 collected. The 66 new focused
+socket/cue checks and lint/compile/dependency/secret/recovery/layout/synthetic
+dashboard checks pass. No deployment has occurred, and main remains excluded.
+After the target failed
+its read-only connection check, the owner requested leaving the update ready on
+the test branch. Headset cue/echo/latency acceptance pending.
+
 ## 2026-11-02 - Shorter question pauses (configuration applied on Jetson)
 
 The owner-requested normal pause is now 1,000 ms instead of 2,000 ms; the

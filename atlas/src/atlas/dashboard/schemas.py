@@ -144,6 +144,8 @@ class SpeechConfigUpdate(BaseModel):
     offline_fallback_enabled: bool | None = None
     deepgram_model: str | None = Field(default=None, min_length=1, max_length=80)
     deepgram_language: str | None = Field(default=None, min_length=2, max_length=20)
+    deepgram_keep_connection: bool | None = None
+    listening_ready_cue: Literal["off", "buzz", "beep"] | None = None
     listen_duration_s: float | None = Field(default=None, ge=3.0, le=20.0)
     max_utterance_s: float | None = Field(
         default=None, ge=5.0, le=120.0, allow_inf_nan=False

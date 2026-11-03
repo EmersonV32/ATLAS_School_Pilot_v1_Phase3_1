@@ -213,18 +213,39 @@ def listening_cue_pcm(sample_rate: int = 16000) -> bytes:
     return bytes(frames)
 
 
+def ready_cue_pcm(style: str = "buzz", sample_rate: int = 16000) -> bytes:
+    """An 80 ms local buzz-like tone or beep; no speech synthesis is needed."""
+    if style == "off":
+        return b""
+    if style not in {"buzz", "beep"}:
+        raise ValueError("Unknown readiness cue style")
+    count = int(sample_rate * 0.08)
+    frequency = 180.0 if style == "buzz" else 880.0
+    frames = bytearray()
+    edge_samples = max(1, int(sample_rate * 0.005))
+    for index in range(count):
+        edge = min(index, count - index - 1, edge_samples) / edge_samples
+        phase = 2.0 * math.pi * frequency * index / sample_rate
+        tone = math.sin(phase)
+        if style == "buzz":
+            tone = 0.7 * tone + 0.3 * math.sin(3.0 * phase)
+        frames.extend(struct.pack("<h", int(3500 * max(0.0, edge) * tone)))
+    return bytes(frames)
+
+
 def play_pcm(
     pcm_s16le: bytes,
     output_device_name: str,
     sample_rate: int,
     volume_percent: int = 100,
+    timeout_s: float = 15.0,
 ) -> bool:
     process = open_raw_player(output_device_name, sample_rate)
     try:
         if process.stdin is None:
             return False
         process.stdin.write(scale_pcm_s16le(pcm_s16le, volume_percent))
-        return finish_raw_player(process)
+        return finish_raw_player(process, timeout_s=timeout_s)
     except (BrokenPipeError, OSError):
         process.kill()
         process.wait(timeout=2)

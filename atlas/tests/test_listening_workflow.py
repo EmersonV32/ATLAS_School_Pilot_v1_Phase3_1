@@ -99,6 +99,9 @@ def capture(
                 state.adapter.cancel_listen()
             return b"\x01\x00" * count, False
 
+    # These existing single-window fixtures also cover the opt-out adapter.
+    # The persistent transport has separate multi-turn/socket tests.
+    options.setdefault("keep_connection_enabled", False)
     stt = DeepgramSTT(vad=VAD(), **options)
     state.adapter = stt
     if failure_sink is not None:

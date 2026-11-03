@@ -21,6 +21,7 @@ from .playback import (
     normalize_volume,
     open_raw_player,
     play_pcm,
+    ready_cue_pcm,
     scale_pcm_s16le,
 )
 from .speech_text import normalize_speech_text
@@ -168,6 +169,13 @@ class CartesiaTTS(BaseTTS):
             self._output_device_name,
             sample_rate=16000,
             volume_percent=self._volume_percent,
+        )
+
+    def ready_cue(self, style: str = "buzz") -> bool:
+        pcm = ready_cue_pcm(style)
+        return not pcm or play_pcm(
+            pcm, self._output_device_name, sample_rate=16000,
+            volume_percent=self._volume_percent, timeout_s=1.0,
         )
 
     def begin_utterance(self, language: str = "en") -> bool:

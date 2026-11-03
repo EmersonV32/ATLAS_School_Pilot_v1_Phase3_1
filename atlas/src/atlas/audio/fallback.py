@@ -109,6 +109,14 @@ class FallbackSTT(BaseSTT):
         self.primary.set_language(language)
         self.fallback.set_language(language)
 
+    def set_ready_callback(self, callback) -> bool:
+        supported = False
+        for adapter in (self.primary, self.fallback):
+            register = getattr(adapter, "set_ready_callback", None)
+            if callable(register):
+                supported = bool(register(callback)) or supported
+        return supported
+
     def cancel_listen(self) -> None:
         self.primary.cancel_listen()
         self.fallback.cancel_listen()
@@ -231,6 +239,10 @@ class FallbackTTS(BaseTTS):
     def cue(self) -> bool:
         provider = self.primary if self.primary_ready else self.fallback
         return provider.cue()
+
+    def ready_cue(self, style: str = "buzz") -> bool:
+        provider = self.primary if self.primary_ready else self.fallback
+        return provider.ready_cue(style)
 
     def speak_private_local(self, text: str, language: str = "en") -> bool:
         """Bypass the cloud primary for ephemeral name-bearing greetings."""

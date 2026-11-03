@@ -160,6 +160,9 @@ def test_public_validation_fixtures_remain_disposable(tmp_path, package_files):
     release.prepare_validation(stage)
     assert (stage / "data/content_packs/demo_pack/manifest.json").is_file()
     assert not (stage / "validation/data").exists()
+    assert (stage / "config/settings.yaml").read_text() == "speech: {}\n"
+    assert "config/settings.yaml" not in release.EXACT
+    assert not release.allowed("config/settings.yaml")
     assert "data/content_packs/demo_pack/manifest.json" not in release.EXACT
     with pytest.raises(release.ReleaseError, match="fixtures unavailable"):
         release.prepare_validation(stage)

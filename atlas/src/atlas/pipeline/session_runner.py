@@ -360,6 +360,7 @@ class SessionRunner:
         manual_capture=None,
         log_transcripts: bool = False,
         log_llm_responses: bool = False,
+        listening_ready_cue: str | None = None,
     ) -> None:
         self._detector = detector
         self._stt = stt
@@ -378,6 +379,34 @@ class SessionRunner:
         self._preferred_accessibility: tuple[str, ...] = ()
         self._listen_lock = threading.Lock()
         self._listen_generation = 0
+        if listening_ready_cue not in {None, "off", "buzz", "beep"}:
+            raise ValueError("Unknown readiness cue style")
+        self._ready_cue_style = listening_ready_cue
+        self._ready_cue_pending = True
+        self._listening_ready_generation = None
+        register = getattr(self._stt, "set_ready_callback", None)
+        callback = (
+            self._capture_ready if listening_ready_cue not in {None, "off"} else None
+        )
+        self._ready_callback_supported = bool(
+            callable(register) and register(callback)
+        )
+
+    def _capture_ready(self) -> None:
+        with self._listen_lock:
+            if (
+                self._listening_ready_generation != self._listen_generation
+                or self._listening_ready_generation is None
+                or not self._ready_cue_pending
+                or self._ready_cue_style in {None, "off"}
+            ):
+                return
+            self._ready_cue_pending = False
+        try:
+            played = self._tts.ready_cue(self._ready_cue_style)
+            logger.info("[Listening] Input ready [cue_ok=%s]", bool(played))
+        except Exception:
+            logger.warning("Listening cue unavailable; microphone remains ready")
 
     def set_preferred_language(self, language: str) -> None:
         normalized = normalize_language_code(language)
@@ -420,6 +449,7 @@ class SessionRunner:
     def _listen(self, *, play_cue: bool = True) -> TranscriptResult | None:
         with self._listen_lock:
             generation = self._listen_generation
+            self._listening_ready_generation = generation
         listen_started = time.perf_counter()
         logger.info(
             "[STT] Preparing to listen [language=%s timeout=%.1fs]",
@@ -438,7 +468,7 @@ class SessionRunner:
             )
         if self._listen_cancelled(generation):
             return None
-        if play_cue:
+        if play_cue and self._ready_cue_style is None:
             try:
                 if not self._tts.cue():
                     logger.warning("Listening cue unavailable; recording anyway")
@@ -455,9 +485,15 @@ class SessionRunner:
                 (time.perf_counter() - listen_started) * 1000.0,
             )
             return None
+        finally:
+            with self._listen_lock:
+                if self._listening_ready_generation == generation:
+                    self._listening_ready_generation = None
         if self._listen_cancelled(generation):
             return None
         if transcript is not None:
+            if transcript.text.strip():
+                self._ready_cue_pending = True
             switch_target = requested_language(transcript.text)
             if switch_target is not None:
                 self.set_preferred_language(switch_target)
@@ -488,6 +524,9 @@ class SessionRunner:
 
     def cue_listening(self) -> None:
         """Play one cue when a continuous listening session becomes active."""
+        if self._ready_cue_style is not None:
+            self._ready_cue_pending = True
+            return  # Supported adapters notify only after input really opens.
         try:
             if not self._tts.cue():
                 logger.warning("Listening cue unavailable; listening anyway")
@@ -502,6 +541,8 @@ class SessionRunner:
         """Interrupt a supported capture at a visit boundary or runtime shutdown."""
         with self._listen_lock:
             self._listen_generation += 1
+            self._listening_ready_generation = None
+            self._ready_cue_pending = True
         cancel = getattr(self._stt, "cancel_listen", None)
         if callable(cancel):
             cancel()

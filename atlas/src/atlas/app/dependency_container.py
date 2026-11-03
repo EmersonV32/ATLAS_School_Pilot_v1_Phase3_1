@@ -359,6 +359,7 @@ class Container:
                         final_timeout_s=speech.deepgram_final_timeout_s,
                         keyterms=speech.deepgram_keyterms,
                         log_live_transcripts=(self.settings.logging.log_live_stt),
+                        keep_connection_enabled=speech.deepgram_keep_connection,
                     )
                     self._stt = (
                         FallbackSTT(cloud_stt, offline_stt)
@@ -468,6 +469,7 @@ class Container:
                 stream_responses=False,
                 log_transcripts=self.settings.logging.log_transcripts,
                 log_llm_responses=(self.settings.logging.log_llm_responses),
+                listening_ready_cue=self.settings.speech.listening_ready_cue,
             )
         return self._session_runner
 

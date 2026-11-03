@@ -63,6 +63,8 @@ REQUIRED = (
         "tests/test_pipeline.py",
         "tests/test_speech_cancellation.py",
         "tests/test_listening_workflow.py",
+        "tests/test_deepgram_connection.py",
+        "tests/test_listening_ready_cue.py",
         "tests/test_camera_source.py",
         "tests/test_visitor_dashboard.py",
         "tests/test_conversation_workflow.py",
@@ -79,6 +81,8 @@ SMOKE_TESTS = (
     "tests/test_pipeline.py",
     "tests/test_speech_cancellation.py",
     "tests/test_listening_workflow.py",
+    "tests/test_deepgram_connection.py",
+    "tests/test_listening_ready_cue.py",
     "tests/test_camera_source.py",
     "tests/test_visitor_dashboard.py",
     "tests/test_conversation_workflow.py",
@@ -416,10 +420,17 @@ def validate_interpreter(root: Path, python: Path) -> None:
 def prepare_validation(stage: Path) -> None:
     """Make public fixtures available only in the disposable validation tree."""
     source = stage / VALIDATION_PREFIX / "data"
-    if not source.is_dir() or (stage / "data").exists():
+    if (
+        not source.is_dir() or (stage / "data").exists()
+        or (stage / "config").exists()
+    ):
         raise ReleaseError("Disposable public validation fixtures unavailable")
     no_links(source, stage)
     source.replace(stage / "data")
+    # Tests that parse repository speech defaults need a disposable public
+    # configuration. Never copy the live installation's settings into staging.
+    (stage / "config").mkdir()
+    (stage / "config/settings.yaml").write_text("speech: {}\n", encoding="utf-8")
 
 
 def validate_stage(stage: Path, python: Path) -> None:

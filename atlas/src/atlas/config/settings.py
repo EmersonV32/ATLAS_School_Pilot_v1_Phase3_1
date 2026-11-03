@@ -213,6 +213,8 @@ class SpeechSettings(BaseModel):
     deepgram_language: str = "multi"
     deepgram_endpointing_ms: int = 400
     deepgram_final_timeout_s: float = 3.0
+    deepgram_keep_connection: bool = True
+    listening_ready_cue: Literal["off", "buzz", "beep"] = "buzz"
     deepgram_keyterms: list[str] = Field(default_factory=list)
     listen_duration_s: float = 8.0
     # Waiting for first speech and recording an utterance are separate limits.

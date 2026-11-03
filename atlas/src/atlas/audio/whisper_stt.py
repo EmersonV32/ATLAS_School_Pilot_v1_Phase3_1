@@ -36,6 +36,11 @@ class WhisperSTT(BaseSTT):
         self._model = None
         self._input_device: int | None = None
         self._language: str | None = None
+        self._on_ready = None
+
+    def set_ready_callback(self, callback) -> bool:
+        self._on_ready = callback
+        return True
 
     def set_language(self, language: str) -> None:
         normalized = str(language).split("-", 1)[0].lower()
@@ -91,6 +96,11 @@ class WhisperSTT(BaseSTT):
                 dtype="float32",
                 device=self._input_device,
             )
+            if self._on_ready is not None:
+                try:
+                    self._on_ready()
+                except Exception:
+                    logger.warning("Listening cue unavailable; capture remains ready")
             sd.wait()
             mono = np.asarray(audio, dtype=np.float32).reshape(-1)
             return self._transcribe(mono, started=started)

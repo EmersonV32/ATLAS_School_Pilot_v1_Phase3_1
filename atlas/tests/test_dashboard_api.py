@@ -940,6 +940,29 @@ class TestEval:
 
 
 class TestAdminConfig:
+    def test_persistent_listening_defaults_are_visible(self, client):
+        response = client.get("/admin/config", headers=_admin(client))
+        assert response.status_code == 200
+        speech = response.json()["config"]["speech"]
+        assert speech["deepgram_keep_connection"] is True
+        assert speech["listening_ready_cue"] == "buzz"
+
+    @pytest.mark.parametrize("style", ["off", "buzz", "beep"])
+    def test_readiness_cue_can_be_disabled_for_filming(self, client, style):
+        response = client.put(
+            "/admin/config", headers=_admin(client),
+            json={"speech": {"listening_ready_cue": style}},
+        )
+        assert response.status_code == 200
+        assert response.json()["config"]["speech"]["listening_ready_cue"] == style
+
+    def test_readiness_cue_rejects_an_unknown_hardware_mode(self, client):
+        response = client.put(
+            "/admin/config", headers=_admin(client),
+            json={"speech": {"listening_ready_cue": "vibration"}},
+        )
+        assert response.status_code == 422
+
     def test_listening_bounds_are_visible_without_exposing_secrets(self, client):
         response = client.get("/admin/config", headers=_admin(client))
         assert response.status_code == 200

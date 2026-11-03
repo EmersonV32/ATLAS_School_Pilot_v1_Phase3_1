@@ -144,6 +144,8 @@ speech:
   deepgram_language: multi
   deepgram_endpointing_ms: 400
   deepgram_final_timeout_s: 3.0
+  deepgram_keep_connection: true
+  listening_ready_cue: buzz  # off removes the per-turn sound for filming.
   # This is the first-speech wait, not a cutoff for an ongoing request.
   listen_duration_s: 8.0
   # Deepgram capture limit measured from speech onset.

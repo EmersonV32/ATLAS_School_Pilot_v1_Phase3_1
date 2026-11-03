@@ -16,7 +16,13 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .devices import find_alsa_playback, find_pulse_playback
-from .playback import normalize_volume, scale_pcm_s16le, split_output_device_names
+from .playback import (
+    normalize_volume,
+    play_pcm,
+    ready_cue_pcm,
+    scale_pcm_s16le,
+    split_output_device_names,
+)
 from .speech_text import normalize_speech_text
 from .tts import BaseTTS
 
@@ -194,6 +200,13 @@ class PiperTTS(BaseTTS):
             )
             return False
         return generation == self._speech_generation
+
+    def ready_cue(self, style: str = "buzz") -> bool:
+        pcm = ready_cue_pcm(style)
+        return not pcm or play_pcm(
+            pcm, self._output_device_name, sample_rate=16000,
+            volume_percent=self._volume_percent, timeout_s=1.0,
+        )
 
     def cue(self) -> bool:
         """Play an immediate two-note cue so the visitor knows to speak."""

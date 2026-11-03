@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -29,6 +30,10 @@ class BaseSTT(ABC):
     def prepare_listen(self) -> None:
         """Prepare a provider immediately before the listening cue."""
         return None
+
+    def set_ready_callback(self, callback: Callable[[], None] | None) -> bool:
+        """Register a notification after input opens; False means unsupported."""
+        return False
 
     def set_language(self, language: str) -> None:
         """Prefer one ISO-639-1 language for the next listening cycle."""

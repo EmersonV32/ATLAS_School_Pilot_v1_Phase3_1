@@ -17,6 +17,10 @@ class BaseTTS(ABC):
         """Play a short, language-neutral cue before microphone capture."""
         return True
 
+    def ready_cue(self, style: str = "buzz") -> bool:
+        """Play a local readiness sound; legacy adapters use their short beep."""
+        return True if style == "off" else self.cue()
+
     def set_output_device(self, output_device_name: str) -> None:
         """Route future playback without changing the microphone input."""
         return None

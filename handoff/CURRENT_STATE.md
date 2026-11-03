@@ -1,5 +1,19 @@
 # Current state
 
+## Persistent STT and readiness sound ready on test branch — 2026-11-02
+
+`codex/ready-stt-cue` continues from `be33d66`: keep a healthy STT socket ready
+between turns, with idle keepalive, per-turn timestamp isolation and a local
+buzz/beep/off sound only when input opens. The owner explicitly selected
+restoring Hey Atlas / Bonjour Atlas-only introductions instead of the five
+divergent live greeting/identity files. Guarded local suite: 4,618 passed/three
+skipped; independently 4,621 collected. The 66 new socket/cue cases and other
+publication gates pass. Physical cue/echo/latency acceptance remains pending.
+The Jetson timed out during the read-only connection check; the owner selected
+leaving this update ready on the test branch. No new deployment or restart
+occurred; do not retry hardware access without an online handoff. See
+[the change record](../atlas/docs/2026-11-02_PERSISTENT_STT_READY_CUE.md).
+
 ## Shorter question pauses applied on Jetson — 2026-11-02
 
 `codex/faster-question-endpoint` continues from `1654015` with one-second normal

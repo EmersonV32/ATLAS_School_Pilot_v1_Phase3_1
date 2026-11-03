@@ -1082,6 +1082,8 @@ class RuntimeService:
                 "offline_fallback_enabled": speech.offline_fallback_enabled,
                 "deepgram_model": speech.deepgram_model,
                 "deepgram_language": speech.deepgram_language,
+                "deepgram_keep_connection": speech.deepgram_keep_connection,
+                "listening_ready_cue": speech.listening_ready_cue,
                 "listen_duration_s": speech.listen_duration_s,
                 "max_utterance_s": speech.max_utterance_s,
                 "silero_threshold": speech.silero_threshold,
