@@ -4,7 +4,7 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
-## 2026-11-04 - Interactive social conversation and halved waits (locally verified; test deployment pending)
+## 2026-11-04 - Interactive social conversation and halved waits (test release installed)
 
 Prepared and generated ordinary answers receive closing questions, including
 prepared continuations. French/English small talk and joke requests have a
@@ -14,7 +14,12 @@ Configured normal/unfinished/prepared silence waits become 500/1,000/300 ms,
 half the installed values. Local verification passes: 4,686 passed, three
 skipped, independently matching 4,689 collected cases. Lint, compilation,
 dependency, secrets, recovery/layout and synthetic JavaScript gates pass.
-Test deployment is pending; no main promotion is claimed. See `2026-11-04_INTERACTIVE_CONVERSATION_AND_HALVED_PAUSES.md`.
+Installed source `db1586c` on the authorized test branch: all 209 managed
+hashes match, native staged gate passes and 726 focused mocked native checks
+pass (726 independently collected). Only the three saved pauses changed;
+persistent STT and buzz remain enabled. Service/HTTP and preservation checks
+pass, with retained paired source/config backups. Physical audible acceptance
+is pending; main remains unchanged. See `2026-11-04_INTERACTIVE_CONVERSATION_AND_HALVED_PAUSES.md`.
 
 ## 2026-11-04 - Persistent STT test release installed
 

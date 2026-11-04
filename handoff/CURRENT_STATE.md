@@ -1,15 +1,20 @@
 # Current state
 
-## Interactive conversation and halved waits locally verified — 2026-11-04
+## Interactive conversation and halved waits deployed for testing — 2026-11-04
 
-`codex/interactive-social-half-pauses` adds a question to each ordinary prepared
-or generated answer, local French/English friendly conversation and jokes,
-and 500/1,000/300 ms silence defaults. The owner clarified that the halving
-concerns speech waits, not a PDF/question bank. Local verification passes:
-4,686 passed and three skipped, with 4,689 independently collected. No new
-deployment yet. Source-only installation must preserve other live
-configuration and explicitly migrate these three saved speech values. Main
-remains excluded until the owner authorizes promotion after Jetson testing.
+`codex/interactive-social-half-pauses` source `db1586c` is installed on the
+Jetson for owner testing. Each ordinary answer offers a question; conservative
+French/English small talk and jokes stay local, with gradual art bridging.
+Saved/effective pauses are 500/1,000/300 ms, with persistent STT and buzz retained.
+All 209 managed files match the archive. Local verification: 4,686 passed and
+three skipped, with 4,689 independently collected. Native staged validation and
+726 focused mocked tests pass (726 independently collected). Public/protected
+HTTP checks pass from loopback and laptop; service is active/running and no
+reboot occurred. Other configuration is semantically preserved; credential stat,
+model and unit metadata are unchanged. Paired source/settings backups are retained.
+The owner clarified that halving concerns speech waits, not a PDF/question bank.
+Physical headset/pausing/provider acceptance is pending; total latency has not
+been claimed to halve. Main requires a later explicit promotion instruction.
 See [the change record](../atlas/docs/2026-11-04_INTERACTIVE_CONVERSATION_AND_HALVED_PAUSES.md).
 
 ## Persistent STT test release deployed — 2026-11-04

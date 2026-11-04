@@ -76,7 +76,45 @@ Local evidence is in `deliverables/interactive-social-half-pauses-20261104/`
 `pause-ratios.json`. The last full run passes after updating old response-tail
 assertions; no runtime behavior was weakened to satisfy those assertions.
 
-This change is not yet deployed. A fresh source/config baseline, immutable
-archive, staged native gate, retained backup and post-install checks are required
-before reporting it installed. Audible/live-provider acceptance remains with
-the owner after the authorized test deployment; main remains excluded.
+## Installed test release
+
+The owner-authorized test release is installed and activated on the Jetson.
+Main is not promoted.
+
+- Installed source revision: `db1586c6991df4d51fe6fce8fe17b58fbb6ffda9`.
+- Source archive SHA-256: `6723d30f5f37ccaa9fe1a738d56d0be2d5ba032580c3656e0440023558068a89` (also independently checked
+  with PowerShell Get-FileHash before transfer).
+- Release manifest: 217 allowlisted files, comprising 209 managed files and eight
+  staging-only public validation fixtures. All installed managed hashes match;
+  no unexpected source files were found.
+- Staged offline native preflight passed before the coupled settings migration.
+  The single dispatched source-only apply repeated its gate, retained the old
+  source and restarted the existing user service successfully.
+- 726 focused mocked native speech, conversation, introduction, pronunciation
+  and dashboard tests passed after activation; separate collection found 726.
+- Both saved YAML layers match exactly the three-field patch applied to their
+  retained originals. Installed-loader checks, with dotenv disabled, report
+  500/1,000/300 ms, persistent Deepgram=true and readiness cue=buzz.
+- Public `/`, `/admin`, `/health` return 200; protected audio/pan admin APIs
+  return 401 from both Jetson loopback and laptop. Service is active/running,
+  ExecMainStatus=0 and NRestarts=0. Boot ID is unchanged.
+- Credential-file, model-file and user-unit stat metadata are unchanged.
+  Other saved configuration is semantically unchanged. No credential contents,
+  private visitor state or audio recordings were read.
+
+Retained source backup:
+`/home/super-alex/atlas/backups/social-20261104-1e1a87e3/atlas-source-20261104-172848-9335f9d4`.
+
+Retained paired settings backup:
+`/home/super-alex/atlas/ATLAS_School_Pilot_v1_integrated/.atlas-onsite-settings-backups/74dbd26edd1d4b8691ef84d71f001b23`.
+
+Stage: `/tmp/atlas-source-social-db1586c-1e1a87e3`. The task-local `release.json`, installed before/after
+manifests, effective-settings result, native test/collection output and laptop
+HTTP result record the checks. No second activation transaction was dispatched.
+
+Audible/live-provider acceptance remains pending with the owner. Retest normal
+and hesitant speech and listen for the readiness buzz. Shorter silence waits can
+end a question during a natural pause; synthetic resumed-speech checks do not
+replace the physical microphone/headset test. Total network/model/TTS latency
+has not been measured or claimed to halve. A later user instruction is required
+before any promotion to main.
