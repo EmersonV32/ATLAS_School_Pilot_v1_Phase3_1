@@ -6,6 +6,7 @@ proof of today's physical device health.
 
 | Document | Purpose |
 | --- | --- |
+| [Persistent STT test deployment](2026-11-04_READY_STT_TEST_DEPLOYMENT.md) | Installed 95b4b99 release, preservation/native checks, pending headset acceptance and hotspot administrator handoff. |
 | [Persistent STT and ready cue](2026-11-02_PERSISTENT_STT_READY_CUE.md) | Connection reuse and a removable local readiness buzz/beep; validation and Jetson acceptance. |
 | [Shorter question pauses](2026-11-02_SHORTER_QUESTION_PAUSES.md) | One/two-second pause defaults, prepared-answer-to-TTS verification, effective-setting application and pending Jetson acceptance. |
 | [October 26 teammate handoff](../../handoff/2026-10-26_TEAMMATE_HANDOFF.md) | Current branch, verified progress, operator priorities, paused hardware, hotspot access and safety boundaries. |

@@ -1,5 +1,9 @@
 # Persistent STT connection and listening-ready sound
 
+Installed later under renewed owner authorization: see the
+[November 4 deployment record](2026-11-04_READY_STT_TEST_DEPLOYMENT.md).
+The ready-only status below describes the original preparation date.
+
 The owner requested keeping STT ready between turns and a short buzz-like
 readiness sound, with a beep alternative and removal for the presentation.
 They explicitly selected restoring introductions only after **Hey Atlas** or

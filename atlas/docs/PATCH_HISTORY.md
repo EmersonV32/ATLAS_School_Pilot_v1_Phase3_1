@@ -4,6 +4,21 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-11-04 - Persistent STT test release installed
+
+Installed the previously prepared `95b4b99` test release through the maintained
+source-only transaction, with a retained rollback backup and no main promotion.
+All 206 managed files match the immutable archive, staged native validation
+passed and 497 focused mocked native tests passed (497 independently collected).
+Service and laptop/loopback public/protected HTTP checks pass. Existing config,
+credential stat metadata, models, unit and boot ID are preserved. Checked public
+speech settings retain reuse=true, cue=buzz and the 1,000/2,000/600 ms pauses.
+The previously approved maintained wake-only introduction source replaces the
+five recorded live greeting/identity differences. Physical headset/latency
+acceptance is still pending. The separately requested laptop-hotspot preference
+currently awaits administrator authentication; no priority change succeeded.
+See `2026-11-04_READY_STT_TEST_DEPLOYMENT.md` for exact archive and backup.
+
 ## 2026-11-02 - Persistent STT and input-ready cue (test branch)
 
 Added visit-scoped Deepgram connection reuse/keepalive, cumulative timestamp

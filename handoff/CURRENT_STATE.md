@@ -1,5 +1,20 @@
 # Current state
 
+## Persistent STT test release deployed — 2026-11-04
+
+The owner-authorized source-only release `95b4b99` from `codex/ready-stt-cue`
+is now installed on the Jetson. All 206 managed files match the archive; the
+eight public validation fixtures remain staging-only. Native staged validation
+passed before replacement; 497 focused mocked speech/pipeline/greeting/API
+checks passed afterward, with 497 independently collected. Service is active
+and running, public routes return 200 and protected routes 401 from both the
+Jetson and laptop. Boot ID and excluded-file stat metadata are unchanged.
+Connection reuse/buzz settings and effective 1,000/2,000/600 ms pauses were
+checked without loading dotenv secrets. Headset/provider/audible acceptance
+remains pending; main is not promoted. The owner also requested laptop-hotspot
+priority; that separate change currently awaits administrator authentication.
+See [the release record](../atlas/docs/2026-11-04_READY_STT_TEST_DEPLOYMENT.md).
+
 ## Persistent STT and readiness sound ready on test branch — 2026-11-02
 
 `codex/ready-stt-cue` continues from `be33d66`: keep a healthy STT socket ready
