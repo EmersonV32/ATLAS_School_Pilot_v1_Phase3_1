@@ -687,6 +687,29 @@ class TestAsk:
         assert res.status_code == 200
         assert res.json()["answer"]
 
+    def test_typed_small_talk_bypasses_rag_and_model(self, client, monkeypatch):
+        service = client.app.state.service
+
+        def forbidden(*_args, **_kwargs):
+            pytest.fail("small talk must not retrieve or call a model")
+
+        monkeypatch.setattr(service.container.retriever, "retrieve", forbidden)
+        monkeypatch.setattr(
+            service.container.dialogue_engine._llm, "generate", forbidden
+        )
+        for question in ["Bonjour", "Comment allez-vous ?", "Très bien",
+                         "Raconte-moi une blague", "Oui", "Non merci"]:
+            response = client.post(
+                "/ask", headers=_admin(client),
+                json={"question": question, "language": "fr"},
+            )
+            assert response.status_code == 200
+            body = response.json()
+            assert body["answer"].endswith("?")
+            assert "ATLAS" not in body["answer"]
+            assert body["retrieval_latency_ms"] == 0
+            assert body["used_chunk_ids"] == []
+
     def test_typed_prepared_invitation_and_acceptance_bypass_rag_and_model(
         self, client, monkeypatch
     ):
@@ -708,7 +731,7 @@ class TestAsk:
         ).json()
         assert first["answer"].endswith("?")
         assert "sfumato" in followup["answer"]
-        assert not followup["answer"].endswith("?")
+        assert followup["answer"].endswith("?")
         assert first["retrieval_latency_ms"] == followup["retrieval_latency_ms"] == 0
         assert first["used_chunk_ids"] == followup["used_chunk_ids"]
         assert service.container.dialogue_engine._memory.turn_number == 2
@@ -968,8 +991,8 @@ class TestAdminConfig:
         assert response.status_code == 200
         speech = response.json()["config"]["speech"]
         assert speech["max_utterance_s"] == 45.0
-        assert speech["silero_min_silence_ms"] == 1000
-        assert speech["silero_hesitation_silence_ms"] == 2000
+        assert speech["silero_min_silence_ms"] == 500
+        assert speech["silero_hesitation_silence_ms"] == 1000
         assert not any("key" in field or "password" in field for field in speech)
 
     @pytest.mark.parametrize(

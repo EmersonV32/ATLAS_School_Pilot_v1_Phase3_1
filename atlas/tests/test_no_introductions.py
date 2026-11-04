@@ -67,9 +67,11 @@ def test_full_model_answer_and_memory_exclude_introduction(structured, language,
     engine = DialogueEngine(Model(), expect_json=structured)
     result = engine.respond("Tell me a fact", [{"text": fact}], language=language)
 
-    assert result.response == fact
+    assert result.response.startswith(fact + " ")
+    assert result.response.endswith("?")
+    assert "ATLAS" not in result.response
     assert result.filtered is False
-    assert engine._conversation_turns == [("Tell me a fact", fact)]
+    assert engine._conversation_turns == [("Tell me a fact", result.response)]
 
 
 @pytest.mark.parametrize("punctuated", [False, True])
@@ -86,10 +88,12 @@ def test_stream_discards_intro_before_callback_and_keeps_useful_text(punctuated)
         "Tell me a fact", [{"text": ART_FACT}], on_sentence=spoken.append
     )
     expected = ART_FACT if punctuated else ART_FACT.rstrip(".")
-    assert spoken == [expected]
-    assert result.response == expected
+    assert spoken[0] == expected
+    assert len(spoken) == 2 and spoken[-1].endswith("?")
+    assert all("ATLAS" not in sentence for sentence in spoken)
+    assert result.response == " ".join(spoken)
     assert result.filtered is False
-    assert engine._conversation_turns == [("Tell me a fact", expected)]
+    assert engine._conversation_turns == [("Tell me a fact", result.response)]
 
 
 @pytest.mark.parametrize("streaming", [False, True])
@@ -137,7 +141,9 @@ def test_intro_cleanup_preserves_conversation_artwork_subject():
         "Tell me about the Mona Lisa", [{"text": ART_FACT}],
         artwork_id="mona_lisa",
     )
-    assert result.response == ART_FACT
+    assert result.response.startswith(ART_FACT + " ")
+    assert result.response.endswith("?")
+    assert "ATLAS" not in result.response
     assert engine._memory.topic == "mona_lisa"
     assert engine._memory.recent[-1].artwork_id == "mona_lisa"
-    assert engine._memory.recent[-1].answer == ART_FACT
+    assert engine._memory.recent[-1].answer == result.response

@@ -257,7 +257,7 @@ class TestPromptBuilder:
         assert len(llm.calls) == 1
         assert "artistic technique and materials" in prompt
         assert "PERSONALIZATION QUESTION: REQUESTED" in prompt
-        assert "safe non-art question briefly" in prompt
+        assert "safe non-art conversation" in prompt
         assert "Never ask for or infer a name" in prompt
 
         engine.respond("History, and keep it brief", [])
@@ -409,14 +409,16 @@ class TestDialogueEngine:
 
         llm = RecordingLLM()
         engine = DialogueEngine(llm)
-        engine.respond("Who created the Mona Lisa?", [])
+        first = engine.respond("Who created the Mona Lisa?", [])
         engine.respond("What were his famous paintings?", [])
 
         second_prompt = llm.calls[1]
         assert {
             "role": "assistant",
-            "content": "Leonardo da Vinci created the Mona Lisa.",
+            "content": first.response,
         } in second_prompt
+        assert first.response.startswith("Leonardo da Vinci created the Mona Lisa.")
+        assert first.response.endswith("?")
         assert {
             "role": "user",
             "content": (

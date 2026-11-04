@@ -526,5 +526,8 @@ def test_activity_storage_failure_cannot_discard_a_generated_answer(workflow_ser
 
     service.container.logger.log = broken_log
     answer = service.ask("Explain the effect of a diagonal composition")
-    assert answer["answer"] == "A useful explanation of composition and technique."
+    assert answer["answer"].startswith(
+        "A useful explanation of composition and technique. "
+    )
+    assert answer["answer"].endswith("?")
     assert service.last_answer == answer

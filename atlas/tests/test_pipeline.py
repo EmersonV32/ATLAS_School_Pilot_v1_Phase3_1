@@ -299,7 +299,7 @@ def test_spoken_prepared_invitation_then_oui_stays_local(route):
     assert all(result.success and result.event == "scripted_faq" for result in results)
     assert results[0].dialogue.response.endswith("?")
     assert "sfumato" in results[1].dialogue.response
-    assert not results[1].dialogue.response.endswith("?")
+    assert results[1].dialogue.response.endswith("?")
     assert engine._memory.turn_number == 2
     assert engine._personalization.completed_turns == 2
 
@@ -579,7 +579,10 @@ def test_rejected_stream_segment_is_not_reported_as_complete_speech(
         result = runner.respond_to_transcript(
             TranscriptResult("Explain the diagonal composition")
         )
-    assert result.dialogue.response.endswith("The diagonal creates movement.")
+    assert result.dialogue.response.startswith(
+        "A painting uses composition. The diagonal creates movement. "
+    )
+    assert result.dialogue.response.endswith("?")
     assert not result.tts_ok
     assert not tts.replays  # Never replay partial speech with a different voice.
 

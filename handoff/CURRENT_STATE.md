@@ -1,5 +1,17 @@
 # Current state
 
+## Interactive conversation and halved waits locally verified — 2026-11-04
+
+`codex/interactive-social-half-pauses` adds a question to each ordinary prepared
+or generated answer, local French/English friendly conversation and jokes,
+and 500/1,000/300 ms silence defaults. The owner clarified that the halving
+concerns speech waits, not a PDF/question bank. Local verification passes:
+4,686 passed and three skipped, with 4,689 independently collected. No new
+deployment yet. Source-only installation must preserve other live
+configuration and explicitly migrate these three saved speech values. Main
+remains excluded until the owner authorizes promotion after Jetson testing.
+See [the change record](../atlas/docs/2026-11-04_INTERACTIVE_CONVERSATION_AND_HALVED_PAUSES.md).
+
 ## Persistent STT test release deployed — 2026-11-04
 
 The owner-authorized source-only release `95b4b99` from `codex/ready-stt-cue`

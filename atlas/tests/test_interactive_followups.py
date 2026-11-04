@@ -64,11 +64,14 @@ def test_acceptance_delivers_the_offered_technique_without_a_model(
     assert second.intent == "technique"
     assert second.artwork_id == "mona_lisa"
     assert fact in second.response
-    assert second.response == second.base_response
-    assert second.follow_up_intent is None
+    assert second.response.startswith(second.base_response)
+    assert second.response.endswith(("?", "？"))
+    assert second.follow_up_intent == "detail"
     assert second.source_ids == first.source_ids
-    # A third confirmation must not repeat an already-consumed invitation.
-    assert local_turn(engine, accept, language=language) is None
+    # A third confirmation delivers the new invitation, not the old technique.
+    third = local_turn(engine, accept, language=language)
+    assert third.intent == "detail"
+    assert third.response.endswith(("?", "？"))
 
 
 def test_artist_question_then_yes_does_not_repeat_the_artist_biography():
@@ -101,7 +104,8 @@ def test_every_offered_topic_has_a_prepared_continuation(language, intent):
     accept = {"en": "Yes", "fr": "Oui", "es": "Sí", "it": "Sì", "zh": "好的"}
     more = local_turn(engine, accept[language], language=language)
     assert more.intent == first.follow_up_intent
-    assert more.response == more.base_response
+    assert more.response.startswith(more.base_response)
+    assert more.response.endswith(("?", "？"))
     assert more.source_ids
 
 
@@ -122,8 +126,8 @@ def test_new_question_replaces_old_invitation_instead_of_hijacking_yes():
     local_turn(engine, "Who painted this?")
     date = local_turn(engine, "When was it made?")
     assert date.intent == "date"
-    assert date.follow_up_intent is None
-    assert local_turn(engine, "Yes") is None
+    assert date.follow_up_intent == "fun_fact"
+    assert local_turn(engine, "Yes").intent == "fun_fact"
 
 
 def test_camera_change_and_reset_remove_the_previous_offer():
@@ -159,19 +163,11 @@ def test_optional_questions_vary_and_remain_available_later_in_the_visit():
     answers = [
         local_turn(engine, "Qui a peint la Joconde ?", language="fr") for _ in range(7)
     ]
-    assert [bool(a.follow_up_intent) for a in answers] == [
-        True,
-        False,
-        True,
-        False,
-        True,
-        False,
-        True,
-    ]
-    invitations = [a.response.removeprefix(a.base_response) for a in answers[::2]]
+    assert all(a.follow_up_intent for a in answers)
+    invitations = [a.response.removeprefix(a.base_response) for a in answers]
     assert len(set(invitations[:3])) == 3
     assert all("technique" in question for question in invitations)
-    assert all(a.response == a.base_response for a in answers[1::2])
+    assert all(a.response.endswith("?") for a in answers)
 
 
 def test_interleaved_model_statements_do_not_repeat_the_last_invitation():
@@ -185,17 +181,15 @@ def test_interleaved_model_statements_do_not_repeat_the_last_invitation():
     for _ in range(5):
         assert local_turn(engine, "Explain the balance of shapes") is None
         engine.respond("Explain the balance of shapes", [], artwork_id="mona_lisa")
-    assert engine._personalization.follow_up_count == 1
+    assert engine._personalization.follow_up_count == 6
     next_offer = local_turn(engine, "Who painted this?")
     assert next_offer.follow_up_intent == first.follow_up_intent
-    assert next_offer.response.removeprefix(next_offer.base_response) != (
-        first.response.removeprefix(first.base_response)
-    )
-    assert engine._personalization.follow_up_count == 2
-    # Merely resolving an answer must not advance the counter or cadence.
+    assert next_offer.response.endswith("?")
+    assert engine._personalization.follow_up_count == 7
+    # Merely resolving an answer must not advance the counter.
     pending = engine.resolve_local_response("Who painted this?", artwork_id="mona_lisa")
-    assert pending.follow_up_intent is None
-    assert engine._personalization.follow_up_count == 2
+    assert pending.follow_up_intent == "technique"
+    assert engine._personalization.follow_up_count == 7
     engine.reset_conversation()
     assert engine._personalization.follow_up_count == 0
     again = local_turn(engine, "Who painted this?")
@@ -241,11 +235,11 @@ def test_model_turn_uses_history_for_variety_and_clears_old_prepared_offer():
     assert local_turn(engine, "Explain the balance of shapes") is None
     engine.respond("Explain the balance of shapes", [], artwork_id="mona_lisa")
     prompt = str(cloud.prompts[-1])
-    assert "PERSONALIZATION QUESTION: NOT REQUESTED" in prompt
+    assert "PERSONALIZATION QUESTION: REQUESTED" in prompt
     assert "never repeat the same closing question" in prompt
     assert "FOLLOW-UP DIRECTION" in prompt
     assert "Would you like to explore how it was made?" in prompt
     assert local_turn(engine, "Yes") is None
-    # The model's actual invitation, even if unrequested, gets breathing room.
+    # A later answer also offers a continuation, with the model seeing history.
     engine.respond("Explain the arrangement of colors", [], artwork_id="mona_lisa")
-    assert "PERSONALIZATION QUESTION: NOT REQUESTED" in str(cloud.prompts[-1])
+    assert "PERSONALIZATION QUESTION: REQUESTED" in str(cloud.prompts[-1])

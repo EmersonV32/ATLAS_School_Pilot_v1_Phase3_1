@@ -112,7 +112,14 @@ class TestDialogueRefusals:
             result = engine.respond(
                 question="Who painted this?", artwork_chunks=_CHUNKS, language=language
             )
-            assert result.response == "This answer is unrelated to the artwork context."
+            assert result.response.startswith(
+                "This answer is unrelated to the artwork context. "
+            )
+            assert result.response.endswith("?")
+            if language == "es":
+                assert "¿" in result.response
+            else:
+                assert "Che cosa" in result.response
             assert result.fallback_used is False
 
     def test_injection_refusal_stays_in_selected_language(self):

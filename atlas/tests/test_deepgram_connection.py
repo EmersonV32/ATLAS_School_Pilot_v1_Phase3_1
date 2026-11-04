@@ -237,9 +237,9 @@ def test_reused_socket_preserves_short_prepared_question_endpoint(capture_harnes
     rig.adapter.prepare_listen()
     answer = rig.adapter.listen()
     assert answer.text == "Who painted the Mona Lisa?"
-    assert 0.6 <= (
+    assert 0.3 <= (
         answer.transcript_ready_monotonic_s - answer.speech_end_monotonic_s
-    ) < 0.7
+    ) < 0.38
     assert len(rig.sockets) == 1
     finalizes = [
         x for x in rig.sockets[0].sent

@@ -223,9 +223,9 @@ class SpeechSettings(BaseModel):
     silero_threshold: float = 0.5
     silero_model_path: str = "models/silero_vad.onnx"
     silero_min_speech_ms: int = 250
-    silero_min_silence_ms: int = 1000
-    silero_hesitation_silence_ms: int = Field(default=2000, ge=200, le=10000)
-    silero_scripted_faq_silence_ms: int = Field(default=600, ge=0, le=2000)
+    silero_min_silence_ms: int = 500
+    silero_hesitation_silence_ms: int = Field(default=1000, ge=200, le=10000)
+    silero_scripted_faq_silence_ms: int = Field(default=300, ge=0, le=2000)
     silero_pre_roll_ms: int = 250
 
     cartesia_api_key_env: str = "CARTESIA_API_KEY"

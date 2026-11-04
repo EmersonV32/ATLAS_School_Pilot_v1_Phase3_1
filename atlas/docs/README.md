@@ -6,6 +6,7 @@ proof of today's physical device health.
 
 | Document | Purpose |
 | --- | --- |
+| [Interactive conversation and halved waits](2026-11-04_INTERACTIVE_CONVERSATION_AND_HALVED_PAUSES.md) | Closing questions, social fast paths and 500/1,000/300 ms waits; validation and test-release status. |
 | [Persistent STT test deployment](2026-11-04_READY_STT_TEST_DEPLOYMENT.md) | Installed 95b4b99 release, preservation/native checks, pending headset acceptance and hotspot administrator handoff. |
 | [Persistent STT and ready cue](2026-11-02_PERSISTENT_STT_READY_CUE.md) | Connection reuse and a removable local readiness buzz/beep; validation and Jetson acceptance. |
 | [Shorter question pauses](2026-11-02_SHORTER_QUESTION_PAUSES.md) | One/two-second pause defaults, prepared-answer-to-TTS verification, effective-setting application and pending Jetson acceptance. |

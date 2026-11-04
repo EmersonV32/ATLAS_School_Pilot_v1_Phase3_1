@@ -40,7 +40,11 @@ from atlas.dialogue.conversation_memory import (
     _recommendation_text,
 )
 from atlas.dialogue.grounding_validator import GroundingValidator
-from atlas.dialogue.interactive_followups import declined_reply, invitation
+from atlas.dialogue.interactive_followups import (
+    declined_reply,
+    invitation,
+    with_open_question,
+)
 from atlas.dialogue.introduction_policy import (
     introduction_fallback,
     without_model_introduction,
@@ -58,6 +62,7 @@ from atlas.dialogue.scripted_faq import (
     resolve_scripted_faq,
 )
 from atlas.dialogue.sentence_stream import SentenceAssembler
+from atlas.dialogue.social_conversation import ends_conversation, resolve_social
 from atlas.dialogue.vocabulary import asks_word_meaning
 from atlas.models.languages import normalize_language_code
 from atlas.safety.prompt_injection_filter import PromptInjectionFilter
@@ -157,6 +162,8 @@ class DialogueEngine:
         self._state_lock = threading.RLock()
         self._conversation_generation = 0
         self._local_followup: tuple[str, str] | None = None
+        self._social_followup: str | None = None
+        self._social_turns = 0
 
     @property
     def conversation_generation(self) -> int:
@@ -243,6 +250,7 @@ class DialogueEngine:
             if generation != self._conversation_generation:
                 return self._cancelled(result.language)
             self._local_followup = None
+            self._social_followup = None
             if not result.error and not result.filtered:
                 self._remember(question, result.response, artwork_id)
             self._personalization.complete_turn(
@@ -260,6 +268,8 @@ class DialogueEngine:
             self._memory.reset()
             self._personalization.reset()
             self._local_followup = None
+            self._social_followup = None
+            self._social_turns = 0
 
     def configure_personalization(
         self,
@@ -271,6 +281,8 @@ class DialogueEngine:
         """Start a session with only coarse, allow-listed visitor choices."""
         with self._state_lock:
             self._local_followup = None
+            self._social_followup = None
+            self._social_turns = 0
             self._personalization.configure(
                 interests=interests,
                 accessibility=accessibility,
@@ -307,9 +319,14 @@ class DialogueEngine:
                 return False
             self._personalization.observe(question)
             self._remember(question, answer, focus.artwork_id)
+            social = bool(follow_up_intent and follow_up_intent.startswith("social:"))
+            self._social_followup = follow_up_intent if social else None
+            if social:
+                self._social_turns += 1
             self._local_followup = (
                 (focus.artwork_id, follow_up_intent)
                 if focus.artwork_id is not None and follow_up_intent is not None
+                and not social
                 else None
             )
             self._personalization.complete_turn(
@@ -329,7 +346,7 @@ class DialogueEngine:
         expected_generation: int | None = None,
         focus: ArtworkFocus | None = None,
     ) -> ScriptedFaqAnswer | None:
-        """Select prepared facts and optional invitations without a model call.
+        """Select prepared facts, small talk and invitations without a model call.
 
         This does not commit memory or advance turn counts. The caller must
         pass its returned follow_up_intent to remember_local_response only
@@ -345,8 +362,20 @@ class DialogueEngine:
             pending = self._local_followup
             self._local_followup = None
             invitation_index = self._personalization.follow_up_count
-            offer = self._personalization.should_ask_preference_question()
-        continuation = False
+            social_pending = self._social_followup
+            social_turn = self._social_turns
+        if self._injection.is_injection(question):
+            return None
+        social = resolve_social(
+            question, language, pending=social_pending, turn=social_turn,
+            profile=profile,
+        )
+        if social is not None:
+            return ScriptedFaqAnswer(
+                response=social.response, base_response=social.response,
+                intent=f"social_{social.kind}", artwork_id=None,
+                follow_up_intent=social.follow_up,
+            )
         if pending is not None and pending[0] == artwork_id:
             normalized = _recommendation_text(question)
             if normalized in {
@@ -372,7 +401,6 @@ class DialogueEngine:
                 if phrases:
                     question = phrases[0]
                     resolved_subject = True
-                    continuation = True
         result = resolve_scripted_faq(
             question,
             artwork_id=artwork_id,
@@ -387,8 +415,6 @@ class DialogueEngine:
         next_intent = result.follow_up_intent
         if (
             result.artwork_id is None
-            or not offer
-            or continuation
             or next_intent is None
         ):
             return replace(result, response=base, follow_up_intent=None)
@@ -503,6 +529,11 @@ class DialogueEngine:
         final_response, was_filtered = self._safety.filter(spoken, language)
         if was_filtered:
             logger.warning("Response was blocked by safety filter.")
+        elif not ends_conversation(question):
+            final_response = with_open_question(
+                final_response, language, self._personalization.follow_up_count,
+                ctx.profile or "",
+            )
 
         result = DialogueResult(
             response=final_response,
@@ -656,6 +687,17 @@ class DialogueEngine:
                 fallback = introduction_fallback(language)
                 accepted.append(fallback)
                 events.put(("sentence", fallback))
+
+            if not error and not filtered and not ends_conversation(question):
+                answer = " ".join(accepted).strip()
+                interactive = with_open_question(
+                    answer, language, self._personalization.follow_up_count,
+                    ctx.profile or "",
+                )
+                if interactive != answer:
+                    closing = interactive[len(answer):].strip()
+                    accepted.append(closing)
+                    events.put(("sentence", closing))
 
             result = DialogueResult(
                 response=" ".join(accepted).strip(),

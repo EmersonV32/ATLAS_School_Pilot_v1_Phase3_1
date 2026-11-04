@@ -283,8 +283,8 @@ class SessionPersonalization:
                 self._add(self.explanation_styles, style, STYLE_LABELS)
 
     def should_ask_preference_question(self) -> bool:
-        """Keep invitations available throughout the visit, with breathing room."""
-        return self.completed_turns - self.last_follow_up_turn >= 2
+        """Every normal answer offers one relevant way to continue."""
+        return True
 
     def follow_up_direction(self) -> str:
         return (

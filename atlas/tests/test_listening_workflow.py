@@ -102,6 +102,10 @@ def capture(
     # These existing single-window fixtures also cover the opt-out adapter.
     # The persistent transport has separate multi-turn/socket tests.
     options.setdefault("keep_connection_enabled", False)
+    # Keep historical timing scenarios explicit; new defaults are tested below.
+    options.setdefault("min_silence_ms", 1000)
+    options.setdefault("hesitation_silence_ms", 2000)
+    options.setdefault("scripted_faq_silence_ms", 600)
     stt = DeepgramSTT(vad=VAD(), **options)
     state.adapter = stt
     if failure_sink is not None:
@@ -364,16 +368,16 @@ def test_empty_and_repository_settings_use_requested_pause_defaults():
         )["speech"]
     )
     for settings in (defaults, configured):
-        assert settings.silero_min_silence_ms == 1000
-        assert settings.silero_hesitation_silence_ms == 2000
-        assert settings.silero_scripted_faq_silence_ms == 600
+        assert settings.silero_min_silence_ms == 500
+        assert settings.silero_hesitation_silence_ms == 1000
+        assert settings.silero_scripted_faq_silence_ms == 300
 
 
 def test_existing_private_speech_settings_get_safe_prepared_question_default():
     settings = SpeechSettings.model_validate(
         {"silero_min_silence_ms": 2300, "silero_hesitation_silence_ms": 4500}
     )
-    assert settings.silero_scripted_faq_silence_ms == 600
+    assert settings.silero_scripted_faq_silence_ms == 300
     assert settings.silero_min_silence_ms == 2300
     assert settings.silero_hesitation_silence_ms == 4500
 
