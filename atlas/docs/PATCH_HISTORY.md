@@ -4,7 +4,7 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
-## 2026-11-04 - Consistent, slightly slower speech (offline preparation)
+## 2026-11-04 - Consistent, slightly slower speech (test release installed)
 
 Normal TTS now requests speed 0.90 for every profile; only the existing explicit
 slower-pace choice selects 0.80. Cartesia requests and Piper phoneme length scale
@@ -12,8 +12,12 @@ receive the control, including streamed replies, fallback and private greetings.
 Language simplicity remains independent. The focused gate passes 317 tests;
 complete local validation passes 4,738 tests with three skips, independently
 matching 4,741 collected cases. Lint, compile, dependencies, secrets, recovery,
-layout and 106 synthetic JS checks pass. No Jetson connection/deployment or main change.
-See `2026-11-04_SPEECH_PACE.md`.
+layout and 106 synthetic JS checks pass. Installed source `d745d3d` after explicit owner approval. All 211 managed hashes
+match; native staged validation and 874 focused mocked tests pass (874 separately
+collected). Existing configuration/credential/model/unit stat metadata is preserved;
+normal/slow settings are 0.90/0.80. Service and laptop/loopback HTTP checks pass,
+with no reboot and a retained source backup. Physical listening is pending;
+main remains unchanged. See `2026-11-04_SPEECH_PACE.md`.
 
 ## 2026-11-04 - Interactive social conversation and halved waits (test release installed)
 

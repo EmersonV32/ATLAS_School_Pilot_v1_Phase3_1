@@ -1,13 +1,18 @@
 # Current state
 
-## Slower speech ready for later Jetson test — 2026-11-04
+## Slower speech installed for owner testing — 2026-11-04
 
-`codex/slower-speech` adds explicit normal/extra-slow synthesis settings
-(0.90/0.80), independent of simple language and other profiles. The 317 focused
-checks and complete suite pass: 4,738 passed / three skipped, independently
-matching 4,741 collected cases. Publication gates pass. The owner reports the Jetson
-is offline: no connection, hardware change or deployment was attempted. Main
-is unchanged. See [the speech pace record](../atlas/docs/2026-11-04_SPEECH_PACE.md).
+`codex/slower-speech` source `d745d3d` is installed after explicit owner approval.
+Normal/extra-slow synthesis settings are 0.90/0.80, independent of simple language
+and other profiles. All 211 managed files match the archive. Native staged gate
+and 874 focused mocked tests pass (874 independently collected). The actual Piper
+CLI supports the required pace flag. Service and laptop/loopback HTTP checks pass.
+Saved configuration, credential/model/unit stat metadata and boot ID are preserved;
+the old source backup is retained. Listening waits remain 500/1,000/300 ms,
+persistent STT=true and readiness cue=buzz. Physical headset listening remains
+pending; no measured WPM is claimed. Local preparation passed 4,738 tests with
+three skips (4,741 independently collected). Main is not promoted.
+See [the speech pace record](../atlas/docs/2026-11-04_SPEECH_PACE.md).
 
 ## Interactive conversation and halved waits deployed for testing — 2026-11-04
 

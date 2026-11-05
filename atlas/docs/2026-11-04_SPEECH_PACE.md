@@ -1,9 +1,9 @@
 # Slightly slower, consistent synthesis pace
 
 Branch: `codex/slower-speech`, continuing the installed `db1586c` release and
-its documentation head `3940ba2`. The owner requested laptop-only preparation;
-the Jetson is offline. No SSH, hardware action, restart or deployment is authorized
-for this task. Main remains excluded pending a later instruction.
+its documentation head `3940ba2`. Initially prepared offline, then installed as
+source `d745d3d` after the owner explicitly authorized Jetson deployment. Main
+remains excluded pending a later instruction.
 
 ## Requested and implemented behavior
 
@@ -57,23 +57,56 @@ checks pass. No UI markup/styles changed. Optional headless browser scripts
 were not rerun because Playwright is unavailable in the local Node environment.
 
 Evidence: `deliverables/speech-pace-20261104/` outside the repository contains
-`full.xml`, `collection.txt` and `validation.json`. No live provider/audio calls,
-Jetson connection or hardware change was made.
+`full.xml`, `collection.txt` and `validation.json`. During that offline phase,
+no live provider/audio calls, Jetson connection or hardware change was made.
 
 ## Handoff
 
 Task completed: slightly slower normal speech and extra-slow accessibility pace,
-locally verified and ready for the owner-requested later Jetson test.
+locally/natively verified and installed for the owner’s audible Jetson test.
 Files changed: shared speech pace helper; Cartesia, Piper, BaseTTS, mock and fallback;
 settings model/public defaults; dependency factory; runner and wake greeting bridge;
 focused tests, source-release smoke gate and continuity documentation.
 Local visual verification: visitor UI unchanged; existing slower option retained.
 Configuration/dependencies: two speech fields (tts_speed, tts_slower_speed); no new dependencies.
-Jetson verification still required: staged native gate after reconnection, preserved
-live configuration, actual French/English headset sound, normal versus simple
-language, and the additional slower choice. No audible baseline/WPM is claimed.
+Jetson verification completed: staged native gate, installed-file/preservation
+checks and 874 focused mocked regressions. Still required: actual French/English
+headset sound, normal versus simple language, and the additional slower choice.
+No audible baseline/WPM is claimed.
 Risks: Cartesia interprets the setting as guidance; the two providers may sound
 different at equivalent numeric settings. Physical acceptance remains necessary.
 Security/privacy: no secrets, private records, recordings or live state accessed.
-Deployment performed: No.
-Ready for primary Codex review: Yes. Deployment and physical listening are pending.
+Deployment performed: Yes, source `d745d3d` on the owner-authorized test branch.
+Ready for primary Codex review: Yes. Physical listening remains pending.
+
+
+## Installed test release
+
+- Installed revision: `d745d3dfec6816744ea6b1cf4724ca2c97f66a8b`.
+- Archive SHA-256: `62b8c08e0585e4c837b94caf98034943cca99304e67dedf365393a2b36a1b53d`.
+- 211 managed files match the archive; eight validation-only fixtures are not
+  installed. No unexpected source files were found.
+- A single source-only apply passed its offline native gate, retained the prior
+  source and restarted the existing user service. No separate/duplicate apply.
+- 874 focused mocked native tests pass; separate collection also reports 874.
+- Installed-loader checks (dotenv disabled) report normal=0.90, extra slow=0.80,
+  silence waits 500/1,000/300 ms, persistent Deepgram=true and readiness cue=buzz.
+- The actual configured Piper executable accepts --length-scale according to
+  its successful --help invocation. No audio or synthesis was started by this check.
+- Saved settings and overrides, credential file, model files and user-unit stat
+  metadata are unchanged. No live YAML migration was needed.
+- Service is active/running, ExecMainStatus=0 and NRestarts=0. Boot ID is unchanged
+  across this deployment. Public /, /admin and /health return 200 and protected
+  audio/pan APIs 401 from both Jetson loopback and laptop.
+- Physical headset/provider acoustic acceptance remains pending. No measured
+  WPM, exact percentage of audible slowdown or identical provider timbre is claimed.
+
+Retained source backup:
+`/home/super-alex/atlas/backups/pace-20261104-6b8900e8/atlas-source-20261104-195951-f8520c33`.
+
+Stage: `/tmp/atlas-source-pace-d745d3d-6b8900e8`.
+Sanitized before/after hashes, selected settings, native test/collection output,
+Piper capability and laptop HTTP evidence are in
+`deliverables/speech-pace-deployment-20261104/` outside Git. No secrets, private
+visitor state, raw recordings, packages, networking, model files or service-unit
+configuration were changed. Main is not promoted.
