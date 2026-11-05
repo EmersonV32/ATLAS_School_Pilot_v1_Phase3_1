@@ -4,7 +4,7 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
-## 2026-11-04 - Sticky artwork discussion (in development)
+## 2026-11-04 - Sticky artwork discussion (test release installed)
 
 Accepted spontaneous suggestions and explicitly named works become a locked
 visit discussion subject. Camera changes and passive invitations cannot replace
@@ -13,7 +13,11 @@ Supported Yes/Oui acceptance uses prepared local facts for the new work. No new
 cloud call, persistence or history expansion. Focused synthetic gate: 513 pass;
 complete local gate: 4,771 pass / three skips, independently 4,774 collected.
 Lint, compile, dependencies, secrets, recovery, layout and 106 JS checks pass.
-Jetson deployment pending, main excluded. See
+Installed source `fcf646e`: all 212 managed hashes match, native staged gate and
+978 focused synthetic tests pass (978 independently collected). Service and
+loopback/laptop HTTP checks pass; configuration/credential/model/unit metadata
+and boot ID are unchanged. A source rollback backup is retained. Physical owner
+testing is pending, main excluded. See
 `2026-11-04_STICKY_ARTWORK_CONTEXT.md`.
 
 ## 2026-11-04 - Consistent, slightly slower speech (test release installed)

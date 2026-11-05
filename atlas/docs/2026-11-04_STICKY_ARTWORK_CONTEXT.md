@@ -44,5 +44,58 @@ retrieval/model calls. The complete local gate passes 4,771 tests with three
 explicit skips (C++ compiler, Windows symlink privilege, opt-in real inference).
 The JUnit case count and separate collection both equal 4,774. Lint, compile,
 dependency compatibility, secrets, recovery, repository layout and 106 synthetic
-JavaScript checks pass. The installed source matches the preceding speech release
-with no unreviewed managed source drift. Jetson replacement is pending.
+JavaScript checks pass. Before replacement, the installed source matched the
+preceding speech release without unreviewed managed source drift.
+
+## Jetson test deployment completed
+
+- Branch: `codex/sticky-artwork-context`; installed source commit:
+  `fcf646e30487393a325f716e6dc669171f5567e6`.
+- Maintained source-only release procedure verified the staged archive, ran its
+  isolated dependency/compile/synthetic gate, backed up source, replaced only
+  managed roots and restarted `atlas.service`. No dependency/model/unit/network
+  changes or main promotion were performed.
+- Archive SHA-256 (independently checked with Get-FileHash):
+  `ddc75e41aa50b98f447f2ccb4f3b326aa4d2672f79578807e62d941ecf1f6a18`.
+  All 212 managed files match their manifest; eight public content fixtures also
+  match. No extra managed source files were found.
+- Backup:
+  `/home/super-alex/atlas/backups/context-20261104-523c3b5b/atlas-source-20261104-213946-e9440573`.
+- Post-install native synthetic gate: 978 passed; independent collection: 978.
+  It includes typed and spoken/streamed acceptance, implicit followups and camera
+  priority, plus inherited speech/listening/greeting/privacy regressions. Wake
+  tests use an ephemeral synthetic port; the production port guard is unchanged.
+- Service is active/running, ExecMainStatus=0 and automatic restart count unchanged.
+  Boot ID is unchanged. Loopback and laptop status-only checks return 200 for
+  `/`, `/admin`, `/health`, and 401 for the protected audio/camera-pan APIs.
+- All saved configuration, credential/model/unit stat metadata is unchanged.
+  Selected effective speech values were checked without loading dotenv: normal
+  speed 0.90, extra slow 0.80; silence waits 500/1,000/300 ms; persistent STT=true;
+  ready cue=buzz. No private credentials, visitor history or recordings were read.
+
+## Handoff and owner acceptance
+
+Changed files: conversation memory/engine/prompt rules, session camera-invitation
+guard, source-release smoke list, targeted tests and this release documentation.
+No dashboard markup, configuration defaults or dependencies changed. Visual
+layout was not retested; HTTP and synthetic dashboard logic checks passed.
+
+Local commands: guarded `run_deployment_pytest.py` full suite and independent
+collection; Ruff; compileall; offline dependency check; secrets/recovery/layout
+scripts; `node atlas/scripts/verify_admin_logic.cjs`; `git diff --check`.
+Native commands: maintained `source_release.py apply`, then guarded selected
+synthetic tests and separate collection from installed source. Local evidence is
+under `deliverables/sticky-artwork-20261104/` outside the repository.
+
+Deployment performed: Yes. Ready for owner testing: Yes. Main promotion: No.
+Physical headset/provider acceptance and end-to-end latency remain unmeasured.
+Known limit: offers must unambiguously name a catalog work; comparisons or unknown
+titles do not silently replace the discussion. This is per-visit bounded state,
+not long-term visitor memory, and reset clears the selected subject.
+
+Owner check: discuss Mona Lisa, accept an offer of Great Wave, then ask its artist,
+date and technique without repeating its title. The subject should remain Great
+Wave even with Mona Lisa in view. Ask explicitly what you are looking at (or use
+manual capture) to reselect the camera work. Repeat after ending/restarting the
+visit to confirm previous visitor context has cleared. Keep the test branch until
+the owner accepts the physical result.
