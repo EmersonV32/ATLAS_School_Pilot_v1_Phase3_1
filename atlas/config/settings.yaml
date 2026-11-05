@@ -133,6 +133,13 @@ hardware:
   ev3_status_led_enabled: false
 
 speech:
+  deepgram_keep_connection: true
+  listening_ready_cue: buzz
+  tts_speed: 0.90
+  tts_slower_speed: 0.80
+  silero_hesitation_silence_ms: 1000
+  silero_scripted_faq_silence_ms: 300
+  silero_max_utterance_s: 45.0
   stt_provider: deepgram
   tts_provider: cartesia
   # Explicitly approved for the prototype: question audio may go to Deepgram,
@@ -167,7 +174,7 @@ speech:
   silero_threshold: 0.5
   silero_model_path: models/silero_vad.onnx
   silero_min_speech_ms: 250
-  silero_min_silence_ms: 1200
+  silero_min_silence_ms: 500
   silero_pre_roll_ms: 250
   cartesia_api_key_env: CARTESIA_API_KEY
   cartesia_model: sonic-3.5

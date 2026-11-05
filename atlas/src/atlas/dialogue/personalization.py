@@ -222,6 +222,8 @@ class SessionPersonalization:
     interests: list[str] = field(default_factory=list)
     explanation_styles: list[str] = field(default_factory=list)
     completed_turns: int = 0
+    follow_up_count: int = 0
+    last_follow_up_turn: int = -1
     awaiting_preference_answer: bool = False
 
     def reset(self) -> None:
@@ -229,6 +231,8 @@ class SessionPersonalization:
         self.explanation_styles.clear()
         self.completed_turns = 0
         self.awaiting_preference_answer = False
+        self.last_follow_up_turn = -2
+        self.follow_up_count = 0
 
     def configure(
         self,
@@ -272,12 +276,13 @@ class SessionPersonalization:
                 self._add(self.explanation_styles, style, STYLE_LABELS)
 
     def should_ask_preference_question(self) -> bool:
-        """Request no more than two useful preference questions per session."""
-        if self.completed_turns == 0 and not self.explanation_styles:
-            return True
-        return self.completed_turns == 2 and len(self.interests) < 2
+        """Every normal answer offers one relevant way to continue."""
+        return True
 
     def complete_turn(self, *, preference_question_requested: bool) -> None:
+        if preference_question_requested:
+            self.last_follow_up_turn = self.completed_turns
+            self.follow_up_count += 1
         self.completed_turns += 1
         self.awaiting_preference_answer = preference_question_requested
 
@@ -285,3 +290,11 @@ class SessionPersonalization:
         interests = ", ".join(INTEREST_LABELS[item] for item in self.interests)
         styles = ", ".join(STYLE_LABELS[item] for item in self.explanation_styles)
         return interests or "none stated", styles or "none stated"
+
+
+    def follow_up_direction(self) -> str:
+        return (
+            "Offer one concrete next detail connected to this answer.",
+            "Invite a short explanation of a relevant technique or meaning.",
+            "Ask one brief open question about what art topic interests them next.",
+        )[self.follow_up_count % 3]

@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from atlas.models.enums import RunMode
 
@@ -170,6 +170,10 @@ class SpeechSettings(BaseModel):
     # is sent to a cloud speech provider.
     cloud_speech_enabled: bool = False
     offline_fallback_enabled: bool = True
+    deepgram_keep_connection: bool = True
+    listening_ready_cue: Literal["off", "buzz", "beep"] = "buzz"
+    tts_speed: float = Field(default=0.90, ge=0.6, le=1.5, allow_inf_nan=False)
+    tts_slower_speed: float = Field(default=0.80, ge=0.6, le=1.5, allow_inf_nan=False)
 
     deepgram_api_key_env: str = "DEEPGRAM_API_KEY"
     deepgram_model: str = "nova-3"
@@ -182,7 +186,10 @@ class SpeechSettings(BaseModel):
     silero_threshold: float = 0.5
     silero_model_path: str = "models/silero_vad.onnx"
     silero_min_speech_ms: int = 250
-    silero_min_silence_ms: int = 1200
+    silero_min_silence_ms: int = 500
+    silero_hesitation_silence_ms: int = Field(default=1000, ge=200, le=10000)
+    silero_scripted_faq_silence_ms: int = Field(default=300, ge=0, le=2000)
+    silero_max_utterance_s: float = Field(default=45.0, ge=5.0, le=120.0)
     silero_pre_roll_ms: int = 250
 
     cartesia_api_key_env: str = "CARTESIA_API_KEY"
@@ -193,6 +200,12 @@ class SpeechSettings(BaseModel):
     cartesia_voice_id: str = "a5136bf9-224c-4d76-b823-52bd5efcffcc"
     cartesia_sample_rate: int = 24000
     cartesia_response_timeout_s: float = 15.0
+
+    @model_validator(mode="after")
+    def validate_speech_pace(self):
+        if self.tts_slower_speed > self.tts_speed:
+            raise ValueError("tts_slower_speed cannot exceed tts_speed")
+        return self
 
 
 class DashboardSettings(BaseModel):

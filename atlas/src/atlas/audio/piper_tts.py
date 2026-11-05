@@ -15,7 +15,14 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .devices import find_alsa_playback, find_pulse_playback
-from .playback import normalize_volume, scale_pcm_s16le, split_output_device_names
+from .playback import (
+    normalize_volume,
+    play_pcm,
+    ready_cue_pcm,
+    scale_pcm_s16le,
+    split_output_device_names,
+)
+from .speech_pace import DEFAULT_SPEECH_SPEED, SLOWER_SPEECH_SPEED, SpeechPace
 from .tts import BaseTTS
 
 logger = logging.getLogger(__name__)
@@ -32,6 +39,8 @@ class PiperTTS(BaseTTS):
         piper_binary: str = "piper",
         output_device_name: str = "Shokz OpenComm2 UC",
         volume_percent: int = 100,
+        speed: float = DEFAULT_SPEECH_SPEED,
+        slower_speed: float = SLOWER_SPEECH_SPEED,
     ) -> None:
         self._voices = {
             "en": Path(voice_en).expanduser(),
@@ -47,6 +56,7 @@ class PiperTTS(BaseTTS):
         self._binary = piper_binary
         self._output_device_name = output_device_name
         self._volume_percent = normalize_volume(volume_percent)
+        self._pace = SpeechPace(speed, slower_speed)
         self._command: list[str] | None = None
 
     def set_output_device(self, output_device_name: str) -> None:
@@ -54,6 +64,9 @@ class PiperTTS(BaseTTS):
 
     def set_volume(self, volume_percent: int) -> None:
         self._volume_percent = normalize_volume(volume_percent)
+
+    def set_slower_pace(self, enabled: bool) -> None:
+        self._pace.enabled = bool(enabled)
 
     def audio_settings(self) -> dict[str, object]:
         return {
@@ -136,6 +149,16 @@ class PiperTTS(BaseTTS):
             return False
         return True
 
+    def ready_cue(self, style: str = "buzz") -> bool:
+        pcm = ready_cue_pcm(style)
+        return not pcm or play_pcm(
+            pcm,
+            self._output_device_name,
+            sample_rate=16000,
+            volume_percent=self._volume_percent,
+            timeout_s=1.0,
+        )
+
     def cue(self) -> bool:
         """Play an immediate two-note cue so the visitor knows to speak."""
         fd, output_path = tempfile.mkstemp(prefix="atlas-cue-", suffix=".wav")
@@ -167,6 +190,7 @@ class PiperTTS(BaseTTS):
             Path(output_path).unlink(missing_ok=True)
 
     def speak(self, text: str, language: str = "en") -> bool:
+        length_scale = 1.0 / self._pace.speed
         voice = self._voice_for(language)
         try:
             if self._command is None:
@@ -176,7 +200,14 @@ class PiperTTS(BaseTTS):
             try:
                 synthesis = subprocess.run(
                     self._resolve_command()
-                    + ["--model", str(voice), "--output-file", output_path],
+                    + [
+                        "--model",
+                        str(voice),
+                        "--output-file",
+                        output_path,
+                        "--length-scale",
+                        str(length_scale),
+                    ],
                     input=(text.strip() + "\n").encode("utf-8"),
                     capture_output=True,
                     timeout=30,

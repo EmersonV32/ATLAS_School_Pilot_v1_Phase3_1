@@ -21,13 +21,13 @@ import yaml
 from atlas.app.dependency_container import Container
 from atlas.audio.devices import find_alsa_playback, find_pulse_playback
 from atlas.audio.playback import join_output_device_names
+from atlas.audio.speech_pace import apply_speech_pace
 from atlas.config.settings import Settings
 from atlas.dashboard.visitor_activation import (
     clean_greeting_name,
     local_greeting,
     wake_phrase_matches,
 )
-from atlas.dialogue.scripted_faq import resolve_scripted_faq
 from atlas.models.enums import EducationalLevel, Language, RunMode
 from atlas.models.languages import OUTPUT_LANGUAGE_NAMES, normalize_language_code
 from atlas.models.retrieval import RetrievalQuery
@@ -211,6 +211,9 @@ class RuntimeService:
 
     def _invalidate_session(self) -> None:
         self._session_generation += 1
+        stt = getattr(self.container, "_stt", None)
+        if stt is not None:
+            stt.cancel_listen()
         self.last_answer = None
         self.container.artwork_tracker.reset()
         self.container.dialogue_engine.reset_conversation()
@@ -300,6 +303,7 @@ class RuntimeService:
             self._visitor_accessibility = list(accessibility)
         if expertise is not None:
             self._visitor_expertise = expertise
+        apply_speech_pace(self.container.tts, self._visitor_accessibility)
         return self.experience_settings()
 
     @property
@@ -321,6 +325,7 @@ class RuntimeService:
             return False
         name = self._greeting_name
         generation = self._session_generation
+        apply_speech_pace(self.container.tts, self._visitor_accessibility)
         greeting = local_greeting(self.language, name)
         if name:
             spoken = bool(
@@ -653,13 +658,22 @@ class RuntimeService:
         artwork = self.artwork_status()
         artwork_id = artwork.get("artwork_id")
 
+        engine = self.container.dialogue_engine
+        focus = engine.prepare_turn(
+            question, artwork_id, expected_generation=engine_generation
+        )
+        if focus is None:
+            raise RuntimeError("Session changed while answering; question cancelled")
+        retrieval_artwork_id = focus.retrieval_artwork_id
         with Timer() as scripted_timer:
-            scripted = resolve_scripted_faq(
+            scripted = engine.resolve_local_response(
                 question,
-                artwork_id=artwork_id,
+                artwork_id=retrieval_artwork_id,
                 language=lang.value,
                 profile=level.value,
                 accessibility=self._visitor_accessibility,
+                expected_generation=engine_generation,
+                focus=focus,
             )
         if scripted is not None:
             remember = getattr(
@@ -669,7 +683,11 @@ class RuntimeService:
             )
             if callable(remember):
                 remember(
-                    question, scripted.response, expected_generation=engine_generation
+                    question,
+                    scripted.response,
+                    expected_generation=engine_generation,
+                    focus=focus,
+                    follow_up_intent=scripted.follow_up_intent,
                 )
             answer = {
                 "answer": scripted.response,
@@ -713,7 +731,7 @@ class RuntimeService:
                 "filtered": False,
                 "confidence": "low",
                 "used_chunk_ids": [],
-                "artwork_id": artwork_id,
+                "artwork_id": focus.artwork_id,
                 "retrieval_latency_ms": None,
                 "total_latency_ms": None,
                 "error": "simulated_llm_timeout",
@@ -723,7 +741,7 @@ class RuntimeService:
             result = self.container.retriever.retrieve(
                 RetrievalQuery(
                     text=question,
-                    artwork_id=artwork_id,
+                    artwork_id=retrieval_artwork_id,
                     language=lang,
                     educational_level=level,
                 )
@@ -736,6 +754,7 @@ class RuntimeService:
                 profile=level.value,
                 artwork_id=artwork_id,
                 expected_generation=engine_generation,
+                focus=focus,
             )
 
         answer = {
@@ -746,7 +765,7 @@ class RuntimeService:
             "filtered": dialogue.filtered,
             "confidence": dialogue.confidence,
             "used_chunk_ids": dialogue.used_chunk_ids,
-            "artwork_id": artwork_id,
+            "artwork_id": focus.artwork_id,
             "retrieval_latency_ms": result.total_latency_ms,
             "total_latency_ms": total.elapsed_ms,
             "error": dialogue.error,
@@ -775,7 +794,7 @@ class RuntimeService:
 
         log_fields: dict[str, Any] = {
             "language": lang.value,
-            "artwork_id": artwork_id,
+            "artwork_id": focus.artwork_id,
             "retrieval_latency_ms": result.total_latency_ms,
             "fallback_used": dialogue.fallback_used,
         }
@@ -866,6 +885,8 @@ class RuntimeService:
                 "listen_duration_s": speech.listen_duration_s,
                 "silero_threshold": speech.silero_threshold,
                 "silero_min_silence_ms": speech.silero_min_silence_ms,
+                "deepgram_keep_connection": speech.deepgram_keep_connection,
+                "listening_ready_cue": speech.listening_ready_cue,
                 "cartesia_model": speech.cartesia_model,
                 "cartesia_voice_id": speech.cartesia_voice_id,
             },

@@ -47,7 +47,8 @@ def test_llm_generation_continues_while_first_sentence_is_spoken():
         on_sentence=speak,
     )
     assert result.grounded
-    assert spoken == [
+    assert spoken[-1].endswith("?")
+    assert spoken[:-1] == [
         "Leonardo da Vinci painted the Mona Lisa.",
         "The painting is displayed at the Louvre Museum.",
     ]
@@ -67,5 +68,6 @@ def test_ungrounded_stream_uses_general_knowledge_without_refusal():
     )
     assert not result.grounded
     assert not result.fallback_used
-    assert len(spoken) == 1
+    assert len(spoken) == 2
+    assert spoken[-1].endswith("?")
     assert "Quantum processors" in spoken[0]

@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from atlas.audio.speech_pace import apply_speech_pace
 from atlas.audio.stt import BaseSTT, TranscriptResult
 from atlas.audio.tts import BaseTTS
 from atlas.dialogue.dialogue_engine import DialogueEngine, DialogueResult
@@ -358,6 +360,7 @@ class SessionRunner:
         manual_capture=None,
         log_transcripts: bool = False,
         log_llm_responses: bool = False,
+        listening_ready_cue: str | None = None,
     ) -> None:
         self._detector = detector
         self._stt = stt
@@ -374,6 +377,18 @@ class SessionRunner:
         self._preferred_language = "en"
         self._preferred_profile = "adult_beginner"
         self._preferred_accessibility: tuple[str, ...] = ()
+        self._listen_lock = threading.Lock()
+        self._listen_generation = 0
+        if listening_ready_cue not in {None, "off", "buzz", "beep"}:
+            raise ValueError("Unknown readiness cue style")
+        self._ready_cue_style = listening_ready_cue
+        self._ready_cue_pending = True
+        self._listening_ready_generation = None
+        register = getattr(self._stt, "set_ready_callback", None)
+        callback = (
+            self._capture_ready if listening_ready_cue not in {None, "off"} else None
+        )
+        self._ready_callback_supported = bool(callable(register) and register(callback))
 
     def set_preferred_language(self, language: str) -> None:
         normalized = normalize_language_code(language)
@@ -404,6 +419,7 @@ class SessionRunner:
         self._preferred_accessibility = tuple(
             item for item in accessibility if str(item) in allowed
         )
+        apply_speech_pace(self._tts, self._preferred_accessibility)
 
     @property
     def preferred_language(self) -> str:
@@ -414,6 +430,9 @@ class SessionRunner:
         return self._preferred_profile
 
     def _listen(self, *, play_cue: bool = True) -> TranscriptResult | None:
+        with self._listen_lock:
+            generation = self._listen_generation
+            self._listening_ready_generation = generation
         listen_started = time.perf_counter()
         logger.info(
             "[STT] Preparing to listen [language=%s timeout=%.1fs]",
@@ -430,12 +449,16 @@ class SessionRunner:
                 "[STT] Preparation failed; attempting listen anyway: %s",
                 exc,
             )
-        if play_cue:
+        if self._listen_cancelled(generation):
+            return None
+        if play_cue and self._ready_cue_style is None:
             try:
                 if not self._tts.cue():
                     logger.warning("Listening cue unavailable; recording anyway")
             except Exception as exc:
                 logger.warning("[TTS] Listening cue error: %s", exc)
+        if self._listen_cancelled(generation):
+            return None
         try:
             transcript = self._stt.listen(duration_s=self._listen_s)
         except Exception as exc:
@@ -445,7 +468,15 @@ class SessionRunner:
                 (time.perf_counter() - listen_started) * 1000.0,
             )
             return None
+        finally:
+            with self._listen_lock:
+                if self._listening_ready_generation == generation:
+                    self._listening_ready_generation = None
+        if self._listen_cancelled(generation):
+            return None
         if transcript is not None:
+            if transcript.text.strip():
+                self._ready_cue_pending = True
             switch_target = requested_language(transcript.text)
             if switch_target is not None:
                 self.set_preferred_language(switch_target)
@@ -476,6 +507,9 @@ class SessionRunner:
 
     def cue_listening(self) -> None:
         """Play one cue when a continuous listening session becomes active."""
+        if self._ready_cue_style is not None:
+            self._ready_cue_pending = True
+            return  # Supported adapters notify only after input really opens.
         try:
             if not self._tts.cue():
                 logger.warning("Listening cue unavailable; listening anyway")
@@ -508,6 +542,9 @@ class SessionRunner:
         language: str | None = None,
     ) -> bool:
         """Offer a localized follow-up without opening another listen cycle."""
+        allows = getattr(self._engine, "allows_camera_invitation", None)
+        if callable(allows) and not allows(detection.artwork_id):
+            return False
         selected_language = normalize_language_code(
             language or self._preferred_language
         )
@@ -609,6 +646,12 @@ class SessionRunner:
         self._hw.set_status_led("amber")
 
         if detection.source == "manual_capture":
+            self._prepare_focus(
+                "",
+                detection.artwork_id,
+                getattr(self._engine, "conversation_generation", None),
+                force_camera=True,
+            )
             self._speak_capture_message(detection, self._last_language)
 
         # Step 2: listen for visitor question
@@ -644,6 +687,12 @@ class SessionRunner:
             detection = corrected_detection
             self._hw.focus_artwork(detection.artwork_id)
             self._speak_capture_message(detection, transcript.language)
+            self._prepare_focus(
+                "",
+                detection.artwork_id,
+                getattr(self._engine, "conversation_generation", None),
+                force_camera=True,
+            )
             transcript = self._listen()
             if transcript is None or not transcript.text.strip():
                 logger.warning(
@@ -661,203 +710,8 @@ class SessionRunner:
                 )
             self._last_language = transcript.language
 
-        # Step 3: retrieve context (Phase 2 bridge)
-        retrieval_started = time.perf_counter()
-        try:
-            chunks = self._retriever(
-                detection.artwork_id, transcript.text, transcript.language
-            )
-        except TypeError:
-            chunks = self._retriever(detection.artwork_id, transcript.text)
-        if not chunks:
-            logger.warning(
-                "Retriever returned no chunks for artwork_id=%s",
-                detection.artwork_id,
-            )
-        logger.info(
-            "[RAG] Retrieved %d chunks [ids=%s]",
-            len(chunks),
-            ",".join(str(chunk.get("chunk_id", "")) for chunk in chunks),
-        )
-        logger.info(
-            "[Timing] RAG %.0f ms",
-            (time.perf_counter() - retrieval_started) * 1000.0,
-        )
-
-        # Step 4: generate dialogue response (Phase 3)
-        if self._generation_changed(generation):
-            return self._cancelled_result(detection, transcript)
-        tts_results: list[bool] = []
-        llm_started = time.perf_counter()
-        sentence_number = 0
-        continuous_tts = False
-
-        def speak_sentence(sentence: str) -> None:
-            nonlocal sentence_number
-            if self._generation_changed(generation):
-                return
-            sentence_number += 1
-            if self._log_llm_responses:
-                logger.info("[LLM sentence %d] %s", sentence_number, sentence)
-            if sentence_number == 1:
-                logger.info(
-                    "[Timing] LLM first sentence %.0f ms",
-                    (time.perf_counter() - llm_started) * 1000.0,
-                )
-            if continuous_tts:
-                try:
-                    queued = bool(
-                        self._tts.speak_segment(
-                            sentence,
-                            language=transcript.language,
-                        )
-                    )
-                    logger.info(
-                        "[TTS] Sentence %d queued in continuous context [ok=%s]",
-                        sentence_number,
-                        queued,
-                    )
-                except Exception as exc:
-                    logger.exception(
-                        "[TTS] Sentence %d queue failed: %s",
-                        sentence_number,
-                        exc,
-                    )
-                return
-            tts_started = time.perf_counter()
-            try:
-                spoke_sentence = bool(
-                    self._tts.speak(sentence, language=transcript.language)
-                )
-                tts_results.append(spoke_sentence)
-                logger.info(
-                    "[Timing] TTS sentence %d %.0f ms "
-                    "[provider=%s first_audio_ms=%s provider_total_ms=%s ok=%s]",
-                    sentence_number,
-                    (time.perf_counter() - tts_started) * 1000.0,
-                    getattr(self._tts, "last_provider", type(self._tts).__name__),
-                    _format_optional_ms(
-                        getattr(self._tts, "last_first_audio_ms", None)
-                    ),
-                    _format_optional_ms(getattr(self._tts, "last_total_ms", None)),
-                    spoke_sentence,
-                )
-            except Exception as exc:
-                logger.exception("[TTS] Sentence %d failed: %s", sentence_number, exc)
-                tts_results.append(False)
-
-        use_streaming = self._stream_responses and hasattr(
-            self._engine,
-            "respond_stream",
-        )
-        self._hw.set_status_led("green")
-        if use_streaming:
-            try:
-                continuous_tts = bool(
-                    self._tts.begin_utterance(language=transcript.language)
-                )
-            except Exception as exc:
-                logger.warning("[TTS] Continuous context unavailable: %s", exc)
-        if use_streaming:
-            try:
-                dialogue_result = self._engine.respond_stream(
-                    question=transcript.text,
-                    artwork_chunks=chunks,
-                    on_sentence=speak_sentence,
-                    language=transcript.language,
-                    visitor_age=_age_hint_to_number(transcript.age_hint),
-                    profile=self._preferred_profile,
-                    artwork_id=detection.artwork_id,
-                    **self._generation_options(generation),
-                )
-            except Exception:
-                if continuous_tts:
-                    self._tts.abort_utterance()
-                raise
-        else:
-            dialogue_result = self._engine.respond(
-                question=transcript.text,
-                artwork_chunks=chunks,
-                language=transcript.language,
-                visitor_age=_age_hint_to_number(transcript.age_hint),
-                profile=self._preferred_profile,
-                artwork_id=detection.artwork_id,
-                **self._generation_options(generation),
-            )
-
-        if (
-            self._generation_changed(generation)
-            or dialogue_result.error == "session_cancelled"
-        ):
-            return self._cancelled_result(detection, transcript)
-        if continuous_tts:
-            tts_started = time.perf_counter()
-            try:
-                continuous_ok = bool(self._tts.end_utterance())
-            except Exception as exc:
-                logger.exception("[TTS] Continuous synthesis failed: %s", exc)
-                self._tts.abort_utterance()
-                continuous_ok = False
-            tts_results.append(continuous_ok)
-            logger.info(
-                "[Timing] TTS continuous %.0f ms "
-                "[sentences=%d provider=%s first_audio_ms=%s "
-                "provider_total_ms=%s ok=%s]",
-                (time.perf_counter() - tts_started) * 1000.0,
-                sentence_number,
-                getattr(self._tts, "last_provider", type(self._tts).__name__),
-                _format_optional_ms(getattr(self._tts, "last_first_audio_ms", None)),
-                _format_optional_ms(getattr(self._tts, "last_total_ms", None)),
-                continuous_ok,
-            )
-        elif use_streaming:
-            # Release the one-response provider lock used by FallbackTTS when
-            # continuous synthesis was unavailable.
-            self._tts.end_utterance()
-
-        logger.info(
-            "Response ready [grounded=%s filtered=%s chars=%d]",
-            dialogue_result.grounded,
-            dialogue_result.filtered,
-            len(dialogue_result.response),
-        )
-        if self._log_llm_responses:
-            logger.info("[LLM final] %s", dialogue_result.response)
-        logger.info(
-            "[Timing] LLM and streamed TTS %.0f ms "
-            "[grounded=%s filtered=%s fallback=%s error=%s]",
-            (time.perf_counter() - llm_started) * 1000.0,
-            dialogue_result.grounded,
-            dialogue_result.filtered,
-            dialogue_result.fallback_used,
-            dialogue_result.error or "none",
-        )
-
-        # Step 5: speak the answer. TTS failure is non-fatal — the answer
-        # text is still returned so the dashboard can display it.
-        try:
-            if not use_streaming:
-                speak_sentence(dialogue_result.response)
-            spoke = bool(tts_results) and all(tts_results)
-            if not spoke:
-                logger.warning("tts_fallback_used: showing answer as text only")
-        finally:
-            # Keep the selected painting up while Atlas speaks. Afterwards all
-            # three return up so the exhibit is ready for the next gaze.
-            self._hw.reset_exhibit()
-            self._hw.set_status_led("off")
-
-        logger.info(
-            "[Timing] Cycle total %.0f ms [tts_ok=%s]",
-            (time.perf_counter() - cycle_started) * 1000.0,
-            spoke,
-        )
-
-        return SessionResult(
-            detection=detection,
-            transcript=transcript,
-            dialogue=dialogue_result,
-            tts_ok=bool(spoke),
+        return self.respond_to_transcript(
+            transcript, detection=detection, frame=frame, expected_generation=generation
         )
 
     def capture_context(
@@ -879,6 +733,12 @@ class SessionRunner:
                 dialogue=None,
                 error="manual_capture_unknown",
             )
+        self._prepare_focus(
+            "",
+            detection.artwork_id,
+            getattr(self._engine, "conversation_generation", None),
+            force_camera=True,
+        )
         self._hw.focus_artwork(detection.artwork_id)
         if announce:
             self._speak_capture_message(detection, language)
@@ -940,7 +800,10 @@ class SessionRunner:
         if is_capture_command(transcript.text):
             return self.capture_context(frame, transcript.language)
 
-        artwork_id = detection.artwork_id if detection is not None else None
+        live_artwork_id = detection.artwork_id if detection is not None else None
+        artwork_id, focus_options = self._prepare_focus(
+            transcript.text, live_artwork_id, generation
+        )
         if detection is not None:
             logger.info(
                 "[Vision] Context %s [artwork_id=%s confidence=%.0f%%]",
@@ -953,12 +816,15 @@ class SessionRunner:
         else:
             logger.info("[Vision] No active context; searching all artworks")
 
-        scripted = resolve_scripted_faq(
+        resolver = getattr(self._engine, "resolve_local_response", None)
+        scripted = (resolver if callable(resolver) else resolve_scripted_faq)(
             transcript.text,
             artwork_id=artwork_id,
             language=transcript.language,
             profile=self._preferred_profile,
             accessibility=self._preferred_accessibility,
+            **(self._generation_options(generation) if callable(resolver) else {}),
+            **focus_options,
         )
         if scripted is not None:
             remember = getattr(self._engine, "remember_local_response", None)
@@ -966,6 +832,8 @@ class SessionRunner:
                 remember(
                     transcript.text,
                     scripted.response,
+                    follow_up_intent=scripted.follow_up_intent,
+                    **focus_options,
                     **self._generation_options(generation),
                 )
             if self._generation_changed(generation):
@@ -1112,8 +980,9 @@ class SessionRunner:
                     language=transcript.language,
                     visitor_age=_age_hint_to_number(transcript.age_hint),
                     profile=self._preferred_profile,
-                    artwork_id=artwork_id,
+                    artwork_id=live_artwork_id,
                     **self._generation_options(generation),
+                    **focus_options,
                 )
             except Exception:
                 if continuous_tts:
@@ -1126,8 +995,9 @@ class SessionRunner:
                 language=transcript.language,
                 visitor_age=_age_hint_to_number(transcript.age_hint),
                 profile=self._preferred_profile,
-                artwork_id=artwork_id,
+                artwork_id=live_artwork_id,
                 **self._generation_options(generation),
+                **focus_options,
             )
 
         if (
@@ -1199,3 +1069,45 @@ class SessionRunner:
             dialogue=dialogue_result,
             tts_ok=bool(spoke),
         )
+
+    def _capture_ready(self) -> None:
+        with self._listen_lock:
+            if (
+                self._listening_ready_generation != self._listen_generation
+                or self._listening_ready_generation is None
+                or not self._ready_cue_pending
+                or self._ready_cue_style in {None, "off"}
+            ):
+                return
+            self._ready_cue_pending = False
+        try:
+            played = self._tts.ready_cue(self._ready_cue_style)
+            logger.info("[Listening] Input ready [cue_ok=%s]", bool(played))
+        except Exception:
+            logger.warning("Listening cue unavailable; microphone remains ready")
+
+    def cancel_listening(self) -> None:
+        """Interrupt a supported capture at a visit boundary or runtime shutdown."""
+        with self._listen_lock:
+            self._listen_generation += 1
+            self._listening_ready_generation = None
+            self._ready_cue_pending = True
+        cancel = getattr(self._stt, "cancel_listen", None)
+        if callable(cancel):
+            cancel()
+
+    def _listen_cancelled(self, generation: int) -> bool:
+        with self._listen_lock:
+            return generation != self._listen_generation
+
+    def _prepare_focus(self, question, artwork_id, generation, *, force_camera=False):
+        prepare = getattr(self._engine, "prepare_turn", None)
+        if not callable(prepare):
+            return artwork_id, {}
+        options = self._generation_options(generation)
+        if force_camera:
+            options["force_camera"] = True
+        focus = prepare(question, artwork_id, **options)
+        if focus is None:
+            return artwork_id, {}
+        return focus.retrieval_artwork_id, {"focus": focus}

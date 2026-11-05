@@ -108,6 +108,18 @@ class FallbackSTT(BaseSTT):
         self.primary.set_language(language)
         self.fallback.set_language(language)
 
+    def set_ready_callback(self, callback) -> bool:
+        supported = False
+        for adapter in (self.primary, self.fallback):
+            register = getattr(adapter, "set_ready_callback", None)
+            if callable(register):
+                supported = bool(register(callback)) or supported
+        return supported
+
+    def cancel_listen(self) -> None:
+        self.primary.cancel_listen()
+        self.fallback.cancel_listen()
+
     def prepare_listen(self) -> None:
         should_try_primary = self.primary_ready or self._primary_retry_due()
         if should_try_primary:
@@ -191,6 +203,10 @@ class FallbackTTS(BaseTTS):
         provider = self.primary if self.primary_ready else self.fallback
         return provider.cue()
 
+    def ready_cue(self, style: str = "buzz") -> bool:
+        provider = self.primary if self.primary_ready else self.fallback
+        return provider.ready_cue(style)
+
     def speak_private_local(self, text: str, language: str = "en") -> bool:
         """Bypass the cloud primary for ephemeral name-bearing greetings."""
         if not self.fallback_ready:
@@ -221,6 +237,10 @@ class FallbackTTS(BaseTTS):
     def set_volume(self, volume_percent: int) -> None:
         self.primary.set_volume(volume_percent)
         self.fallback.set_volume(volume_percent)
+
+    def set_slower_pace(self, enabled: bool) -> None:
+        self.primary.set_slower_pace(enabled)
+        self.fallback.set_slower_pace(enabled)
 
     def audio_settings(self) -> dict[str, object]:
         active = self._last_adapter or (

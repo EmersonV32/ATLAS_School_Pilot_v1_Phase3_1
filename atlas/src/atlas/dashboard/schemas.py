@@ -112,6 +112,8 @@ class LLMConfigUpdate(BaseModel):
 
 
 class SpeechConfigUpdate(BaseModel):
+    deepgram_keep_connection: bool | None = None
+    listening_ready_cue: Literal["off", "buzz", "beep"] | None = None
     model_config = ConfigDict(extra="forbid")
 
     stt_provider: Literal["whisper", "deepgram"] | None = None

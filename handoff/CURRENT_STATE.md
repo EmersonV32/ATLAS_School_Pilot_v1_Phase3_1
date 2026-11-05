@@ -1,5 +1,26 @@
 # Current state
 
+## Selected conversation/audio promotion — 2026-11-04
+
+The owner approved only slower voice, interactions, reduced endpoint waits,
+persistent STT, the input-ready buzz and last-artwork memory for main. A selective
+port on `codex/selective-conversation-main` starts from main `9dfe260`; it does not
+merge the full deployed branch lineage. Main keeps its original three-exchange
+history while the artwork subject is stored separately until reset/reselection.
+Other pending code/assets remain on their feature branches. Full validation:
+3,346 passed / one opt-in inference skip, matching 3,347 independently collected
+cases; lint, compile, dependencies and scope/repository checks pass. Main
+publication is owner-authorized. See the
+[promotion record](../atlas/docs/2026-11-04_SELECTIVE_MAIN_PROMOTION.md).
+
+The Jetson still runs the full test release `fcf646e`, whose installed hashes and
+active service were rechecked. Automatic login and the enabled user service are
+configured; a fresh boot rehearsal remains unperformed. No Jetson files,
+settings or service state were changed during this selective main integration.
+Keep that installed version for the owner's Bourget presentation unless a new
+deployment is separately requested. The older observations below retain their
+original dates and do not describe the current installed test release.
+
 Source status date: 2026-10-11. Physical observations below retain their actual
 dates; repository cleanup is not a hardware deployment or a fresh health check.
 

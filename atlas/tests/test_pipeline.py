@@ -78,6 +78,9 @@ def test_five_consecutive_cycles():
 def test_testing_mode_logs_question_answer_and_stage_timings(caplog):
     caplog.set_level(logging.INFO, logger="atlas.pipeline.session_runner")
     runner = _make_runner(log_transcripts=True, log_llm_responses=True)
+    runner._stt.listen = lambda **_kw: TranscriptResult(
+        "Explain how the composition balances movement and stillness."
+    )
     result = runner.run_once(frame=None)
 
     assert result.success

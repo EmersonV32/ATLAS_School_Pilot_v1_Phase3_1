@@ -170,6 +170,7 @@ def test_deepgram_empty_final_is_noise_not_provider_failure(monkeypatch):
         min_speech_ms=0,
         min_silence_ms=0,
         final_timeout_s=0.5,
+        keep_connection_enabled=False,
     )
     stt._ready = True
     stt._prepared_connection = FakeConnection()

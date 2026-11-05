@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import queue
+import re
 import threading
 import time
 from collections import deque
@@ -13,8 +15,10 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
 
+from atlas.dialogue.scripted_faq import is_exact_scripted_question
 from atlas.models.languages import ADMIN_LANGUAGE_CODES
 
+from .deepgram_connection import ReusableDeepgramConnection, payload_for_turn
 from .devices import find_sounddevice_input
 from .silero_vad import SileroVAD
 from .stt import BaseSTT, TranscriptResult
@@ -34,6 +38,109 @@ class DeepgramResult:
     is_final: bool
     speech_final: bool
     from_finalize: bool
+
+
+class QuestionTranscript:
+    """Concatenate final segments and retain an unfinished tail until flush."""
+
+    def __init__(self, language: str) -> None:
+        self.parts: list[str] = []
+        self.confidences: list[float] = []
+        self.language = language
+        self.interim = ""
+        self.interim_end = 0.0
+        self.final_end = 0.0
+        self.spans: set[tuple[float, float, str]] = set()
+
+    @property
+    def text(self) -> str:
+        return " ".join([*self.parts, self.interim]).strip()
+
+    def consume(self, payload: dict[str, Any]) -> bool:
+        if payload.get("type") == "_error":
+            raise DeepgramError("stream connection failed")
+        if payload.get("type") == "Metadata":
+            return True
+        result = parse_deepgram_result(payload, default_language=self.language)
+        if result is None:
+            return False
+        if result.text:
+            self.language = result.language or self.language
+            start = float(payload.get("start", 0.0))
+            duration = float(payload.get("duration", 0.0))
+            end = start + duration
+            timed = "start" in payload and "duration" in payload
+            if result.is_final:
+                span = (start, duration, result.text)
+                if not timed or span not in self.spans:
+                    self.parts.append(result.text)
+                    self.confidences.append(result.confidence)
+                    if timed:
+                        self.spans.add(span)
+                self.final_end = max(self.final_end, end)
+                if not timed or self.interim_end <= end:
+                    self.interim = ""
+            elif not timed or end > self.final_end:
+                self.interim = result.text
+                self.interim_end = end
+        # speech_final marks a Deepgram segment, not the application's user turn.
+        return result.from_finalize
+
+
+def question_needs_more_speech(text: str) -> bool:
+    """Conservative grace for short openings, fillers and trailing connectors."""
+    words = re.findall(r"[^\W\d_]+", text.casefold())
+    if not words:
+        return True
+    return words[-1] in {
+        "um",
+        "uh",
+        "erm",
+        "euh",
+        "and",
+        "or",
+        "because",
+        "about",
+        "the",
+        "a",
+        "an",
+        "to",
+        "is",
+        "was",
+        "of",
+        "with",
+        "why",
+        "what",
+        "who",
+        "et",
+        "ou",
+        "car",
+        "de",
+        "du",
+        "des",
+        "le",
+        "la",
+        "les",
+        "un",
+        "une",
+        "pour",
+        "que",
+        "qui",
+        "est",
+        "e",
+        "o",
+        "y",
+        "porque",
+        "el",
+        "il",
+        "di",
+        "che",
+        "per",
+        "嗯",
+        "呃",
+        "因為",
+        "因为",
+    } or " ".join(words[-3:]) in {"who painted", "qui a peint", "chi ha dipinto"}
 
 
 def build_deepgram_url(
@@ -106,13 +213,17 @@ class DeepgramSTT(BaseSTT):
         endpointing_ms: int = 400,
         vad_threshold: float = 0.5,
         min_speech_ms: int = 250,
-        min_silence_ms: int = 650,
+        min_silence_ms: int = 500,
+        hesitation_silence_ms: int = 1000,
+        scripted_faq_silence_ms: int = 300,
+        max_utterance_s: float = 45.0,
         pre_roll_ms: int = 250,
         final_timeout_s: float = 3.0,
         silero_model_path: str = "models/silero_vad.onnx",
         keyterms: list[str] | None = None,
         vad: SileroVAD | None = None,
         log_live_transcripts: bool = False,
+        keep_connection_enabled: bool = True,
     ) -> None:
         self._api_key_env = api_key_env
         self._model = model
@@ -123,6 +234,9 @@ class DeepgramSTT(BaseSTT):
         self._endpointing_ms = endpointing_ms
         self._min_speech_ms = min_speech_ms
         self._min_silence_ms = min_silence_ms
+        self._hesitation_silence_ms = max(min_silence_ms, hesitation_silence_ms)
+        self._scripted_faq_silence_ms = max(0, scripted_faq_silence_ms)
+        self._max_utterance_s = max(1.0, max_utterance_s)
         self._pre_roll_ms = pre_roll_ms
         self._final_timeout_s = final_timeout_s
         self._keyterms = list(keyterms or [])
@@ -135,7 +249,61 @@ class DeepgramSTT(BaseSTT):
         self._input_device: int | None = None
         self._ready = False
         self._prepared_connection = None
+        self._keep_connection_enabled = keep_connection_enabled
+        self._stream: ReusableDeepgramConnection | None = None
+        self._stream_lock = threading.Lock()
+        self._stream_generation = 0
+        self._on_ready = None
         self.last_audio_pcm = b""
+        self._capture_lock = threading.Lock()
+        self._capture_generation = 0
+
+    def cancel_listen(self) -> None:
+        """Invalidate the current capture without interfering with audio playback."""
+        with self._capture_lock:
+            self._capture_generation += 1
+        self._retire_stream()
+
+    def set_ready_callback(self, callback) -> bool:
+        self._on_ready = callback
+        return True
+
+    def _retire_stream(self, expected=None) -> None:
+        with self._stream_lock:
+            if expected is not None and self._stream is not expected:
+                return
+            self._stream_generation += 1
+            stream, self._stream = self._stream, None
+        if stream is not None:
+            stream.close()
+
+    def _ensure_stream(self) -> ReusableDeepgramConnection:
+        with self._stream_lock:
+            if self._stream is not None and self._stream.usable:
+                return self._stream
+            old, self._stream = self._stream, None
+            generation = self._stream_generation
+        if old is not None:
+            old.close()
+        stream = ReusableDeepgramConnection(
+            self._connect(),
+            lambda connection, messages: self._receiver(
+                connection, messages, log_live_transcripts=self._log_live_transcripts,
+                default_language=self._language if self._language != "multi" else "en",
+            ),
+            sample_rate=self._sample_rate, channels=self._channels,
+        )
+        stream.start()
+        with self._stream_lock:
+            if generation == self._stream_generation and self._stream is None:
+                self._stream = stream
+                return stream
+        stream.close()
+        raise DeepgramError("STT preparation was superseded or cancelled")
+
+    def _capture_cancelled(self, generation: int) -> bool:
+        with self._capture_lock:
+            return generation != self._capture_generation
 
     def warm_up(self) -> None:
         if self._ready:
@@ -186,6 +354,9 @@ class DeepgramSTT(BaseSTT):
         """Open the question socket before the cue so recording starts at once."""
         if not self._ready:
             self.warm_up()
+        if self._keep_connection_enabled:
+            self._ensure_stream()
+            return
         if self._prepared_connection is not None:
             try:
                 self._prepared_connection.close()
@@ -199,13 +370,16 @@ class DeepgramSTT(BaseSTT):
             normalized = "multi"
         if normalized == self._language:
             return
+        # Publish the new preference before potentially blocking socket teardown.
+        # Any preparation crossing retirement is rejected by its generation.
+        self._language = normalized
+        self.cancel_listen()
         if self._prepared_connection is not None:
             try:
                 self._prepared_connection.close()
             except Exception:
                 pass
             self._prepared_connection = None
-        self._language = normalized
 
     @staticmethod
     def _receiver(
@@ -224,7 +398,7 @@ class DeepgramSTT(BaseSTT):
                 if raw is None:
                     return
                 payload = json.loads(raw)
-                messages.put(payload)
+                messages.put_nowait(payload)
                 if log_live_transcripts:
                     result = parse_deepgram_result(
                         payload,
@@ -252,9 +426,14 @@ class DeepgramSTT(BaseSTT):
                 if payload.get("type") == "Metadata":
                     return
         except Exception as exc:
-            messages.put({"type": "_error", "message": str(exc)})
+            try:
+                messages.put_nowait({"type": "_error", "message": str(exc)})
+            except queue.Full:
+                pass
 
     def listen(self, duration_s: float = 5.0) -> TranscriptResult | None:
+        with self._capture_lock:
+            generation = self._capture_generation
         if not self._ready:
             self.warm_up()
 
@@ -273,23 +452,83 @@ class DeepgramSTT(BaseSTT):
         speech_started = False
         speech_started_at = 0.0
         last_voice_at = 0.0
+        last_voice_pcm_end_s = 0.0
+        speech_deadline = 0.0
+        previous_frame_voiced = False
+        scripted_final_at: float | None = None
+        scripted_final_pcm_end_s: float | None = None
+        result: TranscriptResult | None = None
+        persistent = None
+        turn_offset = 0.0
+        flush_complete = False
+        keep_idle = False
+        transcript = QuestionTranscript(
+            self._language if self._language != "multi" else "en"
+        )
+
+        def receive_available() -> None:
+            nonlocal scripted_final_at, scripted_final_pcm_end_s
+            while True:
+                try:
+                    payload = messages.get_nowait()
+                except queue.Empty:
+                    return
+                if persistent is not None:
+                    payload = payload_for_turn(payload, turn_offset)
+                    if payload is None:
+                        continue
+                before = (len(transcript.parts), transcript.interim)
+                before_interim = (transcript.interim, transcript.interim_end)
+                transcript.consume(payload)
+                if payload.get("type") != "Results":
+                    continue
+                # Only a new final segment may qualify. Interim continuations
+                # invalidate the shortcut; speech_final alone is never enough.
+                if not payload.get("is_final"):
+                    if transcript.interim and before_interim != (
+                        transcript.interim, transcript.interim_end
+                    ):
+                        scripted_final_at = scripted_final_pcm_end_s = None
+                elif before != (len(transcript.parts), transcript.interim):
+                    scripted_final_at = (
+                        time.monotonic()
+                        if self._scripted_faq_silence_ms > 0
+                        and "start" in payload
+                        and "duration" in payload
+                        and math.isfinite(transcript.final_end)
+                        and not transcript.interim
+                        and not question_needs_more_speech(transcript.text)
+                        and is_exact_scripted_question(
+                            transcript.text, transcript.language
+                        )
+                        else None
+                    )
+                    scripted_final_pcm_end_s = (
+                        transcript.final_end if scripted_final_at is not None else None
+                    )
 
         try:
-            connection = self._prepared_connection or self._connect()
-            self._prepared_connection = None
-            default_language = self._language if self._language != "multi" else "en"
-            receiver = threading.Thread(
-                target=self._receiver,
-                args=(connection, messages),
-                kwargs={
-                    "log_live_transcripts": self._log_live_transcripts,
-                    "default_language": default_language,
-                    "listen_started_at": started,
-                },
-                name="atlas-deepgram-receiver",
-                daemon=True,
-            )
-            receiver.start()
+            if self._keep_connection_enabled:
+                persistent = self._ensure_stream()
+                connection = persistent
+                messages = persistent.messages
+                turn_offset = persistent.audio_seconds
+            else:
+                connection = self._prepared_connection or self._connect()
+                self._prepared_connection = None
+                default_language = self._language if self._language != "multi" else "en"
+                receiver = threading.Thread(
+                    target=self._receiver,
+                    args=(connection, messages),
+                    kwargs={
+                        "log_live_transcripts": self._log_live_transcripts,
+                        "default_language": default_language,
+                        "listen_started_at": started,
+                    },
+                    name="atlas-deepgram-receiver",
+                    daemon=True,
+                )
+                receiver.start()
             logger.info(
                 "[Deepgram] Listening [model=%s language=%s timeout=%.1fs]",
                 self._model,
@@ -298,6 +537,7 @@ class DeepgramSTT(BaseSTT):
             )
 
             deadline = time.monotonic() + duration_s
+            last_keepalive_at = time.monotonic()
             with sd.RawInputStream(
                 samplerate=self._sample_rate,
                 blocksize=self._FRAME_SAMPLES,
@@ -305,20 +545,46 @@ class DeepgramSTT(BaseSTT):
                 dtype="int16",
                 device=self._input_device,
             ) as stream:
-                while time.monotonic() < deadline:
+                if self._capture_cancelled(generation):
+                    return None
+                if persistent is not None and not persistent.usable:
+                    raise DeepgramError("STT connection closed before input was ready")
+                if self._on_ready is not None:
+                    try:
+                        self._on_ready()
+                    except Exception:
+                        logger.warning(
+                            "Listening cue unavailable; capture remains ready"
+                        )
+                while time.monotonic() < (
+                    speech_deadline if speech_started else deadline
+                ):
+                    if self._capture_cancelled(generation):
+                        return None
                     raw, overflowed = stream.read(self._FRAME_SAMPLES)
                     if overflowed:
                         logger.debug("Microphone input overflow during question")
                     pcm = bytes(raw)
                     probability = self._vad.probability(pcm)
                     now = time.monotonic()
+                    voiced = probability >= self._vad.threshold
+                    if voiced and not previous_frame_voiced:
+                        # A visitor resuming after a pause must get a fresh
+                        # complete final, even before its interim arrives.
+                        scripted_final_at = scripted_final_pcm_end_s = None
+                    previous_frame_voiced = voiced
+                    receive_available()
 
                     if not speech_started:
                         pre_roll.append(pcm)
                         if probability < self._vad.threshold:
+                            if now - last_keepalive_at >= 3.0:
+                                connection.send(json.dumps({"type": "KeepAlive"}))
+                                last_keepalive_at = now
                             continue
                         speech_started = True
                         speech_started_at = now
+                        speech_deadline = now + self._max_utterance_s
                         last_voice_at = now
                         logger.info(
                             "[Silero VAD] Speech started "
@@ -327,90 +593,135 @@ class DeepgramSTT(BaseSTT):
                             self._vad.threshold,
                         )
                         for buffered in pre_roll:
-                            connection.send(buffered)
                             sent_frames.append(buffered)
+                            connection.send(buffered)
+                        last_voice_pcm_end_s = (
+                            len(sent_frames) * self._FRAME_SAMPLES / self._sample_rate
+                        )
                         pre_roll.clear()
                         continue
 
-                    connection.send(pcm)
                     sent_frames.append(pcm)
+                    connection.send(pcm)
                     if probability >= self._vad.threshold:
                         last_voice_at = now
+                        last_voice_pcm_end_s = (
+                            len(sent_frames) * self._FRAME_SAMPLES / self._sample_rate
+                        )
 
                     speech_ms = (now - speech_started_at) * 1000.0
                     silence_ms = (now - last_voice_at) * 1000.0
-                    if (
-                        speech_ms >= self._min_speech_ms
-                        and silence_ms >= self._min_silence_ms
+                    silence_limit = self._min_silence_ms
+                    if silence_limit > 0 and question_needs_more_speech(
+                        transcript.text
                     ):
+                        silence_limit = self._hesitation_silence_ms
+                    if (
+                        scripted_final_at is not None
+                        and scripted_final_pcm_end_s is not None
+                        # A delayed final from before resumed speech must not
+                        # rearm the shortcut. Compare offsets in sent PCM, not
+                        # wall time, so capture/VAD scheduling cannot skew it.
+                        and scripted_final_pcm_end_s + 1e-6 >= last_voice_pcm_end_s
+                    ):
+                        stable_silence_ms = (
+                            now - max(last_voice_at, scripted_final_at)
+                        ) * 1000.0
+                        if stable_silence_ms >= self._scripted_faq_silence_ms:
+                            silence_limit = min(
+                                silence_limit, self._scripted_faq_silence_ms
+                            )
+                    if speech_ms >= self._min_speech_ms and silence_ms >= silence_limit:
                         break
 
             self.last_audio_pcm = b"".join(sent_frames)
+            if self._capture_cancelled(generation):
+                return None
             if not speech_started:
-                connection.send(json.dumps({"type": "CloseStream"}))
+                if persistent is None:
+                    connection.send(json.dumps({"type": "CloseStream"}))
+                else:
+                    keep_idle = persistent.usable
                 logger.info("[Silero VAD] No speech detected before timeout")
                 return None
 
-            connection.send(json.dumps({"type": "Finalize"}))
-            final_parts: list[str] = []
-            interim_text = ""
-            confidences: list[float] = []
-            detected_language = "en"
+            # A timed final already covering the last voiced frame needs no
+            # second flush. Deepgram may omit an empty Finalize acknowledgement;
+            # sending one here would unnecessarily retire a healthy warm socket.
+            flush_complete = bool(
+                persistent is not None and persistent.usable
+                and transcript.parts and not transcript.interim
+                and transcript.final_end + 1e-6 >= last_voice_pcm_end_s
+            )
+            if not flush_complete:
+                connection.send(json.dumps({"type": "Finalize"}))
             final_deadline = time.monotonic() + self._final_timeout_s
-            while time.monotonic() < final_deadline:
+            while not flush_complete and time.monotonic() < final_deadline:
+                if self._capture_cancelled(generation):
+                    return None
                 try:
                     payload = messages.get(timeout=0.2)
                 except queue.Empty:
                     continue
-                if payload.get("type") == "_error":
-                    raise DeepgramError(str(payload.get("message", "socket error")))
-                result = parse_deepgram_result(
-                    payload,
-                    default_language=default_language,
-                )
-                if result is None:
-                    continue
-                if result.text:
-                    interim_text = result.text
-                    detected_language = result.language or detected_language
-                if result.is_final and result.text:
-                    if not final_parts or final_parts[-1] != result.text:
-                        final_parts.append(result.text)
-                        confidences.append(result.confidence)
-                if result.from_finalize:
+                if persistent is not None:
+                    payload = payload_for_turn(payload, turn_offset)
+                    if payload is None:
+                        continue
+                if transcript.consume(payload):
+                    flush_complete = True
                     break
 
-            text = " ".join(final_parts).strip() or interim_text.strip()
+            text = transcript.text
             if not text:
                 logger.info(
                     "[Deepgram] No transcript returned; treating capture as noise"
                 )
                 return None
             confidence = (
-                sum(confidences) / len(confidences) if confidences else 0.0
+                sum(transcript.confidences) / len(transcript.confidences)
+                if transcript.confidences
+                else 0.0
             )
-            return TranscriptResult(
+            result = TranscriptResult(
                 text=text,
-                language=detected_language,
+                language=transcript.language,
                 confidence=confidence,
                 duration_ms=(time.perf_counter() - started) * 1000.0,
+                speech_end_monotonic_s=last_voice_at,
             )
+            return result
         except DeepgramError as exc:
+            if self._capture_cancelled(generation):
+                return None
             logger.error("[Deepgram] Transcription failed: %s", exc)
             raise
         except Exception as exc:
+            if self._capture_cancelled(generation):
+                return None
             logger.error("[Deepgram] Capture or connection failed: %s", exc)
             raise DeepgramError(str(exc)) from exc
         finally:
-            if connection is not None:
+            self.last_audio_pcm = (
+                b"" if self._capture_cancelled(generation) else b"".join(sent_frames)
+            )
+            if persistent is not None:
+                if (
+                    self._capture_cancelled(generation) or not persistent.usable
+                    or not (keep_idle or flush_complete)
+                ):
+                    self._retire_stream(persistent)
+            elif connection is not None:
                 try:
                     connection.close()
                 except Exception:
                     pass
             if receiver is not None:
                 receiver.join(timeout=0.5)
+            if result is not None:
+                result.transcript_ready_monotonic_s = time.monotonic()
 
     def close(self) -> None:
+        self.cancel_listen()
         if self._prepared_connection is not None:
             try:
                 self._prepared_connection.close()

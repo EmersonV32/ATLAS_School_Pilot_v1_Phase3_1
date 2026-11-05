@@ -4,6 +4,25 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-11-04 - Selected conversation and speech promotion to main
+
+Owner-approved selective port from the tested branches onto main `9dfe260`:
+normal/extra-slow synthesis 0.90/0.80, interactive closing questions and local
+small talk, shorter conservative endpoint waits, reusable STT connection,
+input-ready buzz, and a sticky last-discussed artwork. Main retains its original
+three-exchange history window; the selected artwork survives that window
+rotating. Extended history and other pending fixes are excluded.
+
+Only required audio/dialogue/session/settings wiring, tests and release notes
+are included. Camera, hardware, firmware, models, networking, deployment scripts,
+dashboard markup/assets, visitor activation, speech-text normalization and
+dependencies are unchanged. Full gate: 3,346 pass / one opt-in inference skip,
+with 3,347 cases independently collected. Lint, compile, offline dependencies,
+secret/recovery/layout/scope checks pass. Main publication is authorized; no Jetson
+deployment or restart is part of this promotion. The installed full test release
+remains `fcf646e` for owner testing. See
+`2026-11-04_SELECTIVE_MAIN_PROMOTION.md` for scope and evidence.
+
 ## 2026-10-05 - School-first Wi-Fi preparation (not deployed)
 
 **Changed:** Added optional XIAO PEAP/MSCHAPv2 school selection before the

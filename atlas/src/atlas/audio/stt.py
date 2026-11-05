@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -12,11 +13,16 @@ class TranscriptResult:
     confidence: float = 1.0
     age_hint: str = "adult"    # "child" | "teen" | "adult"
     duration_ms: float | None = None  # STT latency, for telemetry
+    speech_end_monotonic_s: float | None = None
 
 
 class BaseSTT(ABC):
     def warm_up(self) -> None:
         """Load local models and validate provider dependencies."""
+        return None
+
+    def cancel_listen(self) -> None:
+        """Invalidate an active capture at a visit boundary."""
         return None
 
     def close(self) -> None:
@@ -26,6 +32,10 @@ class BaseSTT(ABC):
     def prepare_listen(self) -> None:
         """Prepare a provider immediately before the listening cue."""
         return None
+
+    def set_ready_callback(self, callback: Callable[[], None] | None) -> bool:
+        """Register a notification after input opens; False means unsupported."""
+        return False
 
     def set_language(self, language: str) -> None:
         """Prefer one ISO-639-1 language for the next listening cycle."""

@@ -1,4 +1,5 @@
 """Tests for prompt-injection filtering and dialogue refusal behaviour."""
+
 from __future__ import annotations
 
 from atlas.dialogue.dialogue_engine import DialogueEngine
@@ -6,8 +7,10 @@ from atlas.dialogue.mock_llm_client import MockLLMClient
 from atlas.safety.prompt_injection_filter import PromptInjectionFilter
 
 _CHUNKS = [
-    {"text": "The Starry Night was painted by Vincent van Gogh in 1889.",
-     "chunk_id": "sn_1"},
+    {
+        "text": "The Starry Night was painted by Vincent van Gogh in 1889.",
+        "chunk_id": "sn_1",
+    },
 ]
 
 
@@ -112,7 +115,10 @@ class TestDialogueRefusals:
             result = engine.respond(
                 question="Who painted this?", artwork_chunks=_CHUNKS, language=language
             )
-            assert result.response == "This answer is unrelated to the artwork context."
+            assert result.response.startswith(
+                "This answer is unrelated to the artwork context."
+            )
+            assert result.response.endswith("?")
             assert result.fallback_used is False
 
     def test_injection_refusal_stays_in_selected_language(self):

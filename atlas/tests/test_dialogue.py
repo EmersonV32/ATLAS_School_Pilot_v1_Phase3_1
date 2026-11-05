@@ -154,8 +154,7 @@ class TestPromptBuilder:
             in system_prompt
         )
         assert (
-            f"REQUIRED RESPONSE LANGUAGE: {language_name} ({language})"
-            in user_prompt
+            f"REQUIRED RESPONSE LANGUAGE: {language_name} ({language})" in user_prompt
         )
 
     def test_system_prompt_repairs_only_clear_speech_errors(self):
@@ -315,12 +314,16 @@ class TestGroundingValidator:
     def test_french_paraphrase_passes_with_large_context(self):
         from atlas.dialogue.grounding_validator import GroundingValidator
 
-        context = _STARRY_NIGHT_CHUNKS + [
-            {
-                "text": "La Joconde, aussi appel\u00e9e Mona Lisa, a \u00e9t\u00e9 "
-                "peinte par L\u00e9onard de Vinci."
-            }
-        ] * 20
+        context = (
+            _STARRY_NIGHT_CHUNKS
+            + [
+                {
+                    "text": "La Joconde, aussi appel\u00e9e Mona Lisa, a \u00e9t\u00e9 "
+                    "peinte par L\u00e9onard de Vinci."
+                }
+            ]
+            * 20
+        )
         response = "La Joconde a \u00e9t\u00e9 peinte par L\u00e9onard de Vinci."
         ok, reason = GroundingValidator().validate(response, context)
         assert ok is True
@@ -414,10 +417,12 @@ class TestDialogueEngine:
         engine.respond("What were his famous paintings?", [])
 
         second_prompt = llm.calls[1]
-        assert {
-            "role": "assistant",
-            "content": "Leonardo da Vinci created the Mona Lisa.",
-        } in second_prompt
+        assert any(
+            m["role"] == "assistant"
+            and m["content"].startswith("Leonardo da Vinci created the Mona Lisa.")
+            and m["content"].endswith("?")
+            for m in second_prompt
+        )
         assert {
             "role": "user",
             "content": "Who created the Mona Lisa?",

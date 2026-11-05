@@ -31,9 +31,20 @@ import queue
 import re
 import threading
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
+from atlas.dialogue.conversation_memory import (
+    ArtworkFocus,
+    ConversationMemory,
+    _accepts_recommendation,
+    _recommendation_text,
+)
 from atlas.dialogue.grounding_validator import GroundingValidator
+from atlas.dialogue.interactive_followups import (
+    declined_reply,
+    invitation,
+    with_open_question,
+)
 from atlas.dialogue.personalization import SessionPersonalization
 from atlas.dialogue.prompt_builder import (
     DialogueContext,
@@ -41,7 +52,14 @@ from atlas.dialogue.prompt_builder import (
     _extract_chunk_id,
 )
 from atlas.dialogue.safety_filter import SafetyFilter
+from atlas.dialogue.scripted_faq import (
+    _QUESTION_PHRASES,
+    ScriptedFaqAnswer,
+    resolve_scripted_faq,
+)
 from atlas.dialogue.sentence_stream import SentenceAssembler
+from atlas.dialogue.social_conversation import ends_conversation, resolve_social
+from atlas.models.languages import normalize_language_code
 from atlas.safety.prompt_injection_filter import PromptInjectionFilter
 
 logger = logging.getLogger(__name__)
@@ -121,7 +139,12 @@ class DialogueEngine:
     GeminiClient for device/demo modes.
     """
 
-    def __init__(self, llm_client, expect_json: bool = False) -> None:
+    def __init__(
+        self,
+        llm_client,
+        expect_json: bool = False,
+        artwork_titles: dict[str, str] | None = None,
+    ) -> None:
         self._llm = llm_client
         self._expect_json = expect_json  # True for real LLMs (Gemini)
         self._prompt_builder = PromptBuilder()
@@ -132,6 +155,10 @@ class DialogueEngine:
         self._personalization = SessionPersonalization()
         self._state_lock = threading.RLock()
         self._conversation_generation = 0
+        self._memory = ConversationMemory(artwork_titles)
+        self._local_followup = None
+        self._social_followup = None
+        self._social_turns = 0
 
     @property
     def conversation_generation(self) -> int:
@@ -148,30 +175,63 @@ class DialogueEngine:
             error="session_cancelled",
         )
 
-    def _context(self, *, expected_generation: int | None, **kwargs):
+    def _context(
+        self,
+        *,
+        expected_generation: int | None,
+        focus: ArtworkFocus | None = None,
+        **kwargs,
+    ):
         """Snapshot one session without holding a lock during cloud calls."""
         with self._state_lock:
             generation = self._conversation_generation
             if expected_generation is not None and generation != expected_generation:
+                return generation, None
+            focus = focus or self._memory.focus(
+                ""
+                if self._injection.is_injection(kwargs["question"])
+                else kwargs["question"],
+                kwargs.get("artwork_id"),
+                generation,
+            )
+            if focus.generation != generation:
                 return generation, None
             self._personalization.observe(kwargs["question"])
             interests, styles = self._personalization.prompt_lines()
             return generation, DialogueContext(
                 **kwargs,
                 conversation_turns=list(self._conversation_turns),
+                topic_artwork_id=focus.artwork_id,
+                named_artwork_ids=focus.named_ids,
+                artwork_transition=focus.transition,
                 visitor_interests=interests,
                 explanation_preferences=styles,
-                ask_preference_question=self._personalization.should_ask_preference_question(),
+                follow_up_direction=self._personalization.follow_up_direction(),
+                ask_preference_question=(
+                    self._personalization.should_ask_preference_question()
+                ),
             )
 
     def _commit_turn(
-        self, generation: int, question: str, result: DialogueResult, ask: bool
+        self,
+        generation: int,
+        question: str,
+        result: DialogueResult,
+        ask: bool,
+        artwork_id: str | None = None,
     ):
         with self._state_lock:
             if generation != self._conversation_generation:
                 return self._cancelled(result.language)
-            self._remember(question, result.response)
-            self._personalization.complete_turn(preference_question_requested=ask)
+            self._local_followup = None
+            self._social_followup = None
+            if not result.error and not result.filtered:
+                self._remember(question, result.response, artwork_id)
+            self._personalization.complete_turn(
+                preference_question_requested=(
+                    not result.error and result.response.rstrip().endswith(("?", "？"))
+                )
+            )
             return result
 
     def reset_conversation(self) -> None:
@@ -179,7 +239,11 @@ class DialogueEngine:
         with self._state_lock:
             self._conversation_generation += 1
             self._conversation_turns.clear()
+            self._memory.reset()
             self._personalization.reset()
+            self._local_followup = None
+            self._social_followup = None
+            self._social_turns = 0
 
     def configure_personalization(
         self,
@@ -190,29 +254,59 @@ class DialogueEngine:
     ) -> None:
         """Start a session with only coarse, allow-listed visitor choices."""
         with self._state_lock:
+            self._local_followup = None
+            self._social_followup = None
+            self._social_turns = 0
             self._personalization.configure(
                 interests=interests,
                 accessibility=accessibility,
                 expertise=expertise,
             )
 
-    def _remember(self, question: str, answer: str) -> None:
-        self._conversation_turns.append((question[:500], answer[:1000]))
-        self._conversation_turns = self._conversation_turns[-3:]
+    def _remember(
+        self, question: str, answer: str, artwork_id: str | None = None
+    ) -> None:
+        self._memory.remember(question, answer, artwork_id)
+        self._conversation_turns = [(t.question, t.answer) for t in self._memory.recent]
 
     def remember_local_response(
-        self, question: str, answer: str, *, expected_generation: int | None = None
+        self,
+        question: str,
+        answer: str,
+        *,
+        expected_generation: int | None = None,
+        artwork_id: str | None = None,
+        focus: ArtworkFocus | None = None,
+        follow_up_intent: str | None = None,
     ) -> bool:
-        """Keep a deterministic local answer in the same three-turn context."""
+        """Keep a deterministic local answer in the same visit-only memory."""
         with self._state_lock:
             if (
                 expected_generation is not None
                 and expected_generation != self._conversation_generation
             ):
                 return False
+            focus = focus or self._memory.focus(
+                question, artwork_id, self._conversation_generation
+            )
+            if focus.generation != self._conversation_generation:
+                return False
             self._personalization.observe(question)
-            self._remember(question, answer)
-            self._personalization.complete_turn(preference_question_requested=False)
+            self._remember(question, answer, focus.artwork_id)
+            social = bool(follow_up_intent and follow_up_intent.startswith("social:"))
+            self._social_followup = follow_up_intent if social else None
+            if social:
+                self._social_turns += 1
+            self._local_followup = (
+                (focus.artwork_id, follow_up_intent)
+                if focus.artwork_id is not None
+                and follow_up_intent is not None
+                and not social
+                else None
+            )
+            self._personalization.complete_turn(
+                preference_question_requested=answer.rstrip().endswith(("?", "？"))
+            )
             return True
 
     def respond(
@@ -224,9 +318,11 @@ class DialogueEngine:
         profile: str | None = None,
         artwork_id: str | None = None,
         expected_generation: int | None = None,
+        focus: ArtworkFocus | None = None,
     ) -> DialogueResult:
         generation, ctx = self._context(
             expected_generation=expected_generation,
+            focus=focus,
             question=question,
             artwork_chunks=artwork_chunks,
             visitor_age=visitor_age,
@@ -315,6 +411,13 @@ class DialogueEngine:
         if was_filtered:
             logger.warning("Response was blocked by safety filter.")
 
+        if not was_filtered and not ends_conversation(question):
+            final_response = with_open_question(
+                final_response,
+                language,
+                self._personalization.follow_up_count,
+                ctx.profile or "",
+            )
         result = DialogueResult(
             response=final_response,
             language=language,
@@ -326,7 +429,11 @@ class DialogueEngine:
             fallback_used=fallback_used,
         )
         return self._commit_turn(
-            generation, question, result, ctx.ask_preference_question
+            generation,
+            question,
+            result,
+            ctx.ask_preference_question,
+            ctx.topic_artwork_id,
         )
 
     def respond_stream(
@@ -339,6 +446,7 @@ class DialogueEngine:
         profile: str | None = None,
         artwork_id: str | None = None,
         expected_generation: int | None = None,
+        focus: ArtworkFocus | None = None,
     ) -> DialogueResult:
         """Generate and validate in one thread while TTS consumes sentences.
 
@@ -348,6 +456,7 @@ class DialogueEngine:
         """
         generation, ctx = self._context(
             expected_generation=expected_generation,
+            focus=focus,
             question=question,
             artwork_chunks=artwork_chunks,
             visitor_age=visitor_age,
@@ -450,6 +559,18 @@ class DialogueEngine:
                     accepted.append(fallback)
                     events.put(("sentence", fallback))
 
+            spoken = " ".join(accepted).strip()
+            if not error and not filtered and not ends_conversation(question):
+                complete = with_open_question(
+                    spoken,
+                    language,
+                    self._personalization.follow_up_count,
+                    ctx.profile or "",
+                )
+                if complete != spoken:
+                    extra = complete[len(spoken) :].strip()
+                    accepted.append(extra)
+                    events.put(("sentence", extra))
             result = DialogueResult(
                 response=" ".join(accepted).strip(),
                 language=language,
@@ -464,7 +585,11 @@ class DialogueEngine:
                 (
                     "done",
                     self._commit_turn(
-                        generation, question, result, ctx.ask_preference_question
+                        generation,
+                        question,
+                        result,
+                        ctx.ask_preference_question,
+                        ctx.topic_artwork_id,
                     ),
                 )
             )
@@ -489,3 +614,123 @@ class DialogueEngine:
                 continue
             thread.join(timeout=0.2)
             return payload
+
+    def allows_camera_invitation(self, artwork_id: str) -> bool:
+        """A passive camera offer must not interrupt a visitor-selected topic."""
+        with self._state_lock:
+            return not self._memory.topic_locked or self._memory.topic == artwork_id
+
+    def prepare_turn(
+        self,
+        question: str,
+        artwork_id: str | None,
+        *,
+        expected_generation: int | None = None,
+        force_camera: bool = False,
+    ) -> ArtworkFocus | None:
+        """Resolve one shared subject before either local FAQ or RAG selection."""
+        with self._state_lock:
+            generation = self._conversation_generation
+            if expected_generation is not None and generation != expected_generation:
+                return None
+            safe_question = "" if self._injection.is_injection(question) else question
+            return self._memory.focus(
+                safe_question, artwork_id, generation, force_camera=force_camera
+            )
+
+    def resolve_local_response(
+        self,
+        question: str,
+        *,
+        artwork_id: str | None = None,
+        language: str = "en",
+        profile: str = "adult_beginner",
+        accessibility=(),
+        resolved_subject: bool = False,
+        expected_generation: int | None = None,
+        focus: ArtworkFocus | None = None,
+    ) -> ScriptedFaqAnswer | None:
+        """Select prepared facts, small talk and invitations without a model call.
+
+        This does not commit memory or advance turn counts. The caller must
+        pass its returned follow_up_intent to remember_local_response only
+        after the same generation/focus is still valid.
+        """
+        language = normalize_language_code(language)
+        with self._state_lock:
+            generation = self._conversation_generation
+            if expected_generation is not None and expected_generation != generation:
+                return None
+            if focus is not None and focus.generation != generation:
+                return None
+            pending = self._local_followup
+            self._local_followup = None
+            invitation_index = self._personalization.follow_up_count
+            social_pending = self._social_followup
+            social_turn = self._social_turns
+        if self._injection.is_injection(question):
+            return None
+        if focus is not None and focus.accepted_recommendation:
+            # A bare Yes/Oui is a request to introduce the newly accepted work,
+            # not the previous work's pending local follow-up. Keep this local
+            # for supported prepared languages, without retrieval/model calls.
+            phrases = _QUESTION_PHRASES["identify"].get(language)
+            if phrases:
+                question = phrases[0]
+                resolved_subject = True
+        social = resolve_social(
+            question,
+            language,
+            pending=social_pending,
+            turn=social_turn,
+            profile=profile,
+        )
+        if social is not None:
+            return ScriptedFaqAnswer(
+                response=social.response,
+                base_response=social.response,
+                intent=f"social_{social.kind}",
+                artwork_id=None,
+                follow_up_intent=social.follow_up,
+            )
+        if pending is not None and pending[0] == artwork_id:
+            normalized = _recommendation_text(question)
+            if normalized in {
+                "no",
+                "no thanks",
+                "no thank you",
+                "non",
+                "non merci",
+                "no gracias",
+                "no grazie",
+                "不要",
+                "不用",
+                "不用了",
+            }:
+                return ScriptedFaqAnswer(
+                    response=declined_reply(language),
+                    intent="declined",
+                    artwork_id=artwork_id,
+                    base_response=declined_reply(language),
+                )
+            if _accepts_recommendation(question):
+                phrases = _QUESTION_PHRASES.get(pending[1], {}).get(language)
+                if phrases:
+                    question = phrases[0]
+                    resolved_subject = True
+        result = resolve_scripted_faq(
+            question,
+            artwork_id=artwork_id,
+            language=language,
+            profile=profile,
+            accessibility=accessibility,
+            resolved_subject=resolved_subject,
+        )
+        if result is None:
+            return None
+        base = result.base_response or result.response
+        next_intent = result.follow_up_intent
+        if result.artwork_id is None or next_intent is None:
+            return replace(result, response=base, follow_up_intent=None)
+        follow_up = invitation(language, next_intent, invitation_index, profile)
+        return replace(result, response=f"{base} {follow_up}")

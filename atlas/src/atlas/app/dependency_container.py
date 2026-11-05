@@ -286,14 +286,11 @@ class Container:
                     sample_rate=self.settings.hardware.audio_sample_rate,
                     channels=self.settings.hardware.audio_channels,
                     beam_size=self.settings.hardware.whisper_beam_size,
-                    local_files_only=(
-                        self.settings.hardware.whisper_local_files_only
-                    ),
+                    local_files_only=(self.settings.hardware.whisper_local_files_only),
                 )
                 speech = self.settings.speech
                 use_deepgram = (
-                    speech.stt_provider == "deepgram"
-                    and speech.cloud_speech_enabled
+                    speech.stt_provider == "deepgram" and speech.cloud_speech_enabled
                 )
                 if use_deepgram:
                     from atlas.audio.deepgram_stt import DeepgramSTT
@@ -311,12 +308,14 @@ class Container:
                         silero_model_path=speech.silero_model_path,
                         min_speech_ms=speech.silero_min_speech_ms,
                         min_silence_ms=speech.silero_min_silence_ms,
+                        hesitation_silence_ms=speech.silero_hesitation_silence_ms,
+                        scripted_faq_silence_ms=speech.silero_scripted_faq_silence_ms,
+                        max_utterance_s=speech.silero_max_utterance_s,
+                        keep_connection_enabled=speech.deepgram_keep_connection,
                         pre_roll_ms=speech.silero_pre_roll_ms,
                         final_timeout_s=speech.deepgram_final_timeout_s,
                         keyterms=speech.deepgram_keyterms,
-                        log_live_transcripts=(
-                            self.settings.logging.log_live_stt
-                        ),
+                        log_live_transcripts=(self.settings.logging.log_live_stt),
                     )
                     self._stt = (
                         FallbackSTT(cloud_stt, offline_stt)
@@ -341,6 +340,7 @@ class Container:
                     self.settings.hardware.audio_output_name
                     or self.settings.hardware.headset_name
                 )
+                speech = self.settings.speech
                 offline_tts = PiperTTS(
                     voice_en=self.settings.hardware.piper_voice_en,
                     voice_fr=self.settings.hardware.piper_voice_fr,
@@ -350,11 +350,12 @@ class Container:
                     piper_binary=self.settings.hardware.piper_binary_path or "piper",
                     output_device_name=output_name,
                     volume_percent=self.settings.hardware.audio_volume_percent,
+                    speed=speech.tts_speed,
+                    slower_speed=speech.tts_slower_speed,
                 )
                 speech = self.settings.speech
                 use_cartesia = (
-                    speech.tts_provider == "cartesia"
-                    and speech.cloud_speech_enabled
+                    speech.tts_provider == "cartesia" and speech.cloud_speech_enabled
                 )
                 if use_cartesia:
                     from atlas.audio.cartesia_tts import CartesiaTTS
@@ -369,6 +370,8 @@ class Container:
                         sample_rate=speech.cartesia_sample_rate,
                         response_timeout_s=speech.cartesia_response_timeout_s,
                         volume_percent=self.settings.hardware.audio_volume_percent,
+                        speed=speech.tts_speed,
+                        slower_speed=speech.tts_slower_speed,
                     )
                     self._tts = (
                         FallbackTTS(cloud_tts, offline_tts)
@@ -426,9 +429,8 @@ class Container:
                 # briefly for Gemini's short complete answer.
                 stream_responses=False,
                 log_transcripts=self.settings.logging.log_transcripts,
-                log_llm_responses=(
-                    self.settings.logging.log_llm_responses
-                ),
+                log_llm_responses=(self.settings.logging.log_llm_responses),
+                listening_ready_cue=self.settings.speech.listening_ready_cue,
             )
         return self._session_runner
 

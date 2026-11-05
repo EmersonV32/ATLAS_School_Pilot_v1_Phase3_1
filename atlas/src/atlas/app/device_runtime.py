@@ -106,6 +106,9 @@ class ContinuousQuestionListener:
             self._active.set()
 
     def deactivate(self) -> None:
+        cancel = getattr(self._runner, "cancel_listening", None)
+        if callable(cancel):
+            cancel()
         with self._lifecycle_lock:
             self._generation += 1
             self._active.clear()
@@ -146,6 +149,9 @@ class ContinuousQuestionListener:
                 break
 
     def stop(self) -> None:
+        cancel = getattr(self._runner, "cancel_listening", None)
+        if callable(cancel):
+            cancel()
         self._stop.set()
         self._active.set()
         self._response_finished.set()
