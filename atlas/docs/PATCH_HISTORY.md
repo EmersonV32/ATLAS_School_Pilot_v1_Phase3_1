@@ -4,6 +4,18 @@ This file is the permanent record of deployed ATLAS changes. Add one dated entry
 for every future patch, including the files changed, validation run, deployment
 result, and any remaining limitation. Do not remove older entries.
 
+## 2026-11-04 - Sticky artwork discussion (in development)
+
+Accepted spontaneous suggestions and explicitly named works become a locked
+visit discussion subject. Camera changes and passive invitations cannot replace
+it during implicit followups; explicit view/capture/staff selection still works.
+Supported Yes/Oui acceptance uses prepared local facts for the new work. No new
+cloud call, persistence or history expansion. Focused synthetic gate: 513 pass;
+complete local gate: 4,771 pass / three skips, independently 4,774 collected.
+Lint, compile, dependencies, secrets, recovery, layout and 106 JS checks pass.
+Jetson deployment pending, main excluded. See
+`2026-11-04_STICKY_ARTWORK_CONTEXT.md`.
+
 ## 2026-11-04 - Consistent, slightly slower speech (test release installed)
 
 Normal TTS now requests speed 0.90 for every profile; only the existing explicit

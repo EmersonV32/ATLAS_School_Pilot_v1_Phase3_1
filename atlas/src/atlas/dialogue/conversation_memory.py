@@ -27,6 +27,8 @@ _CAMERA_QUESTION = re.compile(
     r"\b(?:can you|do you) see\s*[?.!]*$|"
     r"\b(?:qu est ce que je regarde|quelle?\b.{0,30}"
     r"\b(?:je regarde|regardez|devant moi))\b|"
+    r"\b(?:que regardons nous|qu est ce qu on regarde|que vois tu|"
+    r"que voyez vous|tu vois quoi|vous voyez quoi)\s*$|"
     r"\b(?:que|cual)\b.{0,30}\bestoy mirando\b|"
     r"\b(?:cosa|quale)\b.{0,30}\bsto guardando\b|"
     r"(?:我正在看什麼|我正在看什么|我在看什麼|我在看什么|看到了什麼|看到了什么)",
@@ -92,6 +94,65 @@ def _accepts_recommendation(question: str) -> bool:
     }
 
 
+_CLOSING_QUESTION = re.compile(r"([^.!?。！？؟]*[?？؟])\s*[\"'»”’]*$")
+_LEARN_MORE_OFFER = re.compile(
+    r"\b(?:would you like|do you want|shall we|want to|interested in|"
+    r"voulez vous|voudriez vous|aimeriez vous|veux tu|voudrais tu|aimerais tu|"
+    r"tu veux|souhaitez vous|ca vous interesserait|ca t interesserait|"
+    r"quieres|te gustaria|deseas|vuoi|vorresti|ti interessa|ti piacerebbe)\b|"
+    r"(?:想.*(?:了解|知道|聽|听)|要不要|有興趣|有兴趣)"
+)
+_PROPOSES_ARTWORK = re.compile(
+    r"\b(?:je (?:vous |te )?propose|you (?:might|may) (?:also )?(?:like|enjoy)|"
+    r"you could (?:also )?(?:explore|discover)|"
+    r"vous pourriez (?:aussi )?(?:explorer|decouvrir)|"
+    r"tu pourrais (?:aussi )?(?:explorer|decouvrir))\b"
+)
+
+
+def _offered_artwork(question, answer, artwork_id, artwork_titles):
+    """Keep one known offer, not incidental names in an explanation/comparison."""
+
+    def other_works(text):
+        return tuple(
+            item
+            for item in named_artwork_ids(text, artwork_titles)
+            if item != artwork_id
+        )
+
+    # Avoid scanning a long declarative answer for a question it cannot end in.
+    closing = (
+        _CLOSING_QUESTION.search(answer)
+        if answer.rstrip(" \t\r\n\"'»”’").endswith(("?", "？", "؟"))
+        else None
+    )
+    if closing and (
+        len(named_artwork_ids(closing[1], artwork_titles)) > 1
+        or re.search(
+            r"\bcompar\w*\b|比較|比较|對比|对比", _recommendation_text(closing[1])
+        )
+    ):
+        return None
+    if _asks_recommendation(question):
+        candidates = other_works(answer)
+        return candidates[0] if len(candidates) == 1 else None
+    if closing is None or not _LEARN_MORE_OFFER.search(
+        _recommendation_text(closing[1])
+    ):
+        return None
+    candidates = other_works(closing[1])
+    if len(candidates) == 1:
+        return candidates[0]
+    # A named recommendation followed by "Would you like to know more?".
+    if not candidates and (
+        _asks_recommendation(answer)
+        or _PROPOSES_ARTWORK.search(_recommendation_text(answer))
+    ):
+        candidates = other_works(answer)
+        return candidates[0] if len(candidates) == 1 else None
+    return None
+
+
 @dataclass(frozen=True)
 class ArtworkFocus:
     generation: int
@@ -99,6 +160,7 @@ class ArtworkFocus:
     artwork_id: str | None
     named_ids: tuple[str, ...] = ()
     transition: str = "none"
+    accepted_recommendation: bool = False
 
     @property
     def retrieval_artwork_id(self) -> str | None:
@@ -133,6 +195,7 @@ class ConversationMemory:
         self.archived: deque[MemoryTurn] = deque(maxlen=ARCHIVED_TURNS)
         self.anchors: OrderedDict[str | None, MemoryTurn] = OrderedDict()
         self.topic: str | None = None
+        self.topic_locked = False
         self.pending_recommendation: str | None = None
         self.last_confirmed_camera: str | None = None
         self.pending_transition = "none"
@@ -150,7 +213,8 @@ class ConversationMemory:
         recommendation = self.pending_recommendation
         self.pending_recommendation = None
         if live_artwork_id and live_artwork_id != self.last_confirmed_camera:
-            self.topic = live_artwork_id
+            if not self.topic_locked:
+                self.topic = live_artwork_id
             self.last_confirmed_camera = live_artwork_id
         named = named_artwork_ids(question, self.artwork_titles)
         # Match direct current-view questions, not descriptive questions such as
@@ -161,8 +225,11 @@ class ConversationMemory:
         camera_question = force_camera or bool(_CAMERA_QUESTION.search(view_text))
         if camera_question and live_artwork_id:
             self.topic = live_artwork_id
+            self.topic_locked = False
+        accepted = False
         if len(named) == 1 and not camera_question:
             self.topic = named[0]
+            self.topic_locked = True
         elif (
             recommendation is not None
             and not named
@@ -170,25 +237,28 @@ class ConversationMemory:
             and _accepts_recommendation(question)
         ):
             self.topic = recommendation
+            self.topic_locked = True
+            accepted = True
         if self.topic != previous and previous is not None:
             self.pending_transition = f"{previous} -> {self.topic}"
         # A missing frame doesn't erase the conversation. Conversely, remembered
         # discussion must never be presented as a fresh camera identification.
         subject = live_artwork_id if camera_question else self.topic
         return ArtworkFocus(
-            generation, live_artwork_id, subject, named, self.pending_transition
+            generation,
+            live_artwork_id,
+            subject,
+            named,
+            self.pending_transition,
+            accepted,
         )
 
     def remember(self, question: str, answer: str, artwork_id: str | None) -> None:
         if not question.strip() or not answer.strip():
             return
-        if _asks_recommendation(question):
-            suggested = tuple(
-                item for item in named_artwork_ids(answer, self.artwork_titles)
-                if item != artwork_id
-            )
-            # Only known catalog IDs may become a pending discussion subject.
-            self.pending_recommendation = suggested[0] if len(suggested) == 1 else None
+        self.pending_recommendation = _offered_artwork(
+            question, answer, artwork_id, self.artwork_titles
+        )
         self.turn_number += 1
         turn = MemoryTurn(self.turn_number, question[:500], answer[:1000], artwork_id)
         self.recent.append(turn)

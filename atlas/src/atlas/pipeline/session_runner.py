@@ -575,6 +575,9 @@ class SessionRunner:
         language: str | None = None,
     ) -> bool:
         """Offer a localized follow-up without opening another listen cycle."""
+        allows = getattr(self._engine, "allows_camera_invitation", None)
+        if callable(allows) and not allows(detection.artwork_id):
+            return False
         selected_language = normalize_language_code(
             language or self._preferred_language
         )

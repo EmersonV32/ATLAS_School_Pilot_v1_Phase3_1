@@ -374,7 +374,7 @@ def test_typed_and_spoken_questions_share_one_artwork_history(workflow_service):
     answer = runner.respond_to_transcript(TranscriptResult("Who painted it?"))
     assert "Leonardo da Vinci" in answer.dialogue.response
     runner.respond_to_transcript(
-        TranscriptResult("Who painted this?"), detection=detection("starry_night")
+        TranscriptResult("What am I looking at?"), detection=detection("starry_night")
     )
     typed = service.ask("Who painted it?")
     assert "Vincent van Gogh" in typed["answer"]
@@ -511,7 +511,8 @@ def test_typed_confirmed_new_view_replaces_old_focus(workflow_service):
     service.container._camera_source = SimpleNamespace(
         status=lambda: {"ready": True}, stop=lambda: None,
     )
-    assert "Vincent" in service.ask("Who painted this?")["answer"]
+    assert "Starry Night" in service.ask("What am I looking at?")["answer"]
+    assert "Vincent" in service.ask("Who painted it?")["answer"]
 
 
 def test_activity_storage_failure_cannot_discard_a_generated_answer(workflow_service):

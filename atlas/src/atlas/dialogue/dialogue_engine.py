@@ -170,6 +170,11 @@ class DialogueEngine:
         with self._state_lock:
             return self._conversation_generation
 
+    def allows_camera_invitation(self, artwork_id: str) -> bool:
+        """A passive camera offer must not interrupt a visitor-selected topic."""
+        with self._state_lock:
+            return not self._memory.topic_locked or self._memory.topic == artwork_id
+
     def _cancelled(self, language: str) -> DialogueResult:
         return DialogueResult(
             response="",
@@ -366,6 +371,14 @@ class DialogueEngine:
             social_turn = self._social_turns
         if self._injection.is_injection(question):
             return None
+        if focus is not None and focus.accepted_recommendation:
+            # A bare Yes/Oui is a request to introduce the newly accepted work,
+            # not the previous work's pending local follow-up. Keep this local
+            # for supported prepared languages, without retrieval/model calls.
+            phrases = _QUESTION_PHRASES["identify"].get(language)
+            if phrases:
+                question = phrases[0]
+                resolved_subject = True
         social = resolve_social(
             question, language, pending=social_pending, turn=social_turn,
             profile=profile,

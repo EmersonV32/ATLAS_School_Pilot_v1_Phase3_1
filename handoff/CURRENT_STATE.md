@@ -1,5 +1,17 @@
 # Current state
 
+## Sticky artwork context in development — 2026-11-04
+
+`codex/sticky-artwork-context` continues `363a776` / installed `d745d3d`.
+It registers spontaneous supported offers, activates a new work on acceptance,
+and keeps explicit/accepted discussion subjects across camera changes. Passive
+camera invitations cannot interrupt a locked different subject. Explicit view,
+capture and staff selection remain available. The 513 focused checks pass;
+complete local validation passes 4,771 tests / three skips (4,774 independently
+collected), with lint, compile, dependencies and repository checks passing.
+The owner-authorized Jetson test deployment is pending.
+Main is excluded. See [the context record](../atlas/docs/2026-11-04_STICKY_ARTWORK_CONTEXT.md).
+
 ## Slower speech installed for owner testing — 2026-11-04
 
 `codex/slower-speech` source `d745d3d` is installed after explicit owner approval.
