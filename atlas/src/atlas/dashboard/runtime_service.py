@@ -23,6 +23,7 @@ import yaml
 from atlas.app.dependency_container import Container
 from atlas.audio.devices import find_alsa_playback, find_pulse_playback
 from atlas.audio.playback import join_output_device_names
+from atlas.audio.speech_pace import apply_speech_pace
 from atlas.config.settings import Settings
 from atlas.dashboard.activity import (
     explain_event,
@@ -374,6 +375,7 @@ class RuntimeService:
             if generation != self._session_generation or self.session_id is None:
                 return False
         try:
+            apply_speech_pace(self.container.tts, self._visitor_accessibility)
             if name:
                 spoken = bool(
                     self.container.tts.speak_private_local(introduction, language)

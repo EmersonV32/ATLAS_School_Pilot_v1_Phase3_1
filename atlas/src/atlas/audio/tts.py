@@ -29,6 +29,10 @@ class BaseTTS(ABC):
         """Set software playback gain for future output."""
         return None
 
+    def set_slower_pace(self, enabled: bool) -> None:
+        """Select the extra-slow accessibility pace for future responses."""
+        return None
+
     def audio_settings(self) -> dict[str, object]:
         """Return privacy-safe playback settings for the admin dashboard."""
         return {}

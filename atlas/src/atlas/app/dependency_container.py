@@ -384,6 +384,7 @@ class Container:
                     self.settings.hardware.audio_output_name
                     or self.settings.hardware.headset_name
                 )
+                speech = self.settings.speech
                 offline_tts = PiperTTS(
                     voice_en=self.settings.hardware.piper_voice_en,
                     voice_fr=self.settings.hardware.piper_voice_fr,
@@ -393,8 +394,9 @@ class Container:
                     piper_binary=self.settings.hardware.piper_binary_path or "piper",
                     output_device_name=output_name,
                     volume_percent=self.settings.hardware.audio_volume_percent,
+                    speed=speech.tts_speed,
+                    slower_speed=speech.tts_slower_speed,
                 )
-                speech = self.settings.speech
                 use_cartesia = (
                     speech.tts_provider == "cartesia" and speech.cloud_speech_enabled
                 )
@@ -411,6 +413,8 @@ class Container:
                         sample_rate=speech.cartesia_sample_rate,
                         response_timeout_s=speech.cartesia_response_timeout_s,
                         volume_percent=self.settings.hardware.audio_volume_percent,
+                        speed=speech.tts_speed,
+                        slower_speed=speech.tts_slower_speed,
                     )
                     self._tts = (
                         FallbackTTS(cloud_tts, offline_tts)

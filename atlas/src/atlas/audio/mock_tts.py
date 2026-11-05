@@ -12,6 +12,10 @@ class MockTTS(BaseTTS):
     def __init__(self) -> None:
         self.output_device_name = "Mock output"
         self.volume_percent = 100
+        self.slower_pace = False
+
+    def set_slower_pace(self, enabled: bool) -> None:
+        self.slower_pace = bool(enabled)
 
     def set_output_device(self, output_device_name: str) -> None:
         self.output_device_name = output_device_name

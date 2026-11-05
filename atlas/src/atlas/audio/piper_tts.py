@@ -23,6 +23,7 @@ from .playback import (
     scale_pcm_s16le,
     split_output_device_names,
 )
+from .speech_pace import DEFAULT_SPEECH_SPEED, SLOWER_SPEECH_SPEED, SpeechPace
 from .speech_text import normalize_speech_text
 from .tts import BaseTTS
 
@@ -40,6 +41,8 @@ class PiperTTS(BaseTTS):
         piper_binary: str = "piper",
         output_device_name: str = "Shokz OpenComm2 UC",
         volume_percent: int = 100,
+        speed: float = DEFAULT_SPEECH_SPEED,
+        slower_speed: float = SLOWER_SPEECH_SPEED,
     ) -> None:
         self._voices = {
             "en": Path(voice_en).expanduser(),
@@ -55,6 +58,7 @@ class PiperTTS(BaseTTS):
         self._binary = piper_binary
         self._output_device_name = output_device_name
         self._volume_percent = normalize_volume(volume_percent)
+        self._pace = SpeechPace(speed, slower_speed)
         self._command: list[str] | None = None
         self._process_lock = threading.Lock()
         self._speech_generation = 0
@@ -107,6 +111,9 @@ class PiperTTS(BaseTTS):
 
     def set_volume(self, volume_percent: int) -> None:
         self._volume_percent = normalize_volume(volume_percent)
+
+    def set_slower_pace(self, enabled: bool) -> None:
+        self._pace.enabled = bool(enabled)
 
     def audio_settings(self) -> dict[str, object]:
         return {
@@ -241,6 +248,8 @@ class PiperTTS(BaseTTS):
 
     def speak(self, text: str, language: str = "en") -> bool:
         generation = self._speech_generation
+        # Piper scales phoneme duration: a larger length scale is slower.
+        length_scale = 1.0 / self._pace.speed
         voice = self._voice_for(language)
         try:
             if self._command is None:
@@ -250,7 +259,8 @@ class PiperTTS(BaseTTS):
             try:
                 synthesis = self._run_process(
                     self._resolve_command()
-                    + ["--model", str(voice), "--output-file", output_path],
+                    + ["--model", str(voice), "--output-file", output_path,
+                       "--length-scale", str(length_scale)],
                     input_data=(
                         normalize_speech_text(text.strip(), language) + "\n"
                     ).encode("utf-8"),

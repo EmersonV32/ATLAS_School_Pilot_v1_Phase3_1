@@ -275,6 +275,10 @@ class FallbackTTS(BaseTTS):
         self.primary.set_volume(volume_percent)
         self.fallback.set_volume(volume_percent)
 
+    def set_slower_pace(self, enabled: bool) -> None:
+        self.primary.set_slower_pace(enabled)
+        self.fallback.set_slower_pace(enabled)
+
     def audio_settings(self) -> dict[str, object]:
         active = self._last_adapter or (
             self.primary if self.primary_ready else self.fallback

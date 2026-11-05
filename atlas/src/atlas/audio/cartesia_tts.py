@@ -24,6 +24,12 @@ from .playback import (
     ready_cue_pcm,
     scale_pcm_s16le,
 )
+from .speech_pace import (
+    DEFAULT_SPEECH_SPEED,
+    SLOWER_SPEECH_SPEED,
+    SpeechPace,
+    validate_speed,
+)
 from .speech_text import normalize_speech_text
 from .tts import BaseTTS
 
@@ -45,6 +51,7 @@ def build_cartesia_request(
     sample_rate: int,
     context_id: str,
     continue_: bool = False,
+    speed: float = DEFAULT_SPEECH_SPEED,
 ) -> dict[str, Any]:
     language = normalize_language_code(language)
     # Keep the public brand spelling unchanged elsewhere. Sonic can interpret
@@ -64,6 +71,7 @@ def build_cartesia_request(
             "sample_rate": sample_rate,
         },
         "add_timestamps": False,
+        "generation_config": {"speed": validate_speed(speed)},
         "continue": continue_,
     }
 
@@ -82,6 +90,8 @@ class CartesiaTTS(BaseTTS):
         sample_rate: int = 24000,
         response_timeout_s: float = 15.0,
         volume_percent: int = 100,
+        speed: float = DEFAULT_SPEECH_SPEED,
+        slower_speed: float = SLOWER_SPEECH_SPEED,
     ) -> None:
         self._api_key_env = api_key_env
         self._model = model
@@ -91,6 +101,8 @@ class CartesiaTTS(BaseTTS):
         self._sample_rate = sample_rate
         self._response_timeout_s = response_timeout_s
         self._volume_percent = normalize_volume(volume_percent)
+        self._pace = SpeechPace(speed, slower_speed)
+        self._utterance_speed = self._pace.speed
         self._connection = None
         self._lock = threading.Lock()
         self._cancel_lock = threading.Lock()
@@ -119,6 +131,10 @@ class CartesiaTTS(BaseTTS):
     def set_volume(self, volume_percent: int) -> None:
         with self._lock:
             self._volume_percent = normalize_volume(volume_percent)
+
+    def set_slower_pace(self, enabled: bool) -> None:
+        with self._lock:
+            self._pace.enabled = bool(enabled)
 
     def audio_settings(self) -> dict[str, object]:
         with self._lock:
@@ -186,6 +202,8 @@ class CartesiaTTS(BaseTTS):
             self._ensure_connection()
             self._utterance_context_id = str(uuid.uuid4())
             self._utterance_language = language
+            # Pin all segments and the final flush to one pace per response.
+            self._utterance_speed = self._pace.speed
             self._utterance_thread = None
             self._utterance_player = None
             self._utterance_error = None
@@ -316,6 +334,7 @@ class CartesiaTTS(BaseTTS):
                 sample_rate=self._sample_rate,
                 context_id=context_id,
                 continue_=True,
+                speed=self._utterance_speed,
             )
             try:
                 self._ensure_connection().send(json.dumps(request))
@@ -354,6 +373,7 @@ class CartesiaTTS(BaseTTS):
                     sample_rate=self._sample_rate,
                     context_id=context_id,
                     continue_=False,
+                    speed=self._utterance_speed,
                 )
                 try:
                     self._ensure_connection().send(json.dumps(request))
@@ -458,6 +478,7 @@ class CartesiaTTS(BaseTTS):
             voice_id=self._voice_id,
             sample_rate=self._sample_rate,
             context_id=context_id,
+            speed=self._pace.speed,
         )
         connection.send(json.dumps(request))
         player = None

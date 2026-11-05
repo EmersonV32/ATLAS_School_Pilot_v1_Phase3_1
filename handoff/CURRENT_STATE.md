@@ -1,5 +1,14 @@
 # Current state
 
+## Slower speech ready for later Jetson test — 2026-11-04
+
+`codex/slower-speech` adds explicit normal/extra-slow synthesis settings
+(0.90/0.80), independent of simple language and other profiles. The 317 focused
+checks and complete suite pass: 4,738 passed / three skipped, independently
+matching 4,741 collected cases. Publication gates pass. The owner reports the Jetson
+is offline: no connection, hardware change or deployment was attempted. Main
+is unchanged. See [the speech pace record](../atlas/docs/2026-11-04_SPEECH_PACE.md).
+
 ## Interactive conversation and halved waits deployed for testing — 2026-11-04
 
 `codex/interactive-social-half-pauses` source `db1586c` is installed on the

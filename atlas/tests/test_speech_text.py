@@ -178,7 +178,7 @@ def test_piper_synthesis_input_expands_french_dates(monkeypatch, private):
 
     def synthesize(command, **kwargs):
         captured.append(kwargs["input_data"].decode("utf-8"))
-        Path(command[-1]).write_bytes(b"fake wave")
+        Path(command[command.index("--output-file") + 1]).write_bytes(b"fake wave")
         return SimpleNamespace(returncode=0, stderr=b"")
 
     monkeypatch.setattr(tts, "_run_process", synthesize)
@@ -197,7 +197,7 @@ def test_french_date_stays_normalized_after_cloud_failure(monkeypatch):
 
     def synthesize(command, **kwargs):
         captured.append(kwargs["input_data"].decode("utf-8"))
-        Path(command[-1]).write_bytes(b"fake wave")
+        Path(command[command.index("--output-file") + 1]).write_bytes(b"fake wave")
         return SimpleNamespace(returncode=0, stderr=b"")
 
     monkeypatch.setattr(cloud, "speak", lambda *_args: False)

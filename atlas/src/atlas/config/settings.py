@@ -236,6 +236,15 @@ class SpeechSettings(BaseModel):
     cartesia_voice_id: str = "a5136bf9-224c-4d76-b823-52bd5efcffcc"
     cartesia_sample_rate: int = 24000
     cartesia_response_timeout_s: float = 15.0
+    # Synthesis speed is separate from simple language and STT silence waits.
+    tts_speed: float = Field(default=0.90, ge=0.6, le=1.5, allow_inf_nan=False)
+    tts_slower_speed: float = Field(default=0.80, ge=0.6, le=1.5, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def validate_speech_pace(self):
+        if self.tts_slower_speed > self.tts_speed:
+            raise ValueError("tts_slower_speed cannot exceed tts_speed")
+        return self
 
 
 class DashboardSettings(BaseModel):

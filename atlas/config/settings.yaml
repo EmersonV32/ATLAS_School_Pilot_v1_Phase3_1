@@ -182,6 +182,9 @@ speech:
   cartesia_api_version: "2026-03-01"
   cartesia_voice_id: a5136bf9-224c-4d76-b823-52bd5efcffcc
   cartesia_sample_rate: 24000
+  # Same pace for all profiles; slower_pace explicitly selects the lower speed.
+  tts_speed: 0.90
+  tts_slower_speed: 0.80
   cartesia_response_timeout_s: 15.0
 
 dashboard:

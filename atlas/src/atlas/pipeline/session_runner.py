@@ -23,6 +23,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from atlas.audio.speech_pace import apply_speech_pace
 from atlas.audio.stt import BaseSTT, TranscriptResult
 from atlas.audio.tts import BaseTTS
 from atlas.dialogue.conversation_memory import interleave_context
@@ -437,6 +438,7 @@ class SessionRunner:
         self._preferred_accessibility = tuple(
             item for item in accessibility if str(item) in allowed
         )
+        apply_speech_pace(self._tts, self._preferred_accessibility)
 
     @property
     def preferred_language(self) -> str:
